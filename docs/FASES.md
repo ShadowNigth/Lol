@@ -153,8 +153,8 @@ en el túmulo); la segunda de caza solo se ofrece con reputación suficiente con
 
 **Encargos generados**: cada asentamiento (Hojarrubia, Robledal y la posada) tiene un **tablón de
 anuncios** que ofrece un encargo distinto cada 3 días de juego, determinista según la semilla, el
-lugar y el periodo: cazar N lobos, destruir N esqueletos o entregar N pieles/colmillos/polvo de
-hueso; se cobra en el propio tablón (oro y reputación con la facción del lugar). La definición se
+lugar y el periodo: cazar N lobos, destruir N esqueletos, abatir N salteadores de los Cuervos o
+entregar N pieles/colmillos/polvo de hueso; se cobra en el propio tablón (oro y reputación con la facción del lugar). La definición se
 guarda con la partida y se valida al cargar. La autoprueba acepta el encargo de Robledal, comprueba
 que su definición sobrevive a un guardado JSON, lo cumple y lo cobra (oro 26 → 92, reputación +3).
 

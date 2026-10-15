@@ -833,6 +833,22 @@ func _test_bounty(p: Player) -> void:
 	_note("Encargo cobrado: %s, oro %d -> %d, reputación Robledal %d" % [QuestManager.is_done(qid), gold0, p.gold, GameState.reputation("robledal")])
 	if not QuestManager.is_done(qid) or p.gold <= gold0:
 		_fail("El encargo no se pudo completar y cobrar")
+	# Encargo de salteadores (otro periodo): definición válida que cuenta cualquier bandido
+	var day0 := GameState.day
+	var found := ""
+	for period in 24:
+		GameState.day = 1 + period * Bounties.PERIOD_DAYS
+		var d2 := Bounties.generate("hojarrubia")
+		var o2: Dictionary = ((d2["stages"] as Array)[0] as Dictionary)["objective"]
+		if str(o2.get("target", "")) == "bandit":
+			found = "%s (periodo %d, %d bandidos, %d de oro)" % [d2["title"], period, int(o2["count"]), int(d2["rewards"]["gold"])]
+			if not Bounties.valid_def(d2):
+				_fail("La definición del encargo de salteadores no es válida")
+			break
+	GameState.day = day0
+	_note("Encargo de salteadores en el tablón de Hojarrubia: %s" % (found if found != "" else "ninguno"))
+	if found == "":
+		_fail("Ningún tablón ofreció un encargo de salteadores en 24 periodos")
 
 
 func _find_npc(npc_id: String) -> NPC:

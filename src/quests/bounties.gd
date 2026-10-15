@@ -2,7 +2,8 @@ class_name Bounties
 extends RefCounted
 ## Encargos generados para los tablones de anuncios de cada asentamiento.
 ## Cada tablón ofrece un encargo distinto cada PERIOD_DAYS días, determinista
-## según la semilla del mundo, el lugar y el periodo (caza, limpieza o entrega).
+## según la semilla del mundo, el lugar y el periodo (caza, limpieza, salteadores
+## o entrega).
 ## La definición del encargo se guarda junto a su estado en GameState.quests
 ## (clave "def"), así que viaja con la partida y se valida al cargar.
 
@@ -41,7 +42,7 @@ static func generate(site: String) -> Dictionary:
 	var back := {"text": "Vuelve al tablón de anuncios de %s para cobrar." % place, "objective": {"type": "talk", "target": giver}}
 	var def := {"giver": giver, "generated": true}
 	var gold := 0
-	match rng.randi() % 3:
+	match rng.randi() % 4:
 		0:
 			var n := rng.randi_range(3, 6)
 			gold = 14 * n
@@ -56,6 +57,13 @@ static func generate(site: String) -> Dictionary:
 			def["type"] = "matar"
 			def["description"] = "Una nota con el sello de la guardia: «Recompensa por destruir esqueletos en ruinas, criptas o túmulos de la región. Que los muertos vuelvan a descansar.»"
 			def["stages"] = [{"text": "Destruye esqueletos (0/%d)." % n2, "objective": {"type": "kill", "target": "skeleton", "count": n2}}, back]
+		2:
+			var n4 := rng.randi_range(2, 4)
+			gold = 26 * n4
+			def["title"] = "Encargo: salteadores en los caminos"
+			def["type"] = "matar"
+			def["description"] = "Un aviso de la guardia: «Se paga por cada salteador de los Cuervos abatido. Acechan junto a los caminos, lejos de las aldeas, y dicen que tienen un campamento en el bosque.»"
+			def["stages"] = [{"text": "Abate salteadores de los Cuervos (0/%d)." % n4, "objective": {"type": "kill", "target": "bandit", "count": n4}}, back]
 		_:
 			var d: Array = DELIVERIES[rng.randi() % DELIVERIES.size()]
 			var n3 := rng.randi_range(int(d[1]), int(d[2]))
