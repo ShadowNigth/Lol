@@ -389,7 +389,7 @@ static func player_arms(chest: String = "cloth", hands: String = "bare") -> Voxe
 static func wolf(variant: int = 0) -> VoxelModel:
 	var m := VoxelModel.new(V, 9100 + variant)
 	var palette: Array = [
-		[Color(0.46, 0.44, 0.42), Color(0.29, 0.28, 0.27), Color(0.74, 0.71, 0.65)],
+		[Color(0.34, 0.33, 0.31), Color(0.2, 0.19, 0.19), Color(0.66, 0.63, 0.58)],
 		[Color(0.5, 0.37, 0.24), Color(0.31, 0.22, 0.14), Color(0.74, 0.63, 0.48)],
 		[Color(0.86, 0.86, 0.89), Color(0.66, 0.67, 0.72), Color(0.96, 0.96, 0.98)],
 		[Color(0.2, 0.19, 0.19), Color(0.1, 0.1, 0.1), Color(0.38, 0.36, 0.34)],

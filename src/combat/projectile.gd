@@ -92,6 +92,9 @@ func _physics_process(delta: float) -> void:
 	var from := global_position
 	var to := from + velocity * delta
 	var exclude: Array[RID] = []
+	# El tirador puede haberse liberado (chunk descargado, cambio de zona) con la flecha en vuelo
+	if not is_instance_valid(shooter):
+		shooter = null
 	if shooter is CollisionObject3D:
 		exclude.append((shooter as CollisionObject3D).get_rid())
 	var q := PhysicsRayQueryParameters3D.create(from, to, MASK, exclude)

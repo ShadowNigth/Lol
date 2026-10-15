@@ -314,6 +314,8 @@ func wildlife_allowed(x: int, z: int) -> bool:
 ## Texto de dirección y distancia aproximada de un lugar (para mapa y diálogos).
 static func direction_text(from: Vector2, to: Vector2) -> String:
 	var d := to - from
+	if d.length() < 25.0:
+		return "aquí"
 	var ang := fposmod(rad_to_deg(atan2(d.x, -d.y)), 360.0)
 	var names := ["norte", "nordeste", "este", "sudeste", "sur", "sudoeste", "oeste", "noroeste"]
 	return "%d m al %s" % [int(round(d.length() / 10.0) * 10.0), names[int(round(ang / 45.0)) % 8]]

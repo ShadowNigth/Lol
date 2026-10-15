@@ -165,16 +165,27 @@ que su definición sobrevive a un guardado JSON, lo cumple y lo cobra (oro 26 �
   cintura para alcanzar criaturas bajas (detección real por rayos contra su colisión).
 - **Mapa regional** (tecla M) a 4 m por píxel con marcadores de aldeas, posadas y mazmorras y una
   leyenda con la dirección y distancia de cada lugar.
+- **Puentes**: donde un camino cruza agua se construye un tablero de madera sobre el nivel del agua,
+  con barandilla en los bordes, pilares de tronco hasta el lecho y rampa de media losa en la orilla
+  (se sube sin saltar). La autoprueba recorre todos los caminos: 36 columnas sobre agua, 36 con puente.
+- **Tablones de anuncios** con encargos generados (ver fase 5).
 
 **Pruebas** (autoprueba, semilla de prueba): 6 lugares colocados en tierra firme (posada a ~200 m al
 oeste, Robledal a ~280 m al sur, túmulo a ~370 m al sudeste, cubil a ~260 m al noroeste); el túmulo y
 la cueva generan 25 salas y superan la verificación de conectividad; 6 lobos generados en los 81
-chunks alrededor del cubil (81 chunks en ~1,3 s); combate real contra un lobo (muere en 3 golpes,
-huyó herido, cuenta para la misión y deja botín); viaje a la posada y a Robledal con sus 4 PNJ
+chunks alrededor del cubil (81 chunks en ~1,3 s); combate real contra un lobo (muere en 3 golpes;
+según la ejecución huye herido y vuelve; cuenta para la misión y deja botín); viaje a la posada y a Robledal con sus 4 PNJ
 presentes y apoyados en el suelo; entrada en la cueva (lobos y alfa cargados) y salida al exterior.
 
-**Falta**: castillos y ciudades amuralladas, puentes sobre ríos (los caminos cruzan por vados),
-más tipos de mazmorra y una red de lugares que se extienda indefinidamente más allá de la región.
+**Revisión visual** (capturas automáticas con el binario de pruebas Vulkan/SwiftShader): lobo en
+reposo, paso, galope, alerta, mordisco, salto, golpe, aturdimiento y muerte; pelajes pardo, blanco
+y alfa; posada del Lobo Gris y aldea de Robledal; tablón de anuncios; mapa regional con marcadores y
+leyenda; inventario con el panel de equipo; escudos de madera y de hierro en primera persona. A raíz
+de la revisión se oscureció el pelaje gris (se veía casi blanco al sol) y se amplió la lista de equipo
+para que se vean las 6 ranuras sin desplazarse.
+
+**Falta**: castillos y ciudades amuralladas, más tipos de mazmorra y una red de lugares que se
+extienda indefinidamente más allá de la región inicial.
 
 ## Fase 7 — Pulido y distribución · **PARCIAL**
 
@@ -184,14 +195,21 @@ lanzador, instalador de usuario y entrada de menú (`scripts/package_linux.sh`),
 instalación, controles y solución de problemas.
 
 **Pruebas del paquete (esta entrega)**: plantilla release recompilada (dependencias: solo `libc`,
-`libm` y el cargador; símbolos hasta GLIBC_2.35); exportación y paquete de 18 MB; suma SHA-256
+`libm` y el cargador; símbolos hasta GLIBC_2.35); exportación y paquete de ~19 MB; suma SHA-256
 verificada junto al archivo (se corrigió que el `.sha256` incluyera la ruta `dist/`); autoprueba
 completa con `./vaelmoor.sh --headless -- --self-test` desde el paquete descomprimido; `install.sh`
 en un `HOME` vacío (binario, `.pck`, lanzador en `~/.local/bin`, entrada de menú e icono), autoprueba
 del juego instalado ejecutado desde otra carpeta (las partidas van a `~/.local/share/vaelmoor/`) y
 `install.sh --uninstall` (elimina el juego y conserva las partidas). Es decir: descargar, instalar,
 jugar, guardar, salir y cargar funcionan, aunque solo se han probado sin gráficos (`--headless`).
-El paquete probado se incluye en `release/`.
+El paquete probado se incluye en `release/` (~19 MB, con su `.sha256`).
+
+En la verificación final se detectó que Godot importaba las capturas de `docs/screenshots/` y las
+metía en el `.pck` (de 0,6 MB a 3,5 MB): ahora `docs/.gdignore` excluye esa carpeta del proyecto y el
+preset de exportación excluye también `docs/*` y `release/*`. El paquete lleva las capturas como
+archivos sueltos para que el README se vea completo. También se corrigió un error de proyectiles
+cuyo tirador ya había sido eliminado (cientos de avisos *previously freed instance* en la
+autoprueba, sin consecuencias en el juego pero ruidosos en el registro).
 
 **Falta / no verificado**: pruebas en hardware real con GPU (renderizado OpenGL y rendimiento) y en
 Arch, Ubuntu y Mint; AppImage (no hay `appimagetool`, `mksquashfs` ni el *runtime* de AppImage en el

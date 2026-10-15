@@ -14,6 +14,11 @@ cp "$OUT_DIR/vaelmoor.x86_64" "$OUT_DIR/vaelmoor.pck" "$STAGE/"
 cp packaging/vaelmoor.sh packaging/install.sh packaging/vaelmoor.desktop packaging/vaelmoor.png "$STAGE/"
 chmod +x "$STAGE/vaelmoor.sh" "$STAGE/install.sh" "$STAGE/vaelmoor.x86_64"
 cp README.md ATTRIBUTIONS.md "$STAGE/"
+# Capturas enlazadas desde el README (para que se vean también dentro del paquete).
+if [ -d docs/screenshots ]; then
+  mkdir -p "$STAGE/docs/screenshots"
+  cp docs/screenshots/*.jpg "$STAGE/docs/screenshots/"
+fi
 cp licenses/* "$STAGE/licenses/"
 tar -C build -cJf "dist/$NAME.tar.xz" "$NAME"
 (cd dist && sha256sum "$NAME.tar.xz" > "$NAME.tar.xz.sha256")   # nombre sin ruta: se verifica junto al archivo

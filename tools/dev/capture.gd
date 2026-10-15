@@ -102,6 +102,12 @@ func _build_queue() -> void:
 			var to := sp - cam
 			_queue.append({"name": "site_%s" % site["id"], "pos": Vector3(cam.x + 0.5, -1.0, cam.y + 0.5),
 					"yaw": rad_to_deg(atan2(-to.x, -to.y)), "pitch": 2.0, "time": float(site_views[site["id"]][1])})
+	if "readme" in _sets:
+		_queue.append({"name": "readme_village", "pos": Vector3(3.5, 37.0, 6.5), "yaw": 20.0, "pitch": -4.0, "time": 15.5})
+	if "cave" in _sets:
+		_queue.append({"name": "cave_enter", "dungeon": "cave_lobos"})
+		_queue.append({"name": "cave_entrance", "dview": "entrance"})
+		_queue.append({"name": "cave_boss", "dview": "boss"})
 	if "enemy" in _sets:
 		for e: Array in [["idle", 0.0], ["walk", 0.25], ["run", 0.16], ["alert", 0.4], ["attack_1", 0.42], ["attack_1", 0.56],
 				["attack_2", 0.5], ["attack_2", 0.68], ["block", 0.35], ["hit", 0.08], ["stun", 0.5], ["death", 0.5], ["death", 1.5]]:
@@ -142,6 +148,22 @@ func _process(_delta: float) -> void:
 func _setup_shot(shot: Dictionary) -> void:
 	var p := _player()
 	var w := _game().get("world") as VoxelWorld
+	# Modelos de vista previa solo en sus propias capturas
+	if _wolf:
+		_wolf.visible = shot.has("wolf")
+	if _preview:
+		_preview.visible = shot.has("enemy")
+	if not shot.has("ui"):
+		# Cerrar menús y diálogos que hayan quedado abiertos de capturas anteriores
+		var gm := _game().get("game_menu") as GameMenu
+		if gm and gm.visible:
+			gm.close()
+		var dlg: Variant = _game().get("_dialogue")
+		if dlg and is_instance_valid(dlg):
+			(dlg as DialogueUI).close()
+		var hud0 := _game().get("hud") as HUD
+		if hud0:
+			hud0.set_visible_hud("--hud" in OS.get_cmdline_user_args())
 	if shot.has("ui"):
 		var g := _game()
 		var hud := g.get("hud") as HUD
@@ -170,7 +192,7 @@ func _setup_shot(shot: Dictionary) -> void:
 		_wait = 8
 		return
 	if shot.has("dungeon"):
-		_game().call("enter_dungeon", "crypt_velmar", "capture")
+		_game().call("enter_dungeon", str(shot["dungeon"]) if shot["dungeon"] is String else "crypt_velmar", "capture")
 		_wait = 0
 		_dungeon_wait = true
 		return
@@ -238,7 +260,8 @@ func _setup_shot(shot: Dictionary) -> void:
 		p.viewmodel.visible = true
 		p.viewmodel.set_appearance(str(o[0]), str(o[1]))
 		p.viewmodel.set_weapon("sword", "sword", str(o[2]))
-		p.viewmodel.debug_pose("sword_idle", 0.0)
+		# Preparación del tajo: brazo levantado (se ven manga, brazal y guante)
+		p.viewmodel.debug_pose("sword_attack_1", 0.16)
 		_wait = 6
 	elif shot.has("enemy"):
 		p.teleport(Vector3(2.5, 37.0, 3.5), -90.0)

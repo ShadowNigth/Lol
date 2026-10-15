@@ -11,6 +11,16 @@ terceros (ver [ATTRIBUTIONS.md](ATTRIBUTIONS.md)).
 
 ![Aldea de Hojarrubia](docs/screenshots/village.jpg)
 
+| | | |
+|---|---|---|
+| ![Posada del Lobo Gris](docs/screenshots/posada.jpg) | ![Aldea de Robledal](docs/screenshots/robledal.jpg) | ![Lobo pardo](docs/screenshots/lobo.jpg) |
+| Posada del Lobo Gris | Aldea de Robledal | Lobo (rig cuadrúpedo animado) |
+| ![Cubil de Colmillo Negro](docs/screenshots/cueva.jpg) | ![Mapa regional](docs/screenshots/mapa.jpg) | |
+| Cueva de los lobos | Mapa regional con lugares | |
+
+*Capturas tomadas automáticamente con el binario de pruebas (Vulkan por software, sin GPU); el
+juego usa el renderizador Compatibility (OpenGL 3.3), así que los colores pueden variar un poco.*
+
 ---
 
 ## Estado del desarrollo
@@ -71,7 +81,7 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
 ## Instalación (paquete binario)
 
 El paquete ya compilado y probado está en la carpeta [`release/`](release/) del repositorio
-(`vaelmoor-0.1.0-linux-x86_64.tar.xz`, ~18 MB, con su suma SHA-256). También puedes generarlo tú
+(`vaelmoor-0.1.0-linux-x86_64.tar.xz`, ~19 MB, con su suma SHA-256). También puedes generarlo tú
 mismo (ver «Exportar y empaquetar»).
 
 0. (Opcional) Comprueba la descarga: `sha256sum -c vaelmoor-0.1.0-linux-x86_64.tar.xz.sha256`
@@ -181,18 +191,21 @@ project.godot          Configuración (renderizador Compatibility, Jolt Physics,
 scenes/                Escenas principales (menú, juego, jugador)
 src/autoload/          Settings, Events, Audio, GameState (guardado/carga)
 src/world/voxel/       Bloques, texturas procedurales, datos y mallado de chunks, streaming
-src/world/gen/         Generador de terreno/biomas, planificador y constructor de estructuras
-src/world/props/       Puertas, cofres, armero, entrada de cripta
+src/world/gen/         Terreno/biomas, planificador regional (lugares, caminos, puentes, fauna),
+                       constructor de estructuras, mazmorras (generador + DungeonDB)
+src/world/props/       Puertas, cofres, armero, entradas de mazmorra, tablones de anuncios
 src/world/env/         Ciclo de día y noche
-src/models/            Modelos voxel (personajes, armas, mobiliario), rig y caché de mallas
-src/animation/         Animaciones de primera persona y humanoides (AnimationTree)
+src/models/            Modelos voxel (personajes, lobos, armas, mobiliario), rigs y caché de mallas
+src/animation/         Animaciones de primera persona, humanoides y cuadrúpedos (AnimationTree)
 src/actors/            Jugador (movimiento, cámara, combate, IK de brazos) y enemigos (IA)
 src/combat/            Estadísticas, datos de armas/enemigos (Resource), patrones de ataque
-src/items/             Base de datos de objetos y tablas de botín
+src/items/             Objetos, equipo por ranuras (Equipment) y tablas de botín
 src/ui/                HUD, menús, opciones, guardado/carga, pantalla de muerte
 src/audio/             Sintetizador de efectos de sonido
+src/quests/            Misiones, facciones y encargos generados de los tablones
+src/npc/               PNJ (horarios, diálogos), base de datos de personajes y tiendas
 src/debug/             Autoprueba integrada (--self-test)
-data/                  Armas y enemigos editables (.tres)
+data/                  Armas y criaturas editables (.tres: esqueletos, lobos, jefes)
 shaders/               Terreno, recorte, agua, cielo, llamas, modelos, arma en 1.ª persona
 scripts/               Exportación, empaquetado y AppImage
 packaging/             Lanzador, instalador de usuario, .desktop e icono

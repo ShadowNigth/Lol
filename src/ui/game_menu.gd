@@ -76,14 +76,15 @@ func _build_inventory() -> void:
 	h.add_child(right)
 	_inv_info = RichTextLabel.new()
 	_inv_info.bbcode_enabled = true
-	_inv_info.custom_minimum_size = Vector2(480, 250)
+	_inv_info.custom_minimum_size = Vector2(480, 150)
+	_inv_info.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_child(_inv_info)
 	var le := Label.new()
 	le.text = "Equipo puesto (doble clic para quitar)"
 	le.add_theme_color_override("font_color", UITheme.GOLD)
 	right.add_child(le)
 	_equip_list = ItemList.new()
-	_equip_list.custom_minimum_size = Vector2(480, 160)
+	_equip_list.custom_minimum_size = Vector2(480, 168)   # las 6 ranuras sin desplazamiento
 	_equip_list.item_activated.connect(func(_i: int) -> void: _unequip_selected())
 	_equip_list.item_selected.connect(_on_equip_selected)
 	right.add_child(_equip_list)
