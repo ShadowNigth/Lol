@@ -389,6 +389,9 @@ func _process(delta: float) -> void:
 					_fail("No se pudo crear el lobo de prueba")
 					_finish()
 					return
+				# Tras la sala del jefe el jugador puede llegar casi sin vida: un mordisco
+				# lo mataría antes de que la prueba pudiera atacar.
+				p.stats.heal(p.stats.max_health)
 				_player_hp_start = p.stats.health
 				_hits_start = p.stat_hits
 				_attacks = 0
@@ -401,6 +404,13 @@ func _process(delta: float) -> void:
 				_finish()
 				return
 			_wolf_min_hp = minf(_wolf_min_hp, wf.stats.health)
+			if p.is_dead:
+				_fail("El jugador murió durante el combate con el lobo (vida del lobo %.0f/%.0f)" % [wf.stats.health, wf.stats.max_health])
+				_finish()
+				return
+			if fmod(_t, 10.0) < delta:
+				_note("  [lobo t=%.0f] lobo %s estado %d consciente %s activo %s · jugador %s · distancia %.1f" % [_t, wf.global_position,
+						wf.state, wf.is_aware(), wf.process_mode != Node.PROCESS_MODE_DISABLED, p.global_position, wf.global_position.distance_to(p.global_position)])
 			var tw := wf.global_position - p.global_position
 			tw.y = 0.0
 			p._yaw = atan2(-tw.x, -tw.z)
@@ -452,6 +462,7 @@ func _process(delta: float) -> void:
 					_goto_site("robledal")
 					_next("visit_hamlet")
 				else:
+					_test_bounty(p)
 					_return_ref = p.global_position
 					_game().call("enter_dungeon", "cave_lobos", "selftest_cave")
 					_next("in_cave")
@@ -641,6 +652,40 @@ func _test_region() -> void:
 	_note("Lobos en los 81 chunks alrededor del cubil: %d (generados en %d ms)" % [wolves, Time.get_ticks_msec() - t0])
 	if wolves == 0:
 		_fail("No se generó ningún lobo alrededor del cubil")
+
+
+## Encargo generado del tablón de Robledal: aceptar, cumplir, sobrevivir a un
+## guardado JSON y cobrar.
+func _test_bounty(p: Player) -> void:
+	var boards := 0
+	for n: Node in (_game().get("spawner") as Node).get_children():
+		if n is NoticeBoard:
+			boards += 1
+	Bounties.use_board("robledal")
+	var qid := Bounties.current_id("robledal")
+	var def := QuestDB.get_quest(qid)
+	_note("Tablones cargados: %d. Encargo '%s': %s" % [boards, def.get("title", "?"), QuestManager.stage_text(qid)])
+	if boards == 0 or def.is_empty() or not QuestManager.is_active(qid):
+		_fail("El tablón de anuncios no ofreció un encargo")
+		return
+	# La definición debe sobrevivir al guardado (JSON convierte los enteros en reales)
+	var round_trip: Variant = JSON.parse_string(JSON.stringify(GameState.quests[qid]))
+	GameState.quests[qid] = round_trip
+	if not Bounties.valid_def((round_trip as Dictionary).get("def")):
+		_fail("La definición del encargo no es válida tras guardarla")
+	var obj: Dictionary = QuestManager.current_stage(qid).get("objective", {})
+	var count := int(obj.get("count", 1))
+	match str(obj.get("type", "")):
+		"kill":
+			for i in count:
+				QuestManager.on_enemy_killed(str(obj["target"]) + "_warrior" if str(obj["target"]) == "skeleton" else str(obj["target"]))
+		"collect":
+			GameState.give_item(p, {"id": str(obj["target"]), "count": count})
+	var gold0 := p.gold
+	Bounties.use_board("robledal")
+	_note("Encargo cobrado: %s, oro %d -> %d, reputación Robledal %d" % [QuestManager.is_done(qid), gold0, p.gold, GameState.reputation("robledal")])
+	if not QuestManager.is_done(qid) or p.gold <= gold0:
+		_fail("El encargo no se pudo completar y cobrar")
 
 
 ## Lleva al jugador a la plaza de un lugar de la región.

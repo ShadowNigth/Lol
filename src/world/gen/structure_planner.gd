@@ -93,6 +93,8 @@ func _plan_start_village() -> void:
 	spawns.append({"type": "npc", "npc": "rolf", "id": "npc/rolf", "pos": Vector3(6.5, fy, 6.5), "yaw": 0.0,
 			"patrol": [Vector3(6.5, fy, 6.5), Vector3(-6.5, fy, 6.5), Vector3(-6.5, fy, -6.5), Vector3(6.5, fy, -6.5), Vector3(20.0, fy, 0.5)]})
 
+	spawns.append({"type": "notice_board", "id": "board/hojarrubia", "site": "hojarrubia", "pos": Vector3(6.5, fy, -2.5), "yaw": 90.0})
+
 	# Caminos
 	_add_road(Vector2(-70, 0), Vector2(-8, 0), 3.0)
 	_add_road(Vector2(8, 0), Vector2(110, 0), 3.0)
@@ -238,6 +240,7 @@ func _plan_roadside_inn(c: Vector3i) -> void:
 	# Ulrico tras la barra (misma posición local que Berta en La Jarra del Roble)
 	var bar := ChunkWriter.local_to_world(inn_o, 11, 9, 1, Vector3(5.5, 0, 7.5))
 	spawns.append({"type": "npc", "npc": "ulrico", "id": "npc/ulrico", "pos": bar, "yaw": -90.0})
+	spawns.append({"type": "notice_board", "id": "board/inn_lobo", "site": "inn_lobo", "pos": Vector3(c.x - 4.5, fy, c.z + 4.5), "yaw": -90.0})
 	spawns.append({"type": "npc", "npc": "edda", "id": "npc/edda", "pos": Vector3(c.x + 4.5, fy, c.z - 2.5), "yaw": -90.0,
 			"home": ChunkWriter.local_to_world(inn_o, 11, 9, 1, Vector3(3.5, 0, 3.5))})
 
@@ -271,6 +274,7 @@ func _plan_hamlet(c: Vector3i, rng: RandomNumberGenerator) -> void:
 				"w": 1, "d": 1, "rot": 0, "margin": 1})
 	spawns.append({"type": "npc", "npc": "elena", "id": "npc/elena", "pos": Vector3(c.x + 2.5, fy, c.z - 3.5), "yaw": 180.0, "home": homes[0]})
 	spawns.append({"type": "npc", "npc": "bram", "id": "npc/bram", "pos": Vector3(c.x - 2.5, fy, c.z + 2.5), "yaw": 0.0, "home": homes[2]})
+	spawns.append({"type": "notice_board", "id": "board/robledal", "site": "robledal", "pos": Vector3(c.x + 4.0, fy, c.z + 3.5), "yaw": 90.0})
 
 
 func _plan_barrow(c: Vector3i) -> void:

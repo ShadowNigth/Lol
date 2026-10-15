@@ -91,6 +91,13 @@ func _spawn(e: Dictionary) -> Node:
 			rack.global_position = pos
 			rack.rotation.y = yaw
 			return rack
+		"notice_board":
+			var nb := NoticeBoard.new()
+			nb.setup(id, str(e.get("site", "")))
+			add_child(nb)
+			nb.global_position = pos
+			nb.rotation.y = yaw
+			return nb
 		"dungeon_entrance":
 			var de := DungeonEntrance.new()
 			de.setup(id, str(e.get("dungeon", "")), str(e.get("style", "door")))

@@ -99,4 +99,10 @@ const QUESTS := {
 
 
 static func get_quest(id: String) -> Dictionary:
-	return QUESTS.get(id, {})
+	if QUESTS.has(id):
+		return QUESTS[id]
+	# Encargos generados (tablones de anuncios): la definición viaja con su estado
+	var st: Variant = GameState.quests.get(id, null)
+	if st is Dictionary and Bounties.valid_def((st as Dictionary).get("def", null)):
+		return (st as Dictionary)["def"]
+	return {}

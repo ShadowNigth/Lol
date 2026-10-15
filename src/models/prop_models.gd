@@ -205,6 +205,36 @@ static func sign_board() -> VoxelModel:
 	return m
 
 
+## Tablón de anuncios: dos postes, tablero con notas clavadas y tejadillo.
+static func notice_board() -> VoxelModel:
+	var m := VoxelModel.new(V, 112)
+	var c := _wood(m)
+	var paper := m.mat(Color(0.9, 0.86, 0.72), 0.0, 0.9, 0.0, 0.06)
+	var paper2 := m.mat(Color(0.82, 0.76, 0.6), 0.0, 0.9, 0.0, 0.06)
+	var ink := m.mat(Color(0.2, 0.16, 0.12), 0.0, 0.9, 0.0, 0.02)
+	var seal := m.mat(Color(0.7, 0.12, 0.1), 0.2, 0.5, 0.0, 0.03)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-12, 0, -1), Vector3i(-11, 30, 0), c["wood_dk"])
+	p.box(Vector3i(10, 0, -1), Vector3i(11, 30, 0), c["wood_dk"])
+	p.box(Vector3i(-10, 12, -1), Vector3i(9, 28, -1), c["wood"])
+	p.box(Vector3i(-10, 12, 0), Vector3i(9, 28, 0), c["wood_dk"])
+	p.box(Vector3i(-13, 31, -3), Vector3i(12, 31, 2), c["wood_dk"])
+	p.box(Vector3i(-11, 32, -2), Vector3i(10, 32, 1), c["wood"])
+	# Notas clavadas con líneas de texto y sellos
+	for note: Array in [[-8, 20, 5, 6, paper], [-1, 22, 4, 5, paper2], [5, 15, 4, 7, paper], [-7, 14, 5, 4, paper2], [0, 14, 3, 5, paper]]:
+		var x0: int = note[0]
+		var y0: int = note[1]
+		var w: int = note[2]
+		var h: int = note[3]
+		p.box(Vector3i(x0, y0, -2), Vector3i(x0 + w - 1, y0 + h - 1, -2), note[4])
+		for ly in range(y0 + 1, y0 + h - 1, 2):
+			p.box(Vector3i(x0 + 1, ly, -2), Vector3i(x0 + w - 2, ly, -2), ink)
+		p.put(Vector3i(x0 + w / 2, y0 + h - 1, -3), c["iron"])
+	p.put(Vector3i(-6, 21, -3), seal)
+	p.put(Vector3i(6, 16, -3), seal)
+	return m
+
+
 static func weapon_rack() -> VoxelModel:
 	var m := VoxelModel.new(V, 111)
 	var c := _wood(m)
@@ -486,6 +516,8 @@ static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 			return sign_board()
 		"weapon_rack":
 			return weapon_rack()
+		"notice_board":
+			return notice_board()
 		"banner":
 			return banner()
 		"goods":

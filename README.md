@@ -68,6 +68,11 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
 
 ## Instalación (paquete binario)
 
+El paquete ya compilado y probado está en la carpeta [`release/`](release/) del repositorio
+(`vaelmoor-0.1.0-linux-x86_64.tar.xz`, ~18 MB, con su suma SHA-256). También puedes generarlo tú
+mismo (ver «Exportar y empaquetar»).
+
+0. (Opcional) Comprueba la descarga: `sha256sum -c vaelmoor-0.1.0-linux-x86_64.tar.xz.sha256`
 1. Descomprime el paquete: `tar xf vaelmoor-0.1.0-linux-x86_64.tar.xz`
 2. Ejecuta: `cd vaelmoor-0.1.0-linux-x86_64 && ./vaelmoor.sh`
 3. (Opcional) Instálalo para tu usuario, con entrada en el menú de aplicaciones:
@@ -199,7 +204,12 @@ Ver la sección de pruebas de [docs/FASES.md](docs/FASES.md). Resumen:
 - Compilación y carga de **todos** los scripts, escenas, recursos y shaders sin errores
   (`tools/dev/check_scripts.tscn`).
 - **Autoprueba de juego completa** superada tanto en el editor como con el **binario exportado**
-  (`--self-test`).
+  (`--self-test`): partida nueva, movimiento, compra, pociones, equipo, combate cuerpo a cuerpo,
+  magia y arco, saqueo, guardado y carga, cripta (verificación, ruta al jefe, salida), lugares de la
+  región, puentes, combate contra un lobo, viaje a la posada y a Robledal y entrada en la cueva.
+- Paquete `.tar.xz`: suma SHA-256 verificada, autoprueba con el lanzador del paquete, instalación de
+  usuario en un `HOME` limpio (lanzador, menú e icono), autoprueba del juego instalado y
+  desinstalación (conserva las partidas).
 - Revisión visual con capturas automáticas (renderizador Vulkan *Mobile* por software, ya que el
   entorno de desarrollo no dispone de GPU/OpenGL; ver `tools/dev/`).
 - Probado en Debian 12 (contenedor, sin GPU). **No se ha podido probar todavía en hardware real

@@ -176,5 +176,17 @@ lanzador, instalador de usuario y entrada de menú (`scripts/package_linux.sh`),
 (requiere `appimagetool`), binario compatible con glibc ≥ 2.35, autoprueba integrada, README con
 instalación, controles y solución de problemas.
 
-**Falta / no verificado**: pruebas en hardware real con GPU y en Arch, Ubuntu y Mint; generación del
-AppImage (no había `appimagetool` en el entorno); medición de rendimiento real.
+**Pruebas del paquete (esta entrega)**: plantilla release recompilada (dependencias: solo `libc`,
+`libm` y el cargador; símbolos hasta GLIBC_2.35); exportación y paquete de 18 MB; suma SHA-256
+verificada junto al archivo (se corrigió que el `.sha256` incluyera la ruta `dist/`); autoprueba
+completa con `./vaelmoor.sh --headless -- --self-test` desde el paquete descomprimido; `install.sh`
+en un `HOME` vacío (binario, `.pck`, lanzador en `~/.local/bin`, entrada de menú e icono), autoprueba
+del juego instalado ejecutado desde otra carpeta (las partidas van a `~/.local/share/vaelmoor/`) y
+`install.sh --uninstall` (elimina el juego y conserva las partidas). Es decir: descargar, instalar,
+jugar, guardar, salir y cargar funcionan, aunque solo se han probado sin gráficos (`--headless`).
+El paquete probado se incluye en `release/`.
+
+**Falta / no verificado**: pruebas en hardware real con GPU (renderizado OpenGL y rendimiento) y en
+Arch, Ubuntu y Mint; AppImage (no hay `appimagetool`, `mksquashfs` ni el *runtime* de AppImage en el
+entorno, y sus binarios solo se distribuyen por un servidor bloqueado; el script
+`scripts/make_appimage.sh` está listo para quien tenga la herramienta).
