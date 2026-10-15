@@ -23,6 +23,7 @@ var playtime: float = 0.0
 var world_changes: Dictionary = {"looted": {}, "killed": {}, "opened": {}}
 var inventory: Array[Dictionary] = []   # {"id": String, "count": int}
 var pending_load: Dictionary = {}       # datos a aplicar al entrar en la escena de juego
+var current_area: Dictionary = {"type": "overworld"}   # exterior o mazmorra (con punto de regreso)
 var player: Node = null
 var in_game: bool = false
 
@@ -53,6 +54,7 @@ func start_new_game(config: Dictionary) -> void:
 	day = 1
 	playtime = 0.0
 	world_changes = {"looted": {}, "killed": {}, "opened": {}}
+	current_area = {"type": "overworld"}
 	inventory.clear()
 	inventory.append({"id": "potion_health", "count": 2})
 	inventory.append({"id": "bread", "count": 1})
@@ -222,6 +224,7 @@ func build_save_data() -> Dictionary:
 		"player": pdata,
 		"inventory": inventory.duplicate(true),
 		"world_changes": world_changes.duplicate(true),
+		"area": current_area.duplicate(true),
 		"location": str(player.call("current_location_name")) if player and player.has_method("current_location_name") else "",
 	}
 
@@ -330,6 +333,10 @@ func load_game(slot: String) -> String:
 			inventory.append({"id": str(e["id"]), "count": maxi(1, int(e.get("count", 1)))})
 	var wc: Dictionary = d["world_changes"]
 	world_changes = {"looted": wc.get("looted", {}), "killed": wc.get("killed", {}), "opened": wc.get("opened", {})}
+	var area: Variant = d.get("area", {"type": "overworld"})
+	current_area = (area as Dictionary).duplicate(true) if area is Dictionary else {"type": "overworld"}
+	if str(current_area.get("type", "overworld")) not in ["overworld", "dungeon"]:
+		current_area = {"type": "overworld"}
 	pending_load = d["player"]
 	inventory_changed.emit()
 	get_tree().paused = false

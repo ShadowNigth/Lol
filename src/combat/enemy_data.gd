@@ -37,3 +37,8 @@ extends Resource
 @export var resist_blunt: float = -0.35
 @export var resist_pierce: float = 0.4
 @export var level: int = 1
+## Escala del modelo (jefes más grandes).
+@export var model_scale: float = 1.0
+## Variante visual del modelo (0-3; 3 = corona de señor).
+@export var model_variant: int = -1
+@export var is_boss: bool = false

@@ -61,6 +61,7 @@ const MOSS_STONE := 47
 const CHISELED := 48
 const SPRUCE_PLANKS := 49
 const IRON_BLOCK := 50
+const COBWEB := 51
 const COBBLE_SLAB := 60
 const PLANK_SLAB := 61
 const ROOF_SLAB := 62
@@ -92,7 +93,7 @@ const TEXTURES := [
 	["clay", 1], ["sandstone_side", 1], ["sandstone_top", 1], ["ice", 1], ["mud", 2],
 	["dead_bush", 1], ["mushroom", 1], ["bookshelf", 1], ["wool_red", 1],
 	["dungeon_brick", 3], ["dungeon_floor", 2], ["crop", 1], ["reeds", 1],
-	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1],
+	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1],
 ]
 
 # --- Tablas (rellenadas en _static_init) ------------------------------------
@@ -176,6 +177,7 @@ static func _static_init() -> void:
 	_plant(MUSHROOM, "Seta", "mushroom", false)
 	_plant(CROP, "Trigo", "crop", false)
 	_plant(REEDS, "Juncos", "reeds", true)
+	_plant(COBWEB, "Telaraña", "cobweb", false)
 	_cube(HAY, "Paja", "hay_top", "hay_side", "hay_top", Sound.GRASS)
 	_cube(THATCH, "Techo de paja", "thatch", "thatch", "thatch", Sound.GRASS)
 	_cube(CLAY, "Arcilla", "clay", "clay", "clay", Sound.STONE)

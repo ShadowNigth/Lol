@@ -13,6 +13,7 @@ var _cur: Dictionary = {}
 var _started := false
 var _preview: Node3D
 var _preview_anim: AnimationPlayer
+var _dungeon_wait := false
 
 
 func _ready() -> void:
@@ -31,6 +32,8 @@ func _begin() -> void:
 	get_parent().remove_child(self)
 	root.add_child(self)
 	Audio.wait_until_ready()
+	# Distancia de dibujado reducida: el renderizado por CPU es lento.
+	Settings.view_distance = 4
 	GameState.start_new_game({"name": "Captura", "class": "warrior", "seed": 12345})
 
 
@@ -61,6 +64,12 @@ func _build_queue() -> void:
 				["dagger_idle", 0.0], ["dagger_attack_1", 0.16], ["sword_run", 0.2], ["interact", 0.25]]:
 			_queue.append({"name": "vm_%s_%03d" % [a[0], int(float(a[1]) * 100)], "vm": a[0], "t": a[1]})
 		_queue.append({"name": "vm_sword_block_shield", "vm": "sword_block", "t": 0.25})
+	if "dungeon" in _sets:
+		_queue.append({"name": "dungeon_enter", "dungeon": true})
+		_queue.append({"name": "dungeon_entrance", "dview": "entrance"})
+		_queue.append({"name": "dungeon_corridor", "dview": "corridor"})
+		_queue.append({"name": "dungeon_boss", "dview": "boss"})
+		_queue.append({"name": "dungeon_treasure", "dview": "treasure"})
 	if "enemy" in _sets:
 		for e: Array in [["idle", 0.0], ["walk", 0.25], ["run", 0.16], ["alert", 0.4], ["attack_1", 0.42], ["attack_1", 0.56],
 				["attack_2", 0.5], ["attack_2", 0.68], ["block", 0.35], ["hit", 0.08], ["stun", 0.5], ["death", 0.5], ["death", 1.5]]:
@@ -77,7 +86,15 @@ func _process(_delta: float) -> void:
 			if hud:
 				hud.set_visible_hud("--hud" in OS.get_cmdline_user_args())
 		return
+	if _dungeon_wait:
+		if g.has_method("is_world_ready") and bool(g.call("is_world_ready")):
+			_dungeon_wait = false
+		return
 	if _wait > 0:
+		# En las vistas, esperar a que no queden chunks pendientes cerca.
+		var w := g.get("world") as VoxelWorld
+		if (_cur.has("pos") or _cur.has("dview")) and _wait <= 3 and w and w.pending_task_count() > 0:
+			return
 		_wait -= 1
 		if _wait == 0:
 			_snap()
@@ -93,6 +110,34 @@ func _process(_delta: float) -> void:
 func _setup_shot(shot: Dictionary) -> void:
 	var p := _player()
 	var w := _game().get("world") as VoxelWorld
+	if shot.has("dungeon"):
+		_game().call("enter_dungeon", "crypt_velmar", "capture")
+		_wait = 0
+		_dungeon_wait = true
+		return
+	if shot.has("dview"):
+		var dg := _game().get("generator") as DungeonGenerator
+		if dg == null:
+			return
+		var room_i := dg.entrance_index
+		match str(shot["dview"]):
+			"boss":
+				room_i = dg.boss_index
+			"treasure":
+				for i in dg.rooms.size():
+					if dg.rooms[i]["role"] == "treasure":
+						room_i = i
+		var rect: Rect2i = dg.rooms[room_i]["rect"]
+		var pos := Vector3(rect.get_center().x + 0.5, 20.05, rect.end.y - 1.0)
+		var yaw := 0.0
+		if str(shot["dview"]) == "corridor" and not dg.corridor_tiles.is_empty():
+			var t: Vector2i = dg.corridor_tiles[dg.corridor_tiles.size() / 2]
+			pos = Vector3(t.x + 0.5, 20.05, t.y + 0.5)
+			yaw = 90.0
+		p.teleport(pos, yaw)
+		p._pitch = deg_to_rad(4.0)
+		_wait = 12
+		return
 	if shot.has("pos"):
 		var pos: Vector3 = shot["pos"]
 		if pos.y < 0.0:
@@ -101,7 +146,7 @@ func _setup_shot(shot: Dictionary) -> void:
 		p._pitch = deg_to_rad(float(shot["pitch"]))
 		GameState.time_of_day = float(shot["time"])
 		p.viewmodel.visible = true
-		_wait = 90
+		_wait = 12
 	elif shot.has("vm"):
 		p.teleport(Vector3(2.5, 37.0, 3.5), -60.0)
 		p._pitch = deg_to_rad(-12.0)

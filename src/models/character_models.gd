@@ -23,10 +23,13 @@ static func skeleton_warrior(variant: int = 0) -> VoxelModel:
 	var bone_dk := m.mat(Color(0.66, 0.62, 0.52), 0.0, 0.8, 0.0, 0.06)
 	var crack := m.mat(Color(0.42, 0.38, 0.31), 0.0, 0.9, 0.0, 0.04)
 	var socket := m.mat(Color(0.05, 0.045, 0.04), 0.0, 1.0, 0.0, 0.0)
-	var eye := m.mat(Color(0.45, 0.95, 1.0), 0.0, 0.5, 1.0, 0.0)
+	var lord := variant == 3
+	var eye := m.mat(Color(1.0, 0.25, 0.15) if lord else Color(0.45, 0.95, 1.0), 0.0, 0.5, 1.0, 0.0)
+	var gold := m.mat(Color(0.85, 0.66, 0.25), 0.95, 0.3, 0.0, 0.06)
+	var gem := m.mat(Color(0.7, 0.1, 0.12), 0.3, 0.2, 0.6, 0.0)
 	var rust := m.mat(Color(0.47, 0.32, 0.22), 0.55, 0.6, 0.0, 0.12)
 	var iron := m.mat(Color(0.52, 0.53, 0.57), 0.85, 0.45, 0.0, 0.06)
-	var cloth := m.mat(Color(0.40, 0.11, 0.09), 0.0, 0.95, 0.0, 0.1)
+	var cloth := m.mat(Color(0.26, 0.1, 0.32) if variant == 3 else Color(0.40, 0.11, 0.09), 0.0, 0.95, 0.0, 0.1)
 	var leather := m.mat(Color(0.34, 0.21, 0.12), 0.0, 0.8, 0.0, 0.08)
 
 	# --- Cráneo ---
@@ -52,7 +55,17 @@ static func skeleton_warrior(variant: int = 0) -> VoxelModel:
 	head.put(Vector3i(-1, 8, -1), crack)
 	head.put(Vector3i(0, 8, 0), crack)
 	head.put(Vector3i(1, 7, 1), crack)
-	if variant % 2 == 0:
+	if lord:
+		# Corona dorada con gemas
+		for a in 28:
+			var ang := TAU * a / 28.0
+			var cx := int(round(-0.5 + cos(ang) * 4.2))
+			var cz := int(round(-0.3 + sin(ang) * 4.4))
+			head.put(Vector3i(cx, 7, cz), gold)
+			if a % 4 == 0:
+				head.put(Vector3i(cx, 8, cz), gold)
+				head.put(Vector3i(cx, 9, cz), gem if a % 8 == 0 else gold)
+	elif variant % 2 == 0:
 		# Casco de hierro oxidado con nasal
 		for p: Vector3i in head.voxels.keys():
 			if p.y >= 6:
@@ -88,6 +101,19 @@ static func skeleton_warrior(variant: int = 0) -> VoxelModel:
 	chest.recolor_box(Vector3i(3, 4, -3), Vector3i(8, 4, 3), iron)
 	chest.line(Vector3(4, 4, -3), Vector3(-4, -4, -3), leather)
 	chest.line(Vector3(4, 4, 4), Vector3(-4, -4, 4), leather)
+	if lord:
+		# Peto de hierro, segunda hombrera y capa raída
+		chest.ellipsoid(Vector3(-6.0, 5.0, 0.0), Vector3(2.6, 1.8, 2.8), rust)
+		for y in range(-3, 4):
+			for x in range(-4, 4):
+				chest.put(Vector3i(x, y, -4), iron if (x + y) % 3 != 0 else rust)
+		chest.put(Vector3i(-1, 2, -5), gold)
+		chest.put(Vector3i(0, 2, -5), gold)
+		for y in range(-14, 5):
+			for x in range(-5, 5):
+				var torn := y < -10 and WorldGenerator.hash2(x, y, 99) % 3 == 0
+				if not torn:
+					chest.put(Vector3i(x, y, 5), cloth)
 
 	# --- Lumbares ---
 	var spine := m.part("spine", "spine", Vector3(0, 1.08, 0))
@@ -152,7 +178,7 @@ static func skeleton_warrior(variant: int = 0) -> VoxelModel:
 
 
 ## Brazos del jugador en primera persona (1/40 m, más detalle cerca de cámara).
-static func player_arms(sleeve: Color = Color(0.3, 0.22, 0.15), skin: Color = Color(0.7, 0.5, 0.38)) -> VoxelModel:
+static func player_arms(sleeve: Color = Color(0.3, 0.22, 0.15), skin: Color = Color(0.6, 0.42, 0.31)) -> VoxelModel:
 	var m := VoxelModel.new(1.0 / 40.0, 777)
 	var skin_m := m.mat(skin, 0.0, 0.7, 0.0, 0.04)
 	var skin_dk := m.mat(skin.darkened(0.18), 0.0, 0.75, 0.0, 0.04)

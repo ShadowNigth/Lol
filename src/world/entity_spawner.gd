@@ -84,8 +84,8 @@ func _spawn(e: Dictionary) -> Node:
 			root.add_child(mi)
 			var light := TorchLight.new()
 			light.position = Vector3(0, 0.2, 0)
-			light.omni_range = 6.0
-			light.base_energy = 1.1
+			light.omni_range = 7.5 if type == "lantern" else 6.5
+			light.base_energy = 1.7 if type == "lantern" else 1.3
 			root.add_child(light)
 			return root
 		"forge_fire":
@@ -111,6 +111,62 @@ func _spawn(e: Dictionary) -> Node:
 			return f
 		"smoke":
 			return _spawn_smoke(pos)
+		"dungeon_gate":
+			var g := DungeonProps.Gate.new()
+			g.setup(id, str(e.get("locked_key", "")), str(e.get("style", "portcullis")))
+			g.position = pos
+			g.rotation.y = yaw
+			add_child(g)
+			return g
+		"lever":
+			var lv := DungeonProps.Lever.new()
+			lv.setup(id, str(e.get("target", "")))
+			lv.position = pos
+			lv.rotation.y = yaw
+			add_child(lv)
+			return lv
+		"secret_wall":
+			var sw := DungeonProps.SecretWall.new()
+			sw.setup(id)
+			sw.position = pos
+			sw.rotation.y = yaw
+			add_child(sw)
+			return sw
+		"spike_trap":
+			var st := DungeonProps.SpikeTrap.new()
+			st.setup(id)
+			st.position = pos
+			add_child(st)
+			return st
+		"key_pickup":
+			if GameState.is_looted(id):
+				return null
+			var kp := DungeonProps.KeyPickup.new()
+			kp.setup(id, str(e.get("item", "")))
+			kp.position = pos
+			add_child(kp)
+			return kp
+		"dungeon_exit":
+			var ex := DungeonProps.Exit.new()
+			ex.position = pos
+			ex.rotation.y = yaw
+			add_child(ex)
+			return ex
+		"brazier":
+			var br := _spawn_static_prop("brazier", pos, 0.0, e)
+			var flame := MeshInstance3D.new()
+			flame.mesh = world.flame_mesh
+			flame.position = Vector3(0, 1.15, 0)
+			flame.scale = Vector3.ONE * 1.8
+			br.add_child(flame)
+			var bl := TorchLight.new()
+			bl.position = Vector3(0, 1.5, 0)
+			bl.omni_range = 7.0
+			bl.base_energy = 1.4
+			br.add_child(bl)
+			return br
+		"pillar", "sarcophagus", "bones":
+			return _spawn_static_prop(type, pos, yaw, e)
 		_:
 			if type in STATIC_PROPS:
 				return _spawn_static_prop(type, pos, yaw, e)
@@ -128,7 +184,7 @@ func _spawn_static_prop(type: String, pos: Vector3, yaw: float, e: Dictionary) -
 	mi.mesh = ModelLibrary.prop_mesh(type, e)
 	body.add_child(mi)
 	var bounds := ModelLibrary.prop_bounds(type, e)
-	if type in ["banner", "sign"]:
+	if type in ["banner", "sign", "bones"]:
 		return body
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()

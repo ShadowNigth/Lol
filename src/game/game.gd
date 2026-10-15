@@ -3,7 +3,8 @@ extends Node3D
 ## Escena principal de juego: crea entorno, mundo por chunks, jugador, HUD,
 ## menús y gestiona la carga inicial, la pausa y la muerte.
 
-var generator: WorldGenerator
+var generator: WorldSource
+var overworld_generator: WorldGenerator
 var world: VoxelWorld
 var player: Player
 var spawner: EntitySpawner
@@ -22,6 +23,10 @@ var _current_location := ""
 var _ambient_day: AudioStreamPlayer
 var _ambient_night: AudioStreamPlayer
 var _block_textures: Texture2DArray
+var _switching := false
+var _pending_spawn := Vector3.INF
+var _pending_yaw := 0.0
+var _player_light: OmniLight3D
 
 
 func _ready() -> void:
@@ -30,21 +35,30 @@ func _ready() -> void:
 	add_child(loading)
 	_build_environment()
 	_block_textures = TextureFactory.new().build_texture_array()
-	generator = WorldGenerator.new(GameState.world_seed)
-	world = VoxelWorld.new()
-	world.name = "VoxelWorld"
-	add_child(world)
-	world.setup(generator, _block_textures, Settings.view_distance)
-	_apply_view_distance()
+	overworld_generator = WorldGenerator.new(GameState.world_seed)
 
 	player = (load("res://scenes/player.tscn") as PackedScene).instantiate() as Player
 	add_child(player)
-	player.world = world
 	player.controls_enabled = false
 	player.process_mode = Node.PROCESS_MODE_DISABLED
 	GameState.player = player
-	var spawn := generator.planner.spawn_point
-	var yaw := generator.planner.spawn_yaw_deg
+	_player_light = OmniLight3D.new()
+	_player_light.light_color = Color(1.0, 0.78, 0.5)
+	_player_light.omni_range = 8.0
+	_player_light.light_energy = 0.7
+	_player_light.visible = false
+	player.camera.add_child(_player_light)
+	_player_light.position = Vector3(0.25, -0.35, 0.1)
+
+	# Zona inicial: exterior o una mazmorra (si se carga una partida guardada dentro)
+	var area: Dictionary = GameState.current_area
+	if area.get("type", "overworld") == "dungeon":
+		generator = DungeonGenerator.new(str(area.get("id", "crypt_velmar")), GameState.world_seed, int(area.get("difficulty", 1)))
+	else:
+		generator = overworld_generator
+	_build_world()
+	var spawn := generator.spawn_point()
+	var yaw := generator.spawn_yaw()
 	if not GameState.pending_load.is_empty():
 		var p: Array = GameState.pending_load.get("position", [spawn.x, spawn.y, spawn.z])
 		spawn = Vector3(float(p[0]), float(p[1]), float(p[2]))
@@ -52,18 +66,15 @@ func _ready() -> void:
 	player.teleport(spawn, yaw)
 	world.update_focus(spawn)
 
-	spawner = EntitySpawner.new()
-	spawner.name = "Entities"
-	add_child(spawner)
-	spawner.setup(world, player)
-
 	day_night = DayNight.new()
 	day_night.name = "DayNight"
 	add_child(day_night)
 	day_night.setup(sun, env, sky_material)
+	day_night.interior = generator.is_interior()
 
 	hud = HUD.new()
 	hud.setup(player, day_night, world)
+	hud.name = "HUD"
 	add_child(hud)
 	hud.set_visible_hud(false)
 	pause_menu = PauseMenu.new()
@@ -75,6 +86,114 @@ func _ready() -> void:
 	Settings.settings_changed.connect(_on_settings_changed)
 	_ambient_day = Audio.make_loop_player_2d("wind_loop", self, -14.0)
 	_ambient_night = Audio.make_loop_player_2d("night_loop", self, -60.0)
+	_set_interior(generator.is_interior())
+
+
+func _build_world() -> void:
+	world = VoxelWorld.new()
+	world.name = "VoxelWorld"
+	add_child(world)
+	world.setup(generator, _block_textures, Settings.view_distance if not generator.is_interior() else 4)
+	player.world = world
+	spawner = EntitySpawner.new()
+	spawner.name = "Entities"
+	add_child(spawner)
+	spawner.setup(world, player)
+	if hud:
+		hud.world = world
+	_apply_view_distance()
+
+
+func _teardown_world() -> void:
+	if spawner:
+		spawner.queue_free()
+		spawner = null
+	if world:
+		world.queue_free()
+		world = null
+
+
+func _set_interior(enabled: bool) -> void:
+	if day_night:
+		day_night.interior = enabled
+	if enabled:
+		env.background_mode = Environment.BG_COLOR
+		env.background_color = Color(0.0, 0.0, 0.0)
+		env.fog_depth_begin = 3.0
+		env.fog_depth_end = 30.0
+		env.ambient_light_color = Color(0.1, 0.09, 0.11)
+		env.fog_light_color = Color(0.015, 0.012, 0.02)
+	else:
+		env.background_mode = Environment.BG_SKY
+		_apply_view_distance()
+	if _player_light:
+		_player_light.visible = enabled
+	if _ambient_day:
+		_ambient_day.stream_paused = enabled
+	if enabled and not has_node("CaveAmbience"):
+		var cave := Audio.make_loop_player_2d("cave_loop", self, -10.0)
+		cave.name = "CaveAmbience"
+	elif not enabled and has_node("CaveAmbience"):
+		get_node("CaveAmbience").queue_free()
+
+
+## Entra en una mazmorra (desde su puerta en el exterior).
+func enter_dungeon(dungeon_id: String, entrance_entity: String) -> void:
+	if _switching:
+		return
+	var back := player.global_position - player.look_direction() * 1.2
+	back.y = player.global_position.y
+	GameState.current_area = {"type": "dungeon", "id": dungeon_id, "difficulty": 1,
+			"return": [back.x, back.y + 0.1, back.z], "return_yaw": player.get_yaw_degrees() + 180.0, "entrance": entrance_entity}
+	var dg := DungeonGenerator.new(dungeon_id, GameState.world_seed, 1)
+	_switch_area(dg, dg.spawn_point(), dg.spawn_yaw())
+	Events.notify.emit("Desciendes a la oscuridad de %s..." % dg.display_name, "info")
+
+
+## Vuelve al exterior junto a la entrada de la mazmorra.
+func exit_dungeon() -> void:
+	if _switching:
+		return
+	var ret: Array = GameState.current_area.get("return", [])
+	var yaw := float(GameState.current_area.get("return_yaw", 0.0))
+	var pos := overworld_generator.spawn_point()
+	if ret.size() == 3:
+		pos = Vector3(float(ret[0]), float(ret[1]), float(ret[2]))
+	GameState.current_area = {"type": "overworld"}
+	_switch_area(overworld_generator, pos, yaw)
+
+
+func _switch_area(source: WorldSource, spawn: Vector3, yaw: float) -> void:
+	_switching = true
+	player.controls_enabled = false
+	Events.target_changed.emit(null)
+	var tw := hud.fade_to(1.0, 0.6)
+	await tw.finished
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	_teardown_world()
+	await get_tree().process_frame
+	generator = source
+	_build_world()
+	_set_interior(source.is_interior())
+	_pending_spawn = spawn
+	_pending_yaw = yaw
+	player.teleport(spawn, yaw)
+	world.update_focus(spawn)
+	world.initial_area_ready.connect(_on_area_ready, CONNECT_ONE_SHOT)
+
+
+func _on_area_ready() -> void:
+	var p := _pending_spawn
+	var ground := world.surface_height(p.x, p.z)
+	if p.y < ground - 0.5 or p.y > ground + 3.0:
+		p.y = ground
+	player.teleport(p + Vector3(0, 0.05, 0), _pending_yaw)
+	await get_tree().physics_frame
+	player.process_mode = Node.PROCESS_MODE_INHERIT
+	player.controls_enabled = true
+	_switching = false
+	_current_location = ""
+	hud.fade_to(0.0, 0.8)
 
 
 func _build_environment() -> void:
@@ -132,6 +251,11 @@ func _apply_shadow_settings() -> void:
 
 
 func _apply_view_distance() -> void:
+	if world == null or env == null:
+		return
+	if generator and generator.is_interior():
+		world.view_radius = 4
+		return
 	var far := Settings.view_distance * 16.0
 	env.fog_depth_begin = far * 0.45
 	env.fog_depth_end = far - 6.0
@@ -199,9 +323,11 @@ func _apply_new_or_loaded_player() -> void:
 
 
 func _process(delta: float) -> void:
-	if player == null:
+	if player == null or world == null:
 		return
 	world.update_focus(player.global_position)
+	if _switching:
+		return
 	if not _ready_done:
 		loading.set_progress(world.loaded_chunk_count(), 25)
 		return
@@ -222,17 +348,17 @@ func _process(delta: float) -> void:
 
 
 func is_world_ready() -> bool:
-	return _ready_done
+	return _ready_done and not _switching
 
 
 func current_location_name() -> String:
-	if player == null:
+	if player == null or generator == null:
 		return ""
-	return generator.planner.location_at(player.global_position.x, player.global_position.z)
+	return generator.location_at(player.global_position.x, player.global_position.z)
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not _ready_done:
+	if not _ready_done or _switching:
 		return
 	if event.is_action_pressed("pause"):
 		if not player.is_dead and not pause_menu.visible:
@@ -266,6 +392,7 @@ func respawn_player() -> void:
 	death_screen.close()
 	var gold_lost := player.gold / 3
 	player.gold -= gold_lost
-	player.revive(generator.planner.spawn_point, generator.planner.spawn_yaw_deg)
+	player.revive(generator.spawn_point(), generator.spawn_yaw())
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	Events.notify.emit("Despiertas en la plaza de Hojarrubia. Has perdido %d monedas." % gold_lost, "warning")
+	var where := "a la entrada de la cripta" if generator.is_interior() else "en la plaza de Hojarrubia"
+	Events.notify.emit("Despiertas %s. Has perdido %d monedas." % [where, gold_lost], "warning")

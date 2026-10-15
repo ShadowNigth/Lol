@@ -312,6 +312,142 @@ static func forge_coals() -> VoxelModel:
 	return m
 
 
+static func portcullis() -> VoxelModel:
+	# Reja de 2 x 3 m; origen en el centro de la base.
+	var m := VoxelModel.new(V, 117)
+	var iron := m.mat(Color(0.22, 0.22, 0.24), 0.85, 0.5, 0.0, 0.06)
+	var rust := m.mat(Color(0.4, 0.26, 0.18), 0.5, 0.7, 0.0, 0.1)
+	var p := m.part("body", "", Vector3.ZERO)
+	for x in range(-15, 16, 4):
+		p.box(Vector3i(x, 0, -1), Vector3i(x + 1, 47, 0), iron if (x / 4) % 3 else rust)
+		p.box(Vector3i(x, -2, -1), Vector3i(x + 1, -1, 0), iron)
+	for y in range(4, 48, 8):
+		p.box(Vector3i(-16, y, -1), Vector3i(16, y + 1, 0), iron)
+	return m
+
+
+static func lever() -> VoxelModel:
+	var m := VoxelModel.new(V, 118)
+	var c := _wood(m)
+	var stone := m.mat(Color(0.35, 0.35, 0.38), 0.0, 0.9, 0.0, 0.08)
+	var base := m.part("base", "", Vector3.ZERO)
+	base.box(Vector3i(-3, -4, 0), Vector3i(2, 3, 1), stone)
+	base.box(Vector3i(-2, -1, -1), Vector3i(1, 0, -1), c["iron"])
+	var handle := m.part("handle", "", Vector3(0, 0, -1.5 * V))
+	handle.box(Vector3i(-1, 0, -1), Vector3i(0, 8, 0), c["wood_dk"])
+	handle.box(Vector3i(-1, 8, -1), Vector3i(0, 10, 0), c["brass"])
+	return m
+
+
+static func spikes() -> VoxelModel:
+	var m := VoxelModel.new(V, 119)
+	var iron := m.mat(Color(0.55, 0.56, 0.6), 0.85, 0.35, 0.0, 0.06)
+	var blood := m.mat(Color(0.35, 0.05, 0.04), 0.0, 0.6, 0.0, 0.1)
+	var p := m.part("body", "", Vector3.ZERO)
+	for x in range(-6, 7, 3):
+		for z in range(-6, 7, 3):
+			p.box(Vector3i(x, 0, z), Vector3i(x, 9, z), iron)
+			p.put(Vector3i(x, 10, z), blood if (x + z) % 2 == 0 else iron)
+	return m
+
+
+static func pressure_plate() -> VoxelModel:
+	var m := VoxelModel.new(V, 120)
+	var stone := m.mat(Color(0.3, 0.3, 0.33), 0.0, 0.9, 0.0, 0.08)
+	var hole := m.mat(Color(0.05, 0.05, 0.06), 0.0, 1.0, 0.0, 0.0)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-7, 0, -7), Vector3i(6, 0, 6), stone)
+	for x in range(-6, 7, 3):
+		for z in range(-6, 7, 3):
+			p.put(Vector3i(x, 0, z), hole)
+	return m
+
+
+static func key_model() -> VoxelModel:
+	var m := VoxelModel.new(1.0 / 32.0, 121)
+	var gold := m.mat(Color(0.75, 0.58, 0.25), 0.9, 0.3, 0.1, 0.05)
+	var p := m.part("body", "", Vector3.ZERO)
+	for a in 20:
+		var ang := TAU * a / 20.0
+		p.put(Vector3i(int(round(cos(ang) * 3.0)), int(round(sin(ang) * 3.0)) + 8, 0), gold)
+	p.box(Vector3i(0, -6, 0), Vector3i(0, 5, 0), gold)
+	p.box(Vector3i(1, -6, 0), Vector3i(3, -5, 0), gold)
+	p.box(Vector3i(1, -3, 0), Vector3i(2, -2, 0), gold)
+	return m
+
+
+static func brazier() -> VoxelModel:
+	var m := VoxelModel.new(V, 122)
+	var iron := m.mat(Color(0.2, 0.2, 0.22), 0.8, 0.5, 0.0, 0.06)
+	var coal := m.mat(Color(0.12, 0.1, 0.09), 0.0, 0.9, 0.0, 0.1)
+	var ember := m.mat(Color(1.0, 0.45, 0.1), 0.0, 0.6, 1.0, 0.15)
+	var p := m.part("body", "", Vector3.ZERO)
+	for leg: Vector2i in [Vector2i(-4, -4), Vector2i(3, -4), Vector2i(-4, 3), Vector2i(3, 3)]:
+		p.line(Vector3(leg.x * 1.4, 0, leg.y * 1.4), Vector3(leg.x * 0.6, 12, leg.y * 0.6), iron)
+	p.cylinder_y(-0.5, -0.5, 5.5, 12, 14, iron)
+	p.cylinder_y(-0.5, -0.5, 4.5, 14, 14, coal)
+	for k in 10:
+		p.put(Vector3i(-4 + (k * 7) % 9, 15, -4 + (k * 5) % 9), ember)
+	return m
+
+
+static func sarcophagus() -> VoxelModel:
+	var m := VoxelModel.new(V, 123)
+	var stone := m.mat(Color(0.48, 0.47, 0.5), 0.0, 0.9, 0.0, 0.07)
+	var dark := m.mat(Color(0.32, 0.31, 0.34), 0.0, 0.9, 0.0, 0.05)
+	var moss := m.mat(Color(0.3, 0.42, 0.22), 0.0, 0.95, 0.0, 0.1)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-8, 0, -16), Vector3i(7, 9, 15), stone)
+	p.box(Vector3i(-9, 10, -17), Vector3i(8, 11, 16), dark)
+	# Relieve de una figura yacente
+	p.ellipsoid(Vector3(-0.5, 12.0, -11.0), Vector3(3.0, 1.5, 3.0), stone)
+	p.box(Vector3i(-3, 12, -8), Vector3i(2, 13, 10), stone)
+	p.box(Vector3i(-1, 14, -6), Vector3i(0, 14, 2), dark)
+	for k in 12:
+		p.put(Vector3i(-8 + (k * 5) % 16, 0, -16 + (k * 11) % 31), moss)
+	return m
+
+
+static func bones_pile() -> VoxelModel:
+	var m := VoxelModel.new(1.0 / 24.0, 124)
+	var bone := m.mat(Color(0.82, 0.79, 0.68), 0.0, 0.8, 0.0, 0.08)
+	var dark := m.mat(Color(0.08, 0.07, 0.06), 0.0, 1.0, 0.0, 0.0)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.ellipsoid(Vector3(0, 3, 0), Vector3(3.2, 3.0, 3.4), bone)
+	p.put(Vector3i(-1, 3, -3), dark)
+	p.put(Vector3i(1, 3, -3), dark)
+	p.box(Vector3i(-1, 0, -3), Vector3i(1, 1, -2), bone)
+	p.line(Vector3(4, 0, -2), Vector3(12, 0, 3), bone)
+	p.line(Vector3(-5, 0, 2), Vector3(-11, 0, -4), bone)
+	p.line(Vector3(2, 0, 5), Vector3(-3, 0, 11), bone)
+	p.box(Vector3i(5, 0, 5), Vector3i(8, 1, 7), bone)
+	return m
+
+
+static func pillar() -> VoxelModel:
+	var m := VoxelModel.new(V, 125)
+	var stone := m.mat(Color(0.42, 0.42, 0.46), 0.0, 0.9, 0.0, 0.07)
+	var dark := m.mat(Color(0.3, 0.3, 0.33), 0.0, 0.9, 0.0, 0.05)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-8, 0, -8), Vector3i(7, 3, 7), dark)
+	p.cylinder_y(-0.5, -0.5, 5.5, 4, 92, stone)
+	for y in range(8, 92, 12):
+		p.cylinder_y(-0.5, -0.5, 6.0, y, y, dark)
+	p.box(Vector3i(-8, 93, -8), Vector3i(7, 96, 7), dark)
+	return m
+
+
+static func exit_stairs() -> VoxelModel:
+	var m := VoxelModel.new(1.0 / 8.0, 126)
+	var stone := m.mat(Color(0.4, 0.4, 0.43), 0.0, 0.9, 0.0, 0.07)
+	var light := m.mat(Color(1.0, 0.95, 0.8), 0.0, 0.5, 0.6, 0.0)
+	var p := m.part("body", "", Vector3.ZERO)
+	for k in 6:
+		p.box(Vector3i(-8, 0, -k * 4), Vector3i(7, k * 4 + 3, -k * 4 - 3), stone)
+	p.box(Vector3i(-7, 27, -27), Vector3i(6, 28, -20), light)
+	return m
+
+
 ## Devuelve el modelo por nombre de entidad.
 static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 	match prop:
@@ -351,4 +487,24 @@ static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 			return door(true)
 		"forge_fire":
 			return forge_coals()
+		"portcullis":
+			return portcullis()
+		"lever":
+			return lever()
+		"spikes":
+			return spikes()
+		"pressure_plate":
+			return pressure_plate()
+		"key":
+			return key_model()
+		"brazier":
+			return brazier()
+		"sarcophagus":
+			return sarcophagus()
+		"bones":
+			return bones_pile()
+		"pillar":
+			return pillar()
+		"exit_stairs":
+			return exit_stairs()
 	return null

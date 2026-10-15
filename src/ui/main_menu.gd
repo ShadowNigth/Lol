@@ -15,6 +15,10 @@ var _continue_btn: Button
 
 func _ready() -> void:
 	get_tree().paused = false
+	if "--self-test" in OS.get_cmdline_user_args():
+		var test := SelfTest.new()
+		add_child(test)
+		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_build_backdrop()
 	_build_ui()

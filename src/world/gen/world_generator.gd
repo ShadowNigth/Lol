@@ -1,5 +1,5 @@
 class_name WorldGenerator
-extends RefCounted
+extends WorldSource
 ## Generador determinista del terreno a partir de una semilla: relieve,
 ## biomas, ríos, vegetación y estampado de estructuras planificadas.
 ## Es de solo lectura tras construirse, por lo que puede usarse desde hilos.
@@ -117,6 +117,18 @@ func biome_at(x: int, z: int, h: int) -> int:
 
 func biome_name(x: int, z: int) -> String:
 	return BIOME_NAMES[biome_at(x, z, height_at(x, z))]
+
+
+func location_at(x: float, z: float) -> String:
+	return planner.location_at(x, z)
+
+
+func spawn_point() -> Vector3:
+	return planner.spawn_point
+
+
+func spawn_yaw() -> float:
+	return planner.spawn_yaw_deg
 
 
 static func biome_tint(biome: int) -> Color:

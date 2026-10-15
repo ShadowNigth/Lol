@@ -10,7 +10,7 @@ var _rng := RandomNumberGenerator.new()
 var _cutout_names := {
 	"leaves": true, "spruce_leaves": true, "birch_leaves": true, "glass": true, "torch": true,
 	"tall_grass": true, "flower_red": true, "flower_yellow": true, "flower_blue": true, "bush": true,
-	"dead_bush": true, "mushroom": true, "crop": true, "reeds": true,
+	"dead_bush": true, "mushroom": true, "crop": true, "reeds": true, "cobweb": true,
 }
 
 
@@ -307,6 +307,8 @@ func _generate(tex_name: String, variant: int) -> Image:
 			_chiseled(img)
 		"iron_block":
 			_iron(img)
+		"cobweb":
+			_cobweb(img)
 		_:
 			img.fill(Color.MAGENTA)
 	return img
@@ -758,6 +760,25 @@ func _chiseled(img: Image) -> void:
 		img.set_pixel(5, i, dark)
 		img.set_pixel(i, 10, light)
 		img.set_pixel(10, i, light)
+
+
+func _cobweb(img: Image) -> void:
+	_transparent(img)
+	var c := Color(0.92, 0.92, 0.95, 1.0)
+	for k in 8:
+		var a := TAU * k / 8.0 + 0.2
+		for r in range(1, 9):
+			var x := int(round(7.5 + cos(a) * r))
+			var y := int(round(7.5 + sin(a) * r))
+			if x >= 0 and x < S and y >= 0 and y < S:
+				img.set_pixel(x, y, c)
+	for ring: float in [3.0, 5.5]:
+		for k in 24:
+			var a2 := TAU * k / 24.0
+			var x2 := int(round(7.5 + cos(a2) * ring))
+			var y2 := int(round(7.5 + sin(a2) * ring))
+			if (k % 3) != 0:
+				img.set_pixel(clampi(x2, 0, S - 1), clampi(y2, 0, S - 1), c)
 
 
 func _iron(img: Image) -> void:

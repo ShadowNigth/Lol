@@ -78,11 +78,15 @@ func _ready() -> void:
 	floor_max_angle = deg_to_rad(50.0)
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
-	cap.radius = 0.33
-	cap.height = 1.8
+	var sc := data.model_scale
+	cap.radius = 0.33 * sc
+	cap.height = 1.8 * sc
 	cs.shape = cap
-	cs.position = Vector3(0, 0.9, 0)
+	cs.position = Vector3(0, 0.9 * sc, 0)
 	add_child(cs)
+	if data.is_boss:
+		max_poise = 60.0
+		poise = max_poise
 	stats.attributes["endurance"] = 40
 	stats.recalc(true)
 	stats.max_health = data.max_health
@@ -106,7 +110,9 @@ func _build_model() -> void:
 	var rig := Rig.humanoid()
 	skeleton = rig.create_skeleton()
 	_model_root.add_child(skeleton)
-	var model := CharacterModels.skeleton_warrior(_rng.randi() % 3)
+	_model_root.scale = Vector3.ONE * data.model_scale
+	var variant := data.model_variant if data.model_variant >= 0 else _rng.randi() % 3
+	var model := CharacterModels.skeleton_warrior(variant)
 	_material = ModelLibrary.unique_model_material()
 	var mi := MeshInstance3D.new()
 	mi.name = "Body"

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Vaelmoor
+GenericName=RPG de fantasía medieval
+Comment=RPG voxel de fantasía medieval en primera persona
+Exec=vaelmoor
+Icon=vaelmoor
+Terminal=false
+Categories=Game;RolePlaying;
+Keywords=rpg;voxel;medieval;fantasy;

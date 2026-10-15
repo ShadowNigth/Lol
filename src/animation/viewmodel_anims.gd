@@ -81,10 +81,10 @@ static func split(lib: AnimationLibrary) -> Array[AnimationLibrary]:
 	return [right, left]
 
 
-const SHIELD_IDLE_POS := Vector3(-0.3, -0.34, -0.42)
-const SHIELD_IDLE_ROT := Vector3(0, -14, 4)
-const SHIELD_BLOCK_POS := Vector3(-0.1, -0.2, -0.36)
-const SHIELD_BLOCK_ROT := Vector3(4, 12, 0)
+const SHIELD_IDLE_POS := Vector3(-0.38, -0.46, -0.4)
+const SHIELD_IDLE_ROT := Vector3(-8, -28, 10)
+const SHIELD_BLOCK_POS := Vector3(-0.12, -0.24, -0.38)
+const SHIELD_BLOCK_ROT := Vector3(2, 10, 0)
 
 
 static func _shield_set(lib: AnimationLibrary) -> void:

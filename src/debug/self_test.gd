@@ -1,7 +1,10 @@
+class_name SelfTest
 extends Node
-## Prueba automática de humo: nueva partida, carga del mundo, movimiento,
-## combate contra un esqueleto, guardado y carga. Termina con código 0 si todo
-## va bien. Uso:
+## Autoprueba integrada: nueva partida, carga del mundo, movimiento, combate
+## contra un esqueleto, saqueo, guardado y carga. Termina con código 0 si todo
+## va bien. Uso con el juego exportado:
+##   ./vaelmoor.x86_64 --headless -- --self-test
+## Desde el código fuente:
 ##   godot --headless --path . res://tools/dev/smoke_test.tscn
 ## Opcional: --shots=<dir> (con un renderizador real) guarda capturas.
 
@@ -16,6 +19,7 @@ var _enemy_hp_start := 0.0
 var _player_hp_start := 0.0
 var _attacks := 0
 var _shot_index := 0
+var _return_ref := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -198,7 +202,7 @@ func _process(delta: float) -> void:
 		"save":
 			for act: String in ["move_forward", "attack", "block", "jump"]:
 				Input.action_release(act)
-			var err := GameState.save_game("prueba_humo")
+			var err := GameState.save_game("autoprueba")
 			if err != OK:
 				_fail("No se pudo guardar: %s" % error_string(err))
 				_finish()
@@ -206,12 +210,67 @@ func _process(delta: float) -> void:
 			_note("Partida guardada correctamente")
 			var saved_pos := p.global_position
 			set_meta("saved_pos", saved_pos)
-			var msg := GameState.load_game("prueba_humo")
+			var msg := GameState.load_game("autoprueba")
 			if msg != "":
 				_fail("No se pudo cargar: " + msg)
 				_finish()
 				return
 			_next("reload")
+		"enter_dungeon":
+			if _t > 0.5:
+				_return_ref = p.global_position
+				_game().call("enter_dungeon", "crypt_velmar", "selftest")
+				_next("in_dungeon")
+		"in_dungeon":
+			var g := _game()
+			if bool(g.call("is_world_ready")) and _t > 1.5:
+				var dg := g.get("generator") as DungeonGenerator
+				if dg == null:
+					_fail("No se generó la mazmorra")
+					_finish()
+					return
+				_note("Mazmorra '%s' generada: %d salas, verificada: %s, entrada %d, jefe %d" % [dg.display_name, dg.rooms.size(), dg.verified, dg.entrance_index, dg.boss_index])
+				if not dg.verified:
+					_fail("La mazmorra no superó la verificación de conectividad")
+				if not p.is_on_floor():
+					_fail("El jugador no está sobre el suelo de la mazmorra (y=%.2f)" % p.global_position.y)
+				var boss_rect: Rect2i = dg.rooms[dg.boss_index]["rect"]
+				var path := dg.find_path(p.global_position, Vector3(boss_rect.get_center().x + 0.5, 20, boss_rect.get_center().y + 0.5))
+				_note("Ruta A* de la entrada al jefe: %d casillas" % path.size())
+				if path.is_empty():
+					_fail("No hay ruta transitable de la entrada a la sala del jefe")
+				var en := get_tree().get_nodes_in_group("enemies").size()
+				_note("Enemigos cargados en la mazmorra: %d" % en)
+				_shot("dungeon_entrance")
+				# Visitar la sala del jefe
+				p.teleport(Vector3(boss_rect.get_center().x + 0.5, 20.1, boss_rect.end.y - 1.5), 0.0)
+				_next("boss_view")
+			elif _t > 60.0:
+				_fail("La mazmorra no terminó de cargar")
+				_finish()
+		"boss_view":
+			if _t > 2.0:
+				_shot("dungeon_boss")
+				var bosses := 0
+				for e in get_tree().get_nodes_in_group("enemies"):
+					if (e as Enemy).data.is_boss:
+						bosses += 1
+				_note("Jefes presentes: %d" % bosses)
+				if bosses == 0:
+					_fail("No apareció el jefe en su sala")
+				_game().call("exit_dungeon")
+				_next("exit_dungeon")
+		"exit_dungeon":
+			var g2 := _game()
+			if bool(g2.call("is_world_ready")) and _t > 1.5:
+				var d := p.global_position.distance_to(_return_ref)
+				_note("De vuelta al exterior a %.1f m de la entrada de la cripta" % d)
+				if g2.get("generator") is DungeonGenerator:
+					_fail("Sigue en la mazmorra tras salir")
+				_finish()
+			elif _t > 60.0:
+				_fail("No se pudo volver al exterior")
+				_finish()
 		"reload":
 			if p and _game().has_method("is_world_ready") and bool(_game().call("is_world_ready")) and _t > 1.0:
 				var sp: Vector3 = get_meta("saved_pos")
@@ -222,7 +281,7 @@ func _process(delta: float) -> void:
 				if GameState.is_killed(str((_enemy as Enemy).entity_id) if is_instance_valid(_enemy) else "ruins/skeleton_0") or true:
 					_note("Enemigos muertos registrados: %s" % str(GameState.world_changes["killed"].keys()))
 				_shot("reloaded")
-				_finish()
+				_next("enter_dungeon")
 			elif _t > 90.0:
 				_fail("La carga no terminó")
 				_finish()
@@ -244,4 +303,7 @@ func _finish() -> void:
 		print("[SMOKE] RESULTADO: %d fallo(s)" % _failures.size())
 		for f in _failures:
 			print("[SMOKE]   - ", f)
+	# No dejar la partida de prueba en la lista del jugador
+	DirAccess.remove_absolute(GameState.SAVE_DIR.path_join("autoprueba.json"))
+	DirAccess.remove_absolute(GameState.SAVE_DIR.path_join("autoprueba.json.bak"))
 	get_tree().quit(0 if _failures.is_empty() else 1)

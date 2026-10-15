@@ -13,7 +13,7 @@ const MAX_TORCH_LIGHTS := 14
 const LIGHT_RANGE := 7.5
 
 var view_radius: int = 6
-var generator: WorldGenerator
+var generator: WorldSource
 var block_textures: Texture2DArray
 var mat_opaque: ShaderMaterial
 var mat_cutout: ShaderMaterial
@@ -35,7 +35,7 @@ var _light_timer := 0.0
 var _shutting_down := false
 
 
-func setup(gen: WorldGenerator, textures: Texture2DArray, radius: int) -> void:
+func setup(gen: WorldSource, textures: Texture2DArray, radius: int) -> void:
 	generator = gen
 	block_textures = textures
 	view_radius = radius

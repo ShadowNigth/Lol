@@ -53,7 +53,7 @@ void sky() {
 	// Nubes voxel en un plano alto
 	if (h > 0.02) {
 		vec2 p = dir.xz / h * 120.0 + cloud_offset;
-		vec2 cell = floor(p / 12.0);
+		vec2 cell = floor(p / 9.0);
 		float n = vnoise(cell * 0.18) * 0.65 + vnoise(cell * 0.55) * 0.35;
 		float cloud = step(1.0 - cloud_coverage, n);
 		// Sombreado: borde inferior más oscuro según la celda vecina
