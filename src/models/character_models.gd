@@ -201,10 +201,15 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 	var iron := m.mat(Color(0.55, 0.57, 0.62), 0.85, 0.4, 0.0, 0.05)
 
 	# Cabeza
+	var bald := bool(look.get("bald", false))
 	var head := m.part("head", "head", Vector3(0, 1.56, 0))
 	head.box(Vector3i(-4, 0, -3), Vector3i(3, 7, 3), skin)
-	head.box(Vector3i(-4, 5, -4), Vector3i(3, 8, 4), hair)          # pelo superior
-	head.box(Vector3i(-5, 2, -2), Vector3i(4, 7, 4), hair)          # laterales y nuca
+	if bald:
+		head.box(Vector3i(-5, 2, 0), Vector3i(4, 4, 4), hair)       # cerco de pelo corto sobre la nuca
+		head.box(Vector3i(-4, 8, -3), Vector3i(3, 8, 3), skin)      # cráneo rapado
+	else:
+		head.box(Vector3i(-4, 5, -4), Vector3i(3, 8, 4), hair)      # pelo superior
+		head.box(Vector3i(-5, 2, -2), Vector3i(4, 7, 4), hair)      # laterales y nuca
 	head.erase_box(Vector3i(-4, 0, -4), Vector3i(3, 4, -4))
 	head.box(Vector3i(-4, 0, -3), Vector3i(3, 4, -3), skin)          # cara
 	for ex: int in [-3, 1]:
@@ -222,6 +227,34 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		head.box(Vector3i(-4, -2, -3), Vector3i(3, 0, -2), hair)
 		head.put(Vector3i(-2, 1, -4), hair)
 		head.put(Vector3i(1, 1, -4), hair)
+	# Embozo de tela sobre nariz y boca (bandidos)
+	if look.has("mask"):
+		var mask := m.mat(look["mask"], 0.0, 0.9, 0.0, 0.06)
+		var mask_dk := m.mat((look["mask"] as Color).darkened(0.25), 0.0, 0.9, 0.0, 0.04)
+		head.box(Vector3i(-4, 0, -5), Vector3i(3, 2, -5), mask)
+		head.box(Vector3i(-5, 0, -4), Vector3i(-5, 2, 2), mask)
+		head.box(Vector3i(4, 0, -4), Vector3i(4, 2, 2), mask)
+		head.box(Vector3i(-3, 0, -5), Vector3i(2, 0, -5), mask_dk)          # pliegue inferior
+		head.box(Vector3i(-1, -2, -5), Vector3i(0, -1, -5), mask)           # pico del pañuelo
+	# Capucha con visera y caída sobre los hombros
+	if look.has("hood"):
+		var hood := m.mat(look["hood"], 0.0, 0.92, 0.0, 0.07)
+		var hood_dk := m.mat((look["hood"] as Color).darkened(0.3), 0.0, 0.92, 0.0, 0.05)
+		head.box(Vector3i(-6, 0, -4), Vector3i(-6, 9, 5), hood)
+		head.box(Vector3i(5, 0, -4), Vector3i(5, 9, 5), hood)
+		head.box(Vector3i(-6, 9, -5), Vector3i(5, 10, 5), hood)
+		head.box(Vector3i(-6, -1, 5), Vector3i(5, 9, 5), hood)
+		head.box(Vector3i(-6, 7, -5), Vector3i(5, 8, -5), hood_dk)          # borde de la visera (sombra sobre los ojos)
+		head.box(Vector3i(-6, 0, -5), Vector3i(-6, 8, -5), hood_dk)
+		head.box(Vector3i(5, 0, -5), Vector3i(5, 8, -5), hood_dk)
+		head.box(Vector3i(-1, 10, 3), Vector3i(0, 11, 6), hood)             # pico de la capucha
+	# Gorro de hierro con nasal (jefe)
+	if bool(look.get("cap", false)):
+		var cap_dk := m.mat(Color(0.33, 0.34, 0.37), 0.85, 0.45, 0.0, 0.05)
+		head.box(Vector3i(-5, 7, -4), Vector3i(4, 9, 4), iron)
+		head.box(Vector3i(-3, 10, -2), Vector3i(2, 10, 2), iron)
+		head.box(Vector3i(-6, 6, -5), Vector3i(5, 6, 5), cap_dk)            # reborde
+		head.box(Vector3i(-1, 2, -5), Vector3i(0, 6, -5), iron)             # nasal
 	var neck := m.part("neck", "neck", Vector3(0, 1.5, 0))
 	neck.box(Vector3i(-2, -1, -2), Vector3i(1, 1, 1), skin)
 
@@ -242,8 +275,55 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		for y in range(-20, 5):
 			chest.box(Vector3i(-5, y, 3), Vector3i(4, y, 3), cape)
 		chest.box(Vector3i(-5, 5, -3), Vector3i(4, 5, 3), cape)
+	# Jubón de cuero tachonado sobre la túnica (escote en pico)
+	var vested := look.has("vest")
+	var vest := 0
+	if vested:
+		vest = m.mat(look["vest"], 0.0, 0.75, 0.0, 0.07)
+		var stud := m.mat(Color(0.62, 0.6, 0.55), 0.8, 0.4, 0.0, 0.03)
+		chest.box(Vector3i(-5, -4, -4), Vector3i(4, 4, -4), vest)
+		chest.box(Vector3i(-5, -4, 3), Vector3i(4, 4, 3), vest)
+		chest.erase_box(Vector3i(-1, 2, -4), Vector3i(0, 4, -4))
+		chest.box(Vector3i(-6, 3, -3), Vector3i(-6, 5, 2), vest)            # hombreras
+		chest.box(Vector3i(5, 3, -3), Vector3i(5, 5, 2), vest)
+		for sy in range(-3, 4, 2):
+			for sx: int in [-4, -2, 1, 3]:
+				chest.put(Vector3i(sx, sy, -5), stud)
+	# Carcaj a la espalda con plumas de flecha asomando
+	if bool(look.get("quiver", false)):
+		var quiver := m.mat(Color(0.34, 0.2, 0.1), 0.0, 0.75, 0.0, 0.07)
+		var feather := m.mat(Color(0.85, 0.82, 0.75), 0.0, 0.9, 0.0, 0.05)
+		var feather2 := m.mat(Color(0.55, 0.18, 0.14), 0.0, 0.9, 0.0, 0.05)
+		chest.box(Vector3i(1, -5, 4), Vector3i(3, 5, 5), quiver)
+		chest.box(Vector3i(1, -5, 4), Vector3i(3, -5, 5), m.mat(Color(0.2, 0.12, 0.06), 0.0, 0.8, 0.0, 0.05))
+		for k in 3:
+			chest.put(Vector3i(1 + k, 6 + (k % 2), 4 + (k % 2)), feather if k != 1 else feather2)
+			chest.put(Vector3i(1 + k, 7 + (k % 2), 4 + (k % 2)), feather)
+		chest.line(Vector3(-4, 4, 3), Vector3(3, -4, 3), m.mat(Color(0.22, 0.13, 0.07), 0.0, 0.8, 0.0, 0.05))   # correa
+	# Cuello de piel sobre los hombros (jefe)
+	if look.has("fur"):
+		var fur := m.mat(look["fur"], 0.0, 1.0, 0.0, 0.1)
+		var fur_dk := m.mat((look["fur"] as Color).darkened(0.25), 0.0, 1.0, 0.0, 0.08)
+		for fz in range(-4, 4):
+			for fx in range(-6, 6):
+				var edge := fz == -4 or fz == 3 or fx == -6 or fx == 5
+				if not edge:
+					continue
+				var tone := fur if WorldGenerator.hash2(fx, fz, 77) % 3 != 0 else fur_dk
+				chest.box(Vector3i(fx, 4, fz), Vector3i(fx, 6, fz), tone)
+		chest.box(Vector3i(-6, 6, -3), Vector3i(5, 6, 2), fur)
+		chest.erase_box(Vector3i(-2, 5, -3), Vector3i(1, 6, 1))
+	# Capucha: caída de tela sobre los hombros
+	if look.has("hood"):
+		var cowl := m.mat(look["hood"], 0.0, 0.92, 0.0, 0.07)
+		chest.box(Vector3i(-6, 3, -3), Vector3i(5, 5, 3), cowl)
+		chest.box(Vector3i(-6, 3, -4), Vector3i(-3, 5, -4), cowl)
+		chest.box(Vector3i(2, 3, -4), Vector3i(5, 5, -4), cowl)
 	var spine := m.part("waist", "spine", Vector3(0, 1.08, 0))
 	spine.box(Vector3i(-4, -1, -3), Vector3i(3, 4, 2), tunic)
+	if vested:
+		spine.box(Vector3i(-4, -1, -4), Vector3i(3, 4, -4), vest)
+		spine.box(Vector3i(-4, -1, 3), Vector3i(3, 4, 3), vest)
 	var hips := m.part("hips", "hips", Vector3(0, 0.95, 0))
 	hips.box(Vector3i(-5, -2, -3), Vector3i(4, 1, 2), pants)
 	hips.box(Vector3i(-5, 2, -3), Vector3i(4, 2, 2), belt)
@@ -262,6 +342,8 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		ua.box(Vector3i(-2, -7, -2), Vector3i(1, 1, 1), tunic)
 		var fa := m.part("fore." + n, "forearm." + n, Vector3(0.25 * sx, 1.15, 0))
 		fa.box(Vector3i(-2, -5, -2), Vector3i(1, 0, 1), tunic if not bool(look.get("armor", false)) else iron)
+		if look.has("bracers"):
+			fa.box(Vector3i(-2, -5, -2), Vector3i(1, -2, 1), m.mat(look["bracers"], 0.0, 0.75, 0.0, 0.06))
 		fa.box(Vector3i(-1, -6, -1), Vector3i(0, -5, 0), skin)
 		var hd := m.part("hand." + n, "hand." + n, Vector3(0.26 * sx, 0.9, 0))
 		hd.box(Vector3i(-1, -3, -2), Vector3i(0, 0, 1), skin)
@@ -278,6 +360,43 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		var ft := m.part("foot." + n2, "foot." + n2, Vector3(0.11 * sx2, 0.09, 0))
 		ft.box(Vector3i(-2, -2, -5), Vector3i(1, 0, 1), boots)
 	return m
+
+
+## Bandidos de los Cuervos: humanos con capucha, embozo y cuero.
+## variant 0 = salteador, 1 = matón, 2 = arquera, 3 = jefe.
+static func bandit(variant: int, model_seed: int = 9) -> VoxelModel:
+	var r := RandomNumberGenerator.new()
+	r.seed = model_seed
+	var skins := [Color(0.78, 0.58, 0.45), Color(0.62, 0.44, 0.32), Color(0.5, 0.35, 0.25), Color(0.85, 0.66, 0.52)]
+	var hairs := [Color(0.18, 0.12, 0.08), Color(0.35, 0.22, 0.12), Color(0.55, 0.4, 0.22), Color(0.1, 0.08, 0.07)]
+	var look := {"skin": skins[r.randi() % skins.size()], "hair": hairs[r.randi() % hairs.size()],
+			"pants": Color(0.24, 0.2, 0.16), "bracers": Color(0.3, 0.19, 0.1)}
+	match variant:
+		0:
+			look["tunic"] = Color(0.36, 0.3, 0.22)
+			look["hood"] = Color(0.26, 0.3, 0.17)
+			look["mask"] = Color(0.22, 0.18, 0.14)
+			look["vest"] = Color(0.33, 0.21, 0.11)
+		1:
+			look["tunic"] = Color(0.42, 0.4, 0.37)
+			look["bald"] = true
+			look["beard"] = true
+			look["mask"] = Color(0.55, 0.14, 0.11)
+			look["vest"] = Color(0.22, 0.14, 0.08)
+		2:
+			look["tunic"] = Color(0.27, 0.34, 0.21)
+			look["hood"] = Color(0.3, 0.3, 0.32)
+			look["quiver"] = true
+			look["female"] = true
+			look["vest"] = Color(0.36, 0.24, 0.13)
+		_:
+			look["tunic"] = Color(0.45, 0.13, 0.1)
+			look["cape"] = true
+			look["beard"] = true
+			look["cap"] = true
+			look["fur"] = Color(0.5, 0.44, 0.36)
+			look["armor"] = true
+	return human(look, model_seed)
 
 
 ## Brazos del jugador en primera persona (1/40 m, más detalle cerca de cámara).

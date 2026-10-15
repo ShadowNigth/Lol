@@ -20,6 +20,11 @@ func location_at(_x: float, _z: float) -> String:
 	return ""
 
 
+## Identificador del lugar con nombre (vacío si no tiene).
+func location_id_at(_x: float, _z: float) -> String:
+	return ""
+
+
 func spawn_point() -> Vector3:
 	return Vector3.ZERO
 

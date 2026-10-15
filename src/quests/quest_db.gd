@@ -1,8 +1,8 @@
 class_name QuestDB
 extends RefCounted
 ## Definición de misiones (datos). Cada misión tiene etapas con objetivos
-## (matar, recoger, llegar, hablar) y recompensas (oro, objetos, reputación,
-## experiencia). El estado vive en GameState.quests (se guarda en la partida).
+## (matar, recoger, llegar, hablar, esperar una bandera de historia) y
+## recompensas (oro, objetos, reputación). El estado vive en GameState.quests (se guarda en la partida).
 
 const FACTIONS := {
 	"hojarrubia": "Aldea de Hojarrubia",
@@ -94,6 +94,26 @@ const QUESTS := {
 			{"text": "Cuéntaselo a Elena, en Robledal.", "objective": {"type": "talk", "target": "elena"}},
 		],
 		"rewards": {"gold": 180, "items": [{"id": "shield_iron", "count": 1}], "reputation": {"robledal": 20}},
+	},
+	"hija_bram": {
+		"title": "La hija de Bram",
+		"giver": "bram",
+		"type": "buscar persona",
+		"requires_not_flag": "lina_rescued",
+		"description": "Bram, el granjero de Robledal, no sabe nada de su hija Lina desde que salió hace tres días a vender queso a la Posada del Lobo Gris. Te ruega que averigües qué le ha pasado.",
+		"stages": [
+			{"text": "Pregunta por Lina en la Posada del Lobo Gris (habla con Ulrico, el posadero).", "objective": {"type": "talk", "target": "ulrico"}, "skip_if_flag": "lina_rescued",
+				"say": "¿Lina, la de los quesos? Pasó por aquí hace tres días y siguió por el bosque hacia Robledal. Esa misma noche Edda vio fuego entre los árboles, a unos {dir:bandit_camp} de aquí. Si son los Cuervos, esos salteadores que asaltan a los carreteros... la chica está en apuros. Te lo señalo en el mapa.",
+				"effects": {"flags": ["known_bandit_camp"]}},
+			{"text": "Encuentra el campamento de los Cuervos (está señalado en tu mapa, tecla M).", "objective": {"type": "reach", "target": "bandit_camp"}, "skip_if_flag": "lina_rescued"},
+			{"text": "Libera a Lina: quítale la llave a Garra, el jefe de los Cuervos, o fuerza la cerradura de la jaula.", "objective": {"type": "flag", "target": "jaula_cuervos_abierta"}, "skip_if_flag": "lina_rescued"},
+			{"text": "Habla con Lina.", "objective": {"type": "talk", "target": "lina", "requires_flag": "jaula_cuervos_abierta"}, "skip_if_flag": "lina_rescued",
+				"say": "¡Estás aquí de verdad! Creí que me venderían en el sur... Gracias, gracias. Vuelvo a Robledal ahora mismo por el sendero. ¡Dile a mi padre que estoy bien!",
+				"effects": {"flags": ["lina_rescued"]}},
+			{"text": "Vuelve a Robledal y habla con Bram.", "objective": {"type": "talk", "target": "bram"},
+				"say": "¡Lina ha vuelto a casa! Llegó llorando y riendo a la vez... No tengo mucho, pero esto es tuyo, y el mejor queso de la granja. En Robledal nadie olvidará lo que has hecho."},
+		],
+		"rewards": {"gold": 150, "items": [{"id": "cheese", "count": 3}, {"id": "potion_health", "count": 1}], "reputation": {"robledal": 25}},
 	},
 }
 

@@ -248,11 +248,75 @@ func build_library() -> Dictionary:
 	lib["wolf_idle"] = to_stream(_normalize(_vocal(0.4, 120.0, 100.0, [480.0, 950.0], 0.85), 0.55))
 	lib["wolf_howl"] = to_stream(_normalize(_howl(2.8), 0.7))
 	lib["bite"] = to_stream(_normalize(_bite(), 0.85))
+	# Bandidos (voces humanas sintéticas) y cerraduras
+	lib["bandit_alert"] = to_stream(_normalize(_shout(), 0.85))
+	lib["bandit_hurt"] = to_stream(_normalize(_vocal(0.26, 135.0, 98.0, [420.0, 880.0, 2350.0], 0.3), 0.8))
+	lib["bandit_death"] = to_stream(_normalize(_vocal(1.1, 145.0, 62.0, [560.0, 930.0, 2300.0], 0.42), 0.8))
+	lib["bandit_idle"] = to_stream(_normalize(_whistle(), 0.45))
+	lib["lock_pick"] = to_stream(_normalize(_lock_pick(), 0.6))
+	lib["lock_open"] = to_stream(_normalize(_lock_open(), 0.75))
+	lib["lock_break"] = to_stream(_normalize(_lock_break(), 0.75))
 	lib["wind_loop"] = to_stream(_normalize(_wind_loop(6.0), 0.35), true)
 	lib["fire_loop"] = to_stream(_normalize(_fire_loop(3.0), 0.5), true)
 	lib["cave_loop"] = to_stream(_normalize(_cave_loop(6.0), 0.3), true)
 	lib["night_loop"] = to_stream(_normalize(_night_loop(6.0), 0.3), true)
 	return lib
+
+
+## Grito de alarma de dos sílabas («¡a-llí!»): vocal abierta y luego cerrada,
+## con la entonación subiendo y cayendo.
+func _shout() -> PackedFloat32Array:
+	var a := _vocal(0.16, 175.0, 215.0, [780.0, 1250.0, 2600.0], 0.18)
+	var b2 := _vocal(0.34, 235.0, 165.0, [330.0, 2250.0, 3000.0], 0.15)
+	var out := _buf(0.52)
+	_mix_into(out, a, 0, 1.0)
+	_mix_into(out, b2, int(0.15 * RATE), 0.9)
+	_fade_edges(out)
+	return out
+
+
+## Silbido despreocupado: tres notas con portamento y vibrato.
+func _whistle() -> PackedFloat32Array:
+	var b := _buf(0.95)
+	var n := b.size()
+	var notes := [1180.0, 1490.0, 1320.0, 1320.0]
+	var ph := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var p := float(i) / float(n)
+		var seg := minf(p * 3.0, 2.999)
+		var k := int(seg)
+		var f := lerpf(notes[k], notes[k + 1], smoothstep(0.0, 0.25, seg - k)) * (1.0 + sin(TAU * 5.5 * t) * 0.012)
+		ph += f / RATE
+		var env := sin(PI * p) * (0.75 + 0.25 * sin(PI * fmod(seg, 1.0)))
+		b[i] = (sin(TAU * ph) + _rng.randf_range(-1.0, 1.0) * 0.06) * env
+	return b
+
+
+## Ganzúa: chasquidos metálicos pequeños e irregulares.
+func _lock_pick() -> PackedFloat32Array:
+	var out := _buf(0.5)
+	for k in 4:
+		var click := _knock(0.06, [2600.0 + k * 230.0, 4300.0])
+		_mix_into(out, click, int((0.04 + k * 0.1 + _rng.randf_range(0.0, 0.03)) * RATE), 0.7 - k * 0.08)
+	return out
+
+
+## Cerradura que cede: chasquido seco y golpe del pestillo.
+func _lock_open() -> PackedFloat32Array:
+	var out := _buf(0.45)
+	_mix_into(out, _knock(0.08, [3100.0, 5200.0]), 0, 0.6)
+	_mix_into(out, _knock(0.3, [420.0, 980.0, 1700.0]), int(0.07 * RATE), 1.0)
+	return out
+
+
+## Ganzúa rota: chasquido agudo y tintineo.
+func _lock_break() -> PackedFloat32Array:
+	var out := _buf(0.5)
+	_mix_into(out, _hit_metal(0.3, 1.5), 0, 0.7)
+	_mix_into(out, _knock(0.12, [5200.0, 7400.0]), int(0.02 * RATE), 0.8)
+	_mix_into(out, _knock(0.1, [3900.0, 6100.0]), int(0.22 * RATE), 0.35)
+	return out
 
 
 ## Gruñido: voz grave con aspereza (modulación de amplitud rápida).

@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/enemy_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "bandit_archer"
+display_name = "Arquera de los Cuervos"
+model = "bandit"
+weapon_model = "bow"
+has_shield = false
+max_health = 38.0
+armor = 5.0
+damage_min = 7.0
+damage_max = 11.0
+damage_type = "pierce"
+attack_range = 18.0
+attack_cooldown = 1.9
+walk_speed = 1.7
+run_speed = 4.6
+detection_range = 22.0
+fov_degrees = 150.0
+hearing_range = 7.0
+block_chance = 0.0
+stagger_threshold = 6.0
+xp_reward = 32
+gold_min = 3
+gold_max = 14
+loot_table = "bandit_archer"
+level = 1
+model_variant = 2
+ranged = true
+projectile_speed = 32.0
+flee_health = 0.25
+hit_effect = "blood"
+sound_alert = "bandit_alert"
+sound_hurt = "bandit_hurt"
+sound_death = "bandit_death"
+sound_idle = "bandit_idle"
+resist_slash = 0.0
+resist_blunt = 0.0
+resist_pierce = 0.0
+pack_call = true
+step_sound = "step_dirt"

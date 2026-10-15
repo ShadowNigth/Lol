@@ -56,6 +56,10 @@ func location_at(_x: float, _z: float) -> String:
 	return display_name
 
 
+func location_id_at(_x: float, _z: float) -> String:
+	return ""
+
+
 func biome_name(_x: int, _z: int) -> String:
 	return "Mazmorra"
 
@@ -365,10 +369,12 @@ func _populate_room(i: int) -> void:
 				for pz: int in [rect.position.y + 2, rect.end.y - 3]:
 					entities.append({"type": "pillar", "pos": Vector3(px + 0.5, FLOOR_Y, pz + 0.5), "id": rid + "/pillar_%d_%d" % [px, pz]})
 		"treasure":
-			entities.append({"type": "chest", "pos": center, "yaw": float(_rng.randi() % 4) * 90.0, "id": rid + "/chest", "loot": "dungeon"})
+			# La mitad de los cofres tienen cerradura (decidido por hash: no altera la secuencia aleatoria)
+			var lock := (20 + difficulty * 10) if absi(hash(rid)) % 2 == 0 else 0
+			entities.append({"type": "chest", "pos": center, "yaw": float(_rng.randi() % 4) * 90.0, "id": rid + "/chest", "loot": "dungeon", "lock": lock})
 			entities.append({"type": "enemy", "enemy": guards, "pos": center + Vector3(1.2, 0, 1.2), "yaw": 0.0, "id": rid + "/e0"})
 		"secret":
-			entities.append({"type": "chest", "pos": center, "yaw": 0.0, "id": rid + "/chest", "loot": "secret"})
+			entities.append({"type": "chest", "pos": center, "yaw": 0.0, "id": rid + "/chest", "loot": "secret", "lock": 45 + difficulty * 5})
 		"room":
 			var n := _rng.randi_range(0, int(def.get("max_per_room", 1 + difficulty)))
 			for k in n:

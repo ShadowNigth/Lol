@@ -356,6 +356,7 @@ func _apply_new_or_loaded_player() -> void:
 		player.gold = 25
 		if GameState.character_class == "rogue":
 			GameState.give_item(player, {"id": "arrow", "count": 30})
+			GameState.give_item(player, {"id": "lockpick", "count": 5})
 		elif GameState.character_class == "mage":
 			GameState.give_item(player, {"id": "potion_mana", "count": 2})
 		return
@@ -391,6 +392,12 @@ func _process(delta: float) -> void:
 			_current_location = loc
 			if loc != "":
 				Events.location_entered.emit(loc)
+				# Lugares con identificador: quedan descubiertos en el mapa y
+				# cuentan para los objetivos «llegar a»
+				var loc_id := generator.location_id_at(player.global_position.x, player.global_position.z)
+				if loc_id != "":
+					GameState.set_flag("known_" + loc_id)
+					QuestManager.on_area_entered(loc_id)
 	# Ambiente: viento de día, grillos de noche
 	var night := clampf(-DayNight.sun_vector(GameState.time_of_day).y * 5.0, 0.0, 1.0)
 	if _ambient_day:

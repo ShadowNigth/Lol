@@ -287,6 +287,8 @@ func _generate(tex_name: String, variant: int) -> Image:
 			_bookshelf(img)
 		"wool_red":
 			_wool(img, [_hex("7e1d1d"), _hex("8f2323"), _hex("a02a2a"), _hex("b03232")])
+		"canvas":
+			_canvas(img, variant)
 		"dungeon_brick":
 			_bricks(img, [_hex("3d3f46"), _hex("464850"), _hex("50525a"), _hex("5a5c65")], _hex("23242a"), 8, 4)
 			if variant >= 1:
@@ -706,6 +708,30 @@ func _wool(img: Image, palette: Array) -> void:
 		for x in S:
 			var t := 0.5 + (0.2 if (x + y) % 2 == 0 else -0.1) + _rng.randf_range(-0.15, 0.15)
 			img.set_pixel(x, y, _pal(palette, clampf(t, 0.0, 0.999)))
+
+
+## Lona de tienda: tejido de lino crudo con trama visible, costura y manchas;
+## la variante 1 lleva un remiendo cosido de otro tono.
+func _canvas(img: Image, variant: int) -> void:
+	var pal := [_hex("8f7f5f"), _hex("9e8d6b"), _hex("ad9c78"), _hex("bcab86")]
+	for y in S:
+		for x in S:
+			var weave := 0.08 if (x % 2 == 0) != (y % 2 == 0) else -0.04
+			var t := 0.55 + weave + _rng.randf_range(-0.1, 0.1) - (0.18 if y >= S - 2 else 0.0)
+			img.set_pixel(x, y, _pal(pal, clampf(t, 0.0, 0.999)))
+	# Costura vertical entre paños
+	var seam := _hex("6e6047")
+	for y2 in S:
+		img.set_pixel(5, y2, seam)
+		if y2 % 3 == 0:
+			img.set_pixel(6, y2, _hex("cbbb95"))
+	if variant == 1:
+		var patch := [_hex("6f5a3e"), _hex("7b6545"), _hex("86704d"), _hex("917a55")]
+		for py in range(8, 13):
+			for px in range(9, 14):
+				var edge := py == 8 or py == 12 or px == 9 or px == 13
+				img.set_pixel(px, py, _hex("4f4030") if edge and (px + py) % 2 == 0 else _pal(patch, clampf(0.5 + _rng.randf_range(-0.2, 0.2), 0.0, 0.999)))
+	_speckle(img, _hex("75684d"), 5)
 
 
 func _flagstones(img: Image) -> void:

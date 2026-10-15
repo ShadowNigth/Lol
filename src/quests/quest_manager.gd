@@ -3,6 +3,13 @@ extends RefCounted
 ## Lógica de misiones: aceptar, avanzar etapas según eventos del juego,
 ## completar y entregar recompensas. Estado en GameState.quests:
 ##   id -> {"stage": int, "progress": int, "done": bool}
+##
+## Objetivos de etapa: kill, collect, reach (lugar o mazmorra), talk (con PNJ;
+## admite "requires_flag") y flag (espera una bandera de historia, p. ej. que
+## se abra una jaula). Cada etapa puede tener "say" (lo que dice el PNJ al
+## cumplirla), "effects" ({"flags": [...]}) que se aplican al completarla y
+## "skip_if_flag" (se salta si la historia ya la dejó atrás).
+## La misión puede exigir "requires_flag"/"requires_not_flag" para ofrecerse.
 
 
 static func state(id: String) -> Dictionary:
@@ -26,6 +33,10 @@ static func can_offer(id: String) -> bool:
 	for f: String in req:
 		if GameState.reputation(f) < int(req[f]):
 			return false
+	if str(q.get("requires_flag", "")) != "" and not GameState.has_flag(str(q["requires_flag"])):
+		return false
+	if str(q.get("requires_not_flag", "")) != "" and GameState.has_flag(str(q["requires_not_flag"])):
+		return false
 	return true
 
 
@@ -36,8 +47,9 @@ static func accept(id: String) -> void:
 	var q := QuestDB.get_quest(id)
 	Events.notify.emit("Nueva misión: %s" % q["title"], "quest")
 	Audio.play_2d("quest", -3.0)
-	# Los objetivos de recoger pueden estar ya cumplidos
+	# Los objetivos de recoger (o de bandera) pueden estar ya cumplidos
 	check_collect_objectives()
+	_check_flag_objectives()
 
 
 static func current_stage(id: String) -> Dictionary:
@@ -64,14 +76,22 @@ static func stage_text(id: String) -> String:
 static func _advance(id: String) -> void:
 	var q := QuestDB.get_quest(id)
 	var s := state(id)
+	var fx: Dictionary = current_stage(id).get("effects", {})
 	s["stage"] = int(s["stage"]) + 1
 	s["progress"] = 0
+	var new_stage := int(s["stage"])
 	var stages: Array = q["stages"]
-	if int(s["stage"]) >= stages.size():
+	if new_stage >= stages.size():
 		_complete(id)
 	else:
 		Events.notify.emit("%s: %s" % [q["title"], stage_text(id)], "quest")
+	# Efectos de la etapa cumplida (banderas de historia). Pueden cumplir ya la
+	# etapa siguiente: en ese caso el avance anidado hace sus comprobaciones.
+	for f: String in fx.get("flags", []):
+		GameState.set_flag(f)
+	if new_stage < stages.size() and int(s["stage"]) == new_stage:
 		check_collect_objectives()
+		_check_flag_objectives()
 
 
 static func _complete(id: String) -> void:
@@ -120,6 +140,25 @@ static func on_area_entered(area_id: String) -> void:
 			_advance(id)
 
 
+## Bandera de historia activada: avanza las etapas que la esperaban.
+static func on_flag_set(_flag: String) -> void:
+	_check_flag_objectives()
+
+
+static func _check_flag_objectives() -> void:
+	for id: String in GameState.quests.keys():
+		if not is_active(id):
+			continue
+		var st := current_stage(id)
+		var obj: Dictionary = st.get("objective", {})
+		var skip := str(st.get("skip_if_flag", ""))
+		# Etapas que dejan de tener sentido (p. ej. la persona ya fue rescatada)
+		if skip != "" and GameState.has_flag(skip):
+			_advance(id)
+		elif str(obj.get("type", "")) == "flag" and GameState.has_flag(str(obj.get("target", ""))):
+			_advance(id)
+
+
 static func check_collect_objectives() -> void:
 	for id: String in GameState.quests.keys():
 		if not is_active(id):
@@ -129,15 +168,20 @@ static func check_collect_objectives() -> void:
 			_advance(id)
 
 
-## Hablar con un PNJ: avanza etapas "talk" dirigidas a él. Devuelve true si
-## alguna misión avanzó (para que el diálogo lo refleje).
-static func on_talk(npc_id: String) -> bool:
-	var advanced := false
+## Hablar con un PNJ: avanza etapas "talk" dirigidas a él. Devuelve una
+## entrada por misión que avanzó: {"quest", "say" (texto de la etapa cumplida,
+## puede estar vacío) y "completed"} para que el diálogo lo refleje.
+static func on_talk(npc_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	for id: String in GameState.quests.keys():
 		if not is_active(id):
 			continue
-		var obj: Dictionary = current_stage(id).get("objective", {})
-		if str(obj.get("type", "")) == "talk" and str(obj.get("target", "")) == npc_id:
-			_advance(id)
-			advanced = true
-	return advanced
+		var st := current_stage(id)
+		var obj: Dictionary = st.get("objective", {})
+		if str(obj.get("type", "")) != "talk" or str(obj.get("target", "")) != npc_id:
+			continue
+		if str(obj.get("requires_flag", "")) != "" and not GameState.has_flag(str(obj["requires_flag"])):
+			continue
+		_advance(id)
+		out.append({"quest": id, "say": str(st.get("say", "")), "completed": is_done(id)})
+	return out

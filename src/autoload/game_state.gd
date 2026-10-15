@@ -21,7 +21,7 @@ var character_class: String = "warrior"
 var time_of_day: float = 15.5       # horas (0-24)
 var day: int = 1
 var playtime: float = 0.0
-var world_changes: Dictionary = {"looted": {}, "killed": {}, "opened": {}, "dropped": []}
+var world_changes: Dictionary = {"looted": {}, "killed": {}, "opened": {}, "dropped": [], "flags": {}}
 var inventory: Array[Dictionary] = []   # {"id": String, "count": int}
 var equipment: Dictionary = {}          # ranura -> id de objeto (ver Equipment)
 var pending_load: Dictionary = {}       # datos a aplicar al entrar en la escena de juego
@@ -80,7 +80,7 @@ func start_new_game(config: Dictionary) -> void:
 	time_of_day = 15.5
 	day = 1
 	playtime = 0.0
-	world_changes = {"looted": {}, "killed": {}, "opened": {}, "dropped": []}
+	world_changes = {"looted": {}, "killed": {}, "opened": {}, "dropped": [], "flags": {}}
 	current_area = {"type": "overworld"}
 	quests = {}
 	reputations = {}
@@ -139,6 +139,23 @@ func is_killed(id: String, respawn_days: int = 0) -> bool:
 		(world_changes["looted"] as Dictionary).erase(id)
 		return false
 	return true
+
+
+## Banderas de historia (lugares descubiertos, prisioneros liberados...). Se
+## guardan con la partida; las partidas antiguas empiezan sin ninguna.
+func set_flag(flag: String, value: Variant = true) -> void:
+	if not world_changes.has("flags") or not (world_changes["flags"] is Dictionary):
+		world_changes["flags"] = {}
+	var flags := world_changes["flags"] as Dictionary
+	if flags.has(flag) and typeof(flags[flag]) == typeof(value) and flags[flag] == value:
+		return
+	flags[flag] = value
+	QuestManager.on_flag_set(flag)
+
+
+func has_flag(flag: String) -> bool:
+	var flags: Variant = world_changes.get("flags", {})
+	return flags is Dictionary and (flags as Dictionary).has(flag) and bool((flags as Dictionary)[flag])
 
 
 func set_opened(id: String, opened: bool) -> void:
@@ -461,7 +478,8 @@ func load_game(slot: String) -> String:
 	equipment = Equipment.sanitize(d.get("equipment", {"offhand": "shield_wood"}))
 	var wc: Dictionary = d["world_changes"]
 	world_changes = {"looted": wc.get("looted", {}), "killed": wc.get("killed", {}), "opened": wc.get("opened", {}),
-			"dropped": wc.get("dropped", []) if wc.get("dropped", []) is Array else []}
+			"dropped": wc.get("dropped", []) if wc.get("dropped", []) is Array else [],
+			"flags": wc.get("flags", {}) if wc.get("flags", {}) is Dictionary else {}}
 	var area: Variant = d.get("area", {"type": "overworld"})
 	current_area = (area as Dictionary).duplicate(true) if area is Dictionary else {"type": "overworld"}
 	if str(current_area.get("type", "overworld")) not in ["overworld", "dungeon"]:

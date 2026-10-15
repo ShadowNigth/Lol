@@ -15,6 +15,15 @@ const TABLES := {
 	"boss_barrow": [["helm_iron", 1.0, 1, 1], ["greaves_iron", 0.6, 1, 1], ["potion_health", 1.0, 2, 3], ["silver_ring", 0.7, 1, 2], ["old_coin", 1.0, 10, 18]],
 	"boss_den": [["potion_health", 1.0, 1, 2], ["wolf_pelt", 1.0, 2, 3], ["gauntlets_iron", 0.5, 1, 1], ["old_coin", 1.0, 4, 9], ["weapon_bow", 0.3, 1, 1]],
 	"ruins": [["potion_health", 0.9, 1, 2], ["old_coin", 0.8, 2, 5], ["book_velmar", 1.0, 1, 1], ["rusty_key", 1.0, 1, 1], ["potion_mana", 0.4, 1, 1]],
+	# Bandidos: lo que lleva encima un salteador (y su jefe, con la llave del campamento)
+	"bandit": [["lockpick", 0.45, 1, 2], ["bread", 0.35, 1, 1], ["cheese", 0.25, 1, 1], ["potion_health", 0.2, 1, 1], ["weapon_dagger", 0.08, 1, 1],
+			["hood_leather", 0.06, 1, 1], ["gloves_leather", 0.06, 1, 1], ["silver_ring", 0.04, 1, 1]],
+	"bandit_archer": [["arrow", 0.9, 4, 10], ["lockpick", 0.3, 1, 1], ["bread", 0.3, 1, 1], ["potion_health", 0.15, 1, 1], ["weapon_bow", 0.05, 1, 1]],
+	"bandit_chief": [["key_cuervos", 1.0, 1, 1], ["nota_cuervos", 1.0, 1, 1], ["potion_health", 1.0, 1, 2], ["lockpick", 1.0, 2, 3], ["silver_ring", 0.5, 1, 1],
+			["helm_iron", 0.35, 1, 1]],
+	# Arcón del jefe: el fruto de meses de asaltos en el camino
+	"bandit_stash": [["silver_ring", 0.9, 1, 2], ["potion_health", 1.0, 1, 2], ["potion_stamina", 0.7, 1, 1], ["cheese", 1.0, 2, 4], ["arrow", 0.8, 10, 20],
+			["armor_leather", 0.35, 1, 1], ["weapon_axe", 0.25, 1, 1], ["tunic_wool", 0.5, 1, 1]],
 }
 
 
@@ -42,4 +51,6 @@ static func gold_for(table: String, rng: RandomNumberGenerator) -> int:
 			return rng.randi_range(60, 120)
 		"boss":
 			return rng.randi_range(150, 250)
+		"bandit_stash":
+			return rng.randi_range(120, 200)
 	return rng.randi_range(1, 10)

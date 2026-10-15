@@ -123,6 +123,10 @@ func location_at(x: float, z: float) -> String:
 	return planner.location_at(x, z)
 
 
+func location_id_at(x: float, z: float) -> String:
+	return planner.location_id_at(x, z)
+
+
 func spawn_point() -> Vector3:
 	return planner.spawn_point
 

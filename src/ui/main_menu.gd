@@ -212,7 +212,7 @@ func _make_new_game() -> Control:
 	var classes := ["warrior", "rogue", "mage"]
 	var descs := [
 		"Guerrero: gran fuerza y resistencia. Empieza con espada larga y escudo. Domina las espadas, el bloqueo y las armas pesadas.",
-		"Explorador: ágil y afortunado. Empieza con daga y espada. Destaca en sigilo, acrobacias y ataques furtivos.",
+		"Explorador: ágil y afortunado. Empieza con daga, espada, arco y cinco ganzúas. Destaca en sigilo, acrobacias y cerraduras.",
 		"Mago de batalla: inteligencia y voluntad elevadas, más magia. Empieza con una maza. (La magia ofensiva llega en una fase posterior).",
 	]
 	var update_desc := func(i: int) -> void:

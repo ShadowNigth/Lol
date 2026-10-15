@@ -7,6 +7,8 @@ extends Resource
 @export var model: String = "skeleton_warrior"
 @export var weapon_model: String = "rusty_sword"
 @export var has_shield: bool = true
+## Modelo del escudo (shield = madera, shield_iron = hierro).
+@export var shield_model: String = "shield"
 @export var max_health: float = 55.0
 @export var armor: float = 10.0
 @export var damage_min: float = 7.0
@@ -47,7 +49,8 @@ extends Resource
 @export var projectile_speed: float = 30.0
 
 @export_group("Cuerpo y comportamiento")
-## Tipo de cuerpo: "humanoid" (esqueletos) o "quadruped" (lobos).
+## Tipo de cuerpo: "humanoid" (esqueletos y bandidos) o "quadruped" (lobos).
+## El aspecto del humanoide lo decide `model`: "skeleton_warrior" o "bandit".
 @export_enum("humanoid", "quadruped") var body: String = "humanoid"
 ## Altura de los ojos (línea de visión).
 @export var eye_height: float = 1.6

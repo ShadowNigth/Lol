@@ -62,6 +62,8 @@ const CHISELED := 48
 const SPRUCE_PLANKS := 49
 const IRON_BLOCK := 50
 const COBWEB := 51
+const CANVAS := 52
+const CANVAS_SLAB := 53
 const COBBLE_SLAB := 60
 const PLANK_SLAB := 61
 const ROOF_SLAB := 62
@@ -77,7 +79,8 @@ const COBBLE_STAIRS := 78
 const BRICK_STAIRS := 82
 const THATCH_STAIRS := 86
 const DARK_STAIRS := 90
-const MAX_ID := 96
+const CANVAS_STAIRS := 96
+const MAX_ID := 100
 
 # --- Texturas (nombre, variantes) en el orden de capas del Texture2DArray -----
 const TEXTURES := [
@@ -93,7 +96,7 @@ const TEXTURES := [
 	["clay", 1], ["sandstone_side", 1], ["sandstone_top", 1], ["ice", 1], ["mud", 2],
 	["dead_bush", 1], ["mushroom", 1], ["bookshelf", 1], ["wool_red", 1],
 	["dungeon_brick", 3], ["dungeon_floor", 2], ["crop", 1], ["reeds", 1],
-	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1],
+	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1], ["canvas", 2],
 ]
 
 # --- Tablas (rellenadas en _static_init) ------------------------------------
@@ -191,6 +194,7 @@ static func _static_init() -> void:
 	_cube(MOSS_STONE, "Piedra musgosa", "moss_stone", "moss_stone", "moss_stone", Sound.STONE)
 	_cube(CHISELED, "Piedra tallada", "chiseled", "chiseled", "chiseled", Sound.STONE)
 	_cube(IRON_BLOCK, "Hierro", "iron_block", "iron_block", "iron_block", Sound.STONE)
+	_cube(CANVAS, "Lona", "canvas", "canvas", "canvas", Sound.GRASS)
 	_define(FENCE, "Valla", Shape.FENCE, Layer.OPAQUE, false, true, "planks", "planks", "planks", Sound.WOOD)
 
 	_slab(COBBLE_SLAB, "Losa de adoquín", "cobble", Sound.STONE, false)
@@ -200,6 +204,7 @@ static func _static_init() -> void:
 	_slab(THATCH_SLAB, "Losa de paja", "thatch", Sound.GRASS, false)
 	_slab(PLANK_SLAB_TOP, "Losa de madera (alta)", "planks", Sound.WOOD, true)
 	_slab(BRICK_SLAB_TOP, "Losa de sillería (alta)", "stone_brick", Sound.STONE, true)
+	_slab(CANVAS_SLAB, "Lona (remate)", "canvas", Sound.GRASS, false)
 
 	_stairs(ROOF_STAIRS, "Escalera de tejas", "roof_tile", Sound.STONE)
 	_stairs(PLANK_STAIRS, "Escalera de madera", "planks", Sound.WOOD)
@@ -207,6 +212,7 @@ static func _static_init() -> void:
 	_stairs(BRICK_STAIRS, "Escalera de sillería", "stone_brick", Sound.STONE)
 	_stairs(THATCH_STAIRS, "Escalera de paja", "thatch", Sound.GRASS)
 	_stairs(DARK_STAIRS, "Escalera oscura", "dark_planks", Sound.WOOD)
+	_stairs(CANVAS_STAIRS, "Faldón de lona", "canvas", Sound.GRASS)
 
 
 static func _define(id: int, display_name: String, shp: int, lyr: int, is_opaque: bool, is_solid: bool,

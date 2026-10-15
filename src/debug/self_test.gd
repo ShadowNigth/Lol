@@ -77,7 +77,7 @@ func _shot(label: String) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_total += delta
-	if _total > 330.0:
+	if _total > 420.0:
 		_fail("Tiempo de prueba agotado en la etapa '%s'" % _stage)
 		_finish()
 		return
@@ -513,9 +513,122 @@ func _process(delta: float) -> void:
 				_note("Fuera de la cueva a %.1f m de la entrada" % p.global_position.distance_to(_return_ref))
 				if _game().get("generator") is DungeonGenerator:
 					_fail("Sigue en la cueva tras salir")
-				_finish()
+				var w5 := _game().get("world") as VoxelWorld
+				p.teleport(Vector3(44.5, w5.generator.height_at(44, 0) + 1.2, 0.5), 90.0)
+				_next("bandit_spawn")
 			elif _t > 60.0:
 				_fail("No se pudo salir de la cueva")
+				_finish()
+		"bandit_spawn":
+			if _t > 2.0:
+				var w6 := _game().get("world") as VoxelWorld
+				_enemy = (_game().get("spawner") as Node).call("_spawn_enemy", {"type": "enemy", "enemy": "bandit",
+						"id": "selftest/bandit", "pos": Vector3(37.5, w6.generator.height_at(37, 0) + 1.1, 0.5), "yaw": -90.0})
+				if _enemy == null:
+					_fail("No se pudo crear el bandido de prueba")
+					_finish()
+					return
+				p.stats.heal(p.stats.max_health)
+				_player_hp_start = p.stats.health
+				_hits_start = p.stat_hits
+				_attacks = 0
+				_next("bandit_fight")
+		"bandit_fight":
+			var bf := _enemy as Enemy
+			if not is_instance_valid(bf):
+				_fail("El bandido desapareció")
+				_finish()
+				return
+			if p.is_dead:
+				_fail("El jugador murió contra el bandido (vida del bandido %.0f/%.0f)" % [bf.stats.health, bf.stats.max_health])
+				_finish()
+				return
+			var tb := bf.global_position - p.global_position
+			tb.y = 0.0
+			p._yaw = atan2(-tb.x, -tb.z)
+			p._pitch = deg_to_rad(-8.0)
+			if tb.length() > 1.9:
+				Input.action_press("move_forward")
+			else:
+				Input.action_release("move_forward")
+			if fmod(_t, 0.7) < delta and tb.length() < 2.5:
+				Input.action_press("attack")
+				_attacks += 1
+			else:
+				Input.action_release("attack")
+			if _t > 1.5 and _t < 1.6:
+				_shot("bandit")
+			if p.stats.health < p.stats.max_health * 0.4:
+				p.stats.heal(40.0)
+			if not bf.is_alive():
+				Input.action_release("move_forward")
+				Input.action_release("attack")
+				var body := bf.get_node_or_null("Model/Skeleton3D/Body") as MeshInstance3D
+				_note("Bandido (%s, modelo '%s', malla %s) derrotado tras %d ataques en %.1f s; impactos %d; bloqueos %d; ¿huyó? %s; salud del jugador %.0f -> %.0f" % [
+						bf.data.display_name, bf.data.model, body != null and body.mesh != null, _attacks, _t, p.stat_hits - _hits_start,
+						bf.stat_blocks, bf._fled, _player_hp_start, p.stats.health])
+				if bf.data.model != "bandit" or body == null:
+					_fail("El bandido no se construyó con su modelo humano")
+				var picks0 := GameState.item_count("lockpick")
+				var gold0 := p.gold
+				bf.interact(p)
+				_note("Botín del bandido: oro %d -> %d, ganzúas %d -> %d" % [gold0, p.gold, picks0, GameState.item_count("lockpick")])
+				_next("bandit_quest")
+			elif _t > 70.0:
+				_fail("Combate con el bandido demasiado largo: vida %.0f/%.0f, impactos %d" % [bf.stats.health, bf.stats.max_health, p.stat_hits - _hits_start])
+				_finish()
+		"bandit_quest":
+			if _t > 0.5:
+				_test_bandit_quest_start(p)
+		"camp_arrive":
+			var w7 := _game().get("world") as VoxelWorld
+			# Los bandidos ya pueden atacar mientras carga: que no muera esperando
+			if p.stats.health < p.stats.max_health * 0.5:
+				p.stats.heal(60.0)
+			if _t > 3.0 and w7.is_chunk_loaded_at(p.global_position) and w7.pending_task_count() == 0:
+				_test_camp(p)
+			elif _t > 45.0:
+				_fail("El campamento no terminó de cargar")
+				_finish()
+		"lina_leaving":
+			if _t > 3.0:
+				var lina := _find_npc("lina")
+				var moved := 0.0
+				if lina:
+					moved = lina.global_position.distance_to(get_meta("lina_pos"))
+				_note("Lina libre: ¿se marcha? %s, recorrido %.1f m (o ya se perdió de vista: %s)" % [lina != null and lina._leaving, moved, lina == null])
+				if lina != null and not lina._leaving:
+					_fail("Lina no se marcha tras ser liberada")
+				_goto_site("robledal")
+				_next("lina_home")
+		"lina_home":
+			var w8 := _game().get("world") as VoxelWorld
+			if _t > 3.0 and w8.is_chunk_loaded_at(p.global_position) and w8.pending_task_count() == 0:
+				var lina2 := _find_npc("lina")
+				_note("Robledal: Lina en casa: %s%s" % [lina2 != null, (" (cautiva: %s)" % lina2.is_captive()) if lina2 else ""])
+				if lina2 == null or lina2.is_captive():
+					_fail("Lina no aparece en Robledal tras el rescate")
+				var gold1 := p.gold
+				var rep0 := GameState.reputation("robledal")
+				var res := QuestManager.on_talk("bram")
+				_note("Bram: %s · misión completada %s · oro %d -> %d · reputación Robledal %d -> %d" % [
+						str(res[0].get("say", "")).substr(0, 40) + "..." if not res.is_empty() else "(nada)", QuestManager.is_done("hija_bram"),
+						gold1, p.gold, rep0, GameState.reputation("robledal")])
+				if not QuestManager.is_done("hija_bram") or p.gold < gold1 + 150:
+					_fail("La misión de la hija de Bram no se completó con su recompensa")
+				# Las banderas de historia viajan en la partida guardada
+				GameState.save_game("autoprueba")
+				var f := FileAccess.open(GameState.SAVE_DIR.path_join("autoprueba.json"), FileAccess.READ)
+				var saved: Variant = JSON.parse_string(f.get_as_text()) if f else null
+				var flags: Dictionary = {}
+				if saved is Dictionary:
+					flags = ((saved as Dictionary).get("world_changes", {}) as Dictionary).get("flags", {})
+				_note("Banderas guardadas: %s" % [flags.keys()])
+				if not flags.has("lina_rescued") or not flags.has("known_bandit_camp"):
+					_fail("Las banderas de historia no se guardaron")
+				_finish()
+			elif _t > 40.0:
+				_fail("Robledal no terminó de cargar")
 				_finish()
 		"reload":
 			if p and _game().has_method("is_world_ready") and bool(_game().call("is_world_ready")) and _t > 1.0:
@@ -692,6 +805,163 @@ func _test_bounty(p: Player) -> void:
 	_note("Encargo cobrado: %s, oro %d -> %d, reputación Robledal %d" % [QuestManager.is_done(qid), gold0, p.gold, GameState.reputation("robledal")])
 	if not QuestManager.is_done(qid) or p.gold <= gold0:
 		_fail("El encargo no se pudo completar y cobrar")
+
+
+func _find_npc(npc_id: String) -> NPC:
+	for n: Node in get_tree().get_nodes_in_group("npcs"):
+		var npc := n as NPC
+		if npc and npc.npc_id == npc_id and not npc.is_queued_for_deletion():
+			return npc
+	return null
+
+
+func _camp_structure() -> Dictionary:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	for st: Dictionary in wg.planner.structures:
+		if str(st.get("id", "")) == "bandit_camp/camp":
+			return st
+	return {}
+
+
+## Misión «La hija de Bram»: aceptar, preguntar en la posada (descubre el
+## campamento en el mapa) y viajar a la puerta del campamento.
+func _test_bandit_quest_start(p: Player) -> void:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	var camp: Dictionary = {}
+	for site: Dictionary in wg.planner.sites:
+		if site["id"] == "bandit_camp":
+			camp = site
+	if camp.is_empty():
+		_fail("No se planificó el campamento de bandidos")
+		_finish()
+		return
+	var cp: Vector2 = camp["pos"]
+	_note("Campamento de los Cuervos en %s (%s de Hojarrubia), altura del suelo %d, ¿conocido? %s" % [cp, StructurePlanner.direction_text(Vector2.ZERO, cp),
+			wg.height_at(int(cp.x), int(cp.y)), StructurePlanner.site_known(camp)])
+	if StructurePlanner.site_known(camp):
+		_fail("El campamento aparece en el mapa antes de descubrirlo")
+	if not QuestManager.can_offer("hija_bram"):
+		_fail("Bram no ofrece la misión de su hija")
+	QuestManager.accept("hija_bram")
+	var res := QuestManager.on_talk("ulrico")
+	var said := DialogueUI.resolve_text(str(res[0].get("say", "")) if not res.is_empty() else "", Vector3(-200, 0, 0))
+	_note("Ulrico: «%s...» · etapa: %s · ¿campamento en el mapa? %s" % [said.substr(maxi(said.find("Edda"), 0), 70), QuestManager.stage_text("hija_bram"),
+			StructurePlanner.site_known(camp)])
+	if res.is_empty() or not StructurePlanner.site_known(camp) or said.find("{dir:") >= 0 or said.find(" m al ") < 0:
+		_fail("Preguntar a Ulrico no reveló el campamento o el texto no se resolvió")
+	var st := _camp_structure()
+	var gate := ChunkWriter.local_to_world(st["origin"], int(st["w"]), int(st["d"]), int(st["rot"]), Vector3(12.5, 0, -1.0))
+	var out := ChunkWriter.local_to_world(st["origin"], int(st["w"]), int(st["d"]), int(st["rot"]), Vector3(12.5, 0, -6.0))
+	p.stats.heal(p.stats.max_health)
+	p.teleport(Vector3(gate.x, wg.height_at(int(floor(gate.x)), int(floor(gate.z))) + 1.2, gate.z), 0.0)
+	var look := gate - out
+	p._yaw = atan2(-look.x, -look.z)
+	_next("camp_arrive")
+
+
+## En el campamento: llegada (objetivo «llegar a»), bandidos, jaula con Lina,
+## ganzúas, diálogo de rescate y arcón del jefe abierto con su llave.
+func _test_camp(p: Player) -> void:
+	var st := _camp_structure()
+	var center := ChunkWriter.local_to_world(st["origin"], int(st["w"]), int(st["d"]), int(st["rot"]), Vector3(12.5, 0, 12.5))
+	_note("Llegada al campamento: lugar '%s', etapa: %s" % [_game().call("current_location_name"), QuestManager.stage_text("hija_bram")])
+	if int(GameState.quests.get("hija_bram", {}).get("stage", 0)) < 2:
+		_fail("Llegar al campamento no hizo avanzar la misión")
+	var kinds := {}
+	var chief: Enemy = null
+	var bandits: Array[Enemy] = []
+	for n: Node in get_tree().get_nodes_in_group("enemies"):
+		var e := n as Enemy
+		if e and e.data.model == "bandit" and e.is_alive() and Vector2(e.global_position.x - center.x, e.global_position.z - center.z).length() < 16.0:
+			kinds[e.data.id] = int(kinds.get(e.data.id, 0)) + 1
+			bandits.append(e)
+			if e.data.is_boss:
+				chief = e
+	var archer_y := -1.0
+	for e2: Enemy in bandits:
+		if e2.data.id == "bandit_archer":
+			archer_y = e2.global_position.y - center.y
+	_note("Bandidos en el campamento: %s · arquera a %.1f m sobre el suelo (torre)" % [kinds, archer_y])
+	if chief == null or not kinds.has("bandit") or not kinds.has("bandit_archer"):
+		_fail("Faltan bandidos en el campamento")
+	if archer_y < 3.5 or archer_y > 4.6:
+		_fail("La arquera no está en la plataforma de la torre de vigía (%.1f m)" % archer_y)
+	var cage: Cage = null
+	var stash: Chest = null
+	var fire := false
+	for n2: Node in (_game().get("spawner") as Node).get_children():
+		if n2 is Cage:
+			cage = n2
+		elif n2 is Chest and (n2 as Chest).entity_id == "bandit_camp/camp/stash":
+			stash = n2
+		elif n2.get_child_count() > 0 and n2 is StaticBody3D:
+			for ch: Node in n2.get_children():
+				if ch is TorchLight:
+					fire = true
+	var lina := _find_npc("lina")
+	_note("Jaula: %s · Lina dentro: %s (encerrada %s) · arcón con cerradura: %s · hoguera encendida: %s" % [cage != null,
+			lina != null and cage != null and lina.global_position.distance_to(cage.global_position) < 1.2, lina.is_caged() if lina else false,
+			stash.is_locked() if stash else false, fire])
+	if cage == null or lina == null or not lina.is_caged() or stash == null or not stash.is_locked():
+		_fail("El campamento no tiene la jaula con Lina o el arcón cerrado")
+		_finish()
+		return
+	_shot("camp")
+	# Ganzúas: intentos contra la cerradura difícil del arcón (contabilidad de roturas)
+	GameState.give_item(p, {"id": "lockpick", "count": 12})
+	var picks0 := GameState.item_count("lockpick")
+	var broke := 0
+	var results: Array[String] = []
+	for i in 8:
+		if not stash.is_locked():
+			break
+		var r := LockPicking.try_open(p, stash.entity_id, stash.lock_level, "", stash.global_position)
+		results.append(r)
+		if r == "broke":
+			broke += 1
+	_note("Arcón (difícil, %d %% de éxito con Ganzúas %d): %s · ganzúas %d -> %d" % [int(LockPicking.chance(p.stats, 60) * 100.0), p.stats.skill("lockpick"),
+			results, picks0, GameState.item_count("lockpick")])
+	if GameState.item_count("lockpick") != picks0 - broke:
+		_fail("Las ganzúas rotas no se descontaron bien")
+	# Jaula: con mucha habilidad se fuerza enseguida
+	var skill0 := p.stats.skill("lockpick")
+	p.stats.skills["lockpick"] = 90
+	var xp0 := float(p.stats.skill_xp["lockpick"])
+	var tries := 0
+	while not cage.opened and tries < 10 and GameState.item_count("lockpick") > 0:
+		cage.interact(p)
+		tries += 1
+	var trained := float(p.stats.skill_xp["lockpick"]) > xp0 or p.stats.skill("lockpick") > 90
+	p.stats.skills["lockpick"] = skill0
+	_note("Jaula forzada en %d intento(s): abierta %s, bandera %s, entrenó Ganzúas %s · etapa: %s" % [tries, cage.opened,
+			GameState.has_flag("jaula_cuervos_abierta"), trained, QuestManager.stage_text("hija_bram")])
+	if not cage.opened or not GameState.has_flag("jaula_cuervos_abierta") or int(GameState.quests["hija_bram"]["stage"]) != 3:
+		_fail("Forzar la jaula no la abrió o no avanzó la misión")
+	# Los bandidos caen (daño real a través de take_hit) y el jefe lleva la llave
+	for e3: Enemy in bandits:
+		e3.take_hit(9999.0, {"damage_type": "blunt"})
+	var key0 := GameState.item_count("key_cuervos")
+	if chief:
+		chief.interact(p)
+	_note("Garra registrado: llave de los Cuervos %d -> %d, nota %d" % [key0, GameState.item_count("key_cuervos"), GameState.item_count("nota_cuervos")])
+	if GameState.item_count("key_cuervos") < 1:
+		_fail("El jefe de los bandidos no llevaba la llave")
+	var gold0 := p.gold
+	stash.interact(p)
+	_note("Arcón abierto con la llave: %s, oro %d -> %d" % [not stash.is_locked(), gold0, p.gold])
+	if stash.is_locked() or p.gold <= gold0:
+		_fail("La llave no abrió el arcón del jefe")
+	# Hablar con Lina: el diálogo real (DialogueUI) hace avanzar la misión
+	_game().call("open_dialogue", lina)
+	var dlg := _game().get("_dialogue") as DialogueUI
+	var text := dlg._text.text if dlg else ""
+	_note("Lina: «%s...» · etapa: %s · bandera de rescate: %s" % [text.substr(0, 60), QuestManager.stage_text("hija_bram"), GameState.has_flag("lina_rescued")])
+	if not GameState.has_flag("lina_rescued") or int(GameState.quests["hija_bram"]["stage"]) != 4:
+		_fail("Hablar con Lina no la rescató")
+	if dlg:
+		dlg.close()
+	set_meta("lina_pos", lina.global_position)
+	_next("lina_leaving")
 
 
 ## Lleva al jugador a la plaza de un lugar de la región.

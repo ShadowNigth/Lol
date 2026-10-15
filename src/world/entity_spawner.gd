@@ -8,7 +8,10 @@ var player: Player
 var _by_chunk: Dictionary = {}   # Vector2i -> Array[Node]
 var _enemy_data_cache: Dictionary = {}
 
-const STATIC_PROPS := ["barrel", "crate", "table", "chair", "bed", "anvil", "bucket", "goods", "hay_cart", "banner", "sign"]
+const STATIC_PROPS := ["barrel", "crate", "table", "chair", "bed", "anvil", "bucket", "goods", "hay_cart", "banner", "sign",
+		"bedroll", "log_seat", "sack"]
+## Props decorativos que no bloquean el paso.
+const NO_COLLISION_PROPS := ["banner", "sign", "bones", "bedroll"]
 
 
 func setup(voxel_world: VoxelWorld, p: Player) -> void:
@@ -52,6 +55,14 @@ func _on_chunk_unloaded(coord: Vector2i) -> void:
 
 
 func _spawn(e: Dictionary) -> Node:
+	# Apariciones condicionadas por la historia (p. ej. la prisionera rescatada
+	# deja la jaula y aparece en su aldea)
+	var req := str(e.get("requires_flag", ""))
+	if req != "" and not GameState.has_flag(req):
+		return null
+	var unless := str(e.get("unless_flag", ""))
+	if unless != "" and GameState.has_flag(unless):
+		return null
 	var type := str(e.get("type", ""))
 	var pos: Vector3 = e.get("pos", Vector3.ZERO)
 	var yaw := deg_to_rad(float(e.get("yaw", 0.0)))
@@ -79,7 +90,7 @@ func _spawn(e: Dictionary) -> Node:
 			return door
 		"chest":
 			var chest := Chest.new()
-			chest.setup(id, str(e.get("loot", "home")))
+			chest.setup(id, str(e.get("loot", "home")), int(e.get("lock", 0)), str(e.get("key", "")))
 			add_child(chest)
 			chest.global_position = pos
 			chest.rotation.y = yaw
@@ -143,6 +154,32 @@ func _spawn(e: Dictionary) -> Node:
 			return f
 		"smoke":
 			return _spawn_smoke(pos)
+		"campfire":
+			var cf := _spawn_static_prop("campfire", pos, yaw, e)
+			for k in 4:
+				var flame := MeshInstance3D.new()
+				flame.mesh = world.flame_mesh
+				var a := TAU * k / 4.0 + 0.3
+				flame.position = Vector3(cos(a) * 0.12, 0.3 + (k % 2) * 0.12, sin(a) * 0.12)
+				flame.scale = Vector3.ONE * (2.2 if k % 2 == 0 else 1.7)
+				cf.add_child(flame)
+			var cl := TorchLight.new()
+			cl.position = Vector3(0, 0.9, 0)
+			cl.omni_range = 11.0
+			cl.base_energy = 2.2
+			cl.light_color = Color(1.0, 0.58, 0.28)
+			cf.add_child(cl)
+			var smoke := _spawn_smoke(pos + Vector3(0, 1.0, 0))
+			smoke.reparent(cf)
+			Audio.make_loop_player_3d("fire_loop", cf, -8.0, 14.0)
+			return cf
+		"cage":
+			var cage := Cage.new()
+			cage.setup(id, int(e.get("lock", 45)), str(e.get("key", "")), str(e.get("flag", "")), str(e.get("captive", "")))
+			add_child(cage)
+			cage.global_position = pos
+			cage.rotation.y = yaw
+			return cage
 		"dungeon_gate":
 			var g := DungeonProps.Gate.new()
 			g.setup(id, str(e.get("locked_key", "")), str(e.get("style", "portcullis")))
@@ -216,7 +253,7 @@ func _spawn_static_prop(type: String, pos: Vector3, yaw: float, e: Dictionary) -
 	mi.mesh = ModelLibrary.prop_mesh(type, e)
 	body.add_child(mi)
 	var bounds := ModelLibrary.prop_bounds(type, e)
-	if type in ["banner", "sign", "bones"]:
+	if type in NO_COLLISION_PROPS:
 		return body
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
@@ -316,8 +353,14 @@ func find_free_spot(pos: Vector3, radius: float, height: float) -> Vector3:
 			offsets.append(Vector3(cos(a) * r, 0, sin(a) * r))
 	for off in offsets:
 		var probe := pos + off
-		# Suelo bajo el punto (desde un poco más arriba)
-		var q := PhysicsRayQueryParameters3D.create(probe + Vector3(0, 2.5, 0), probe + Vector3(0, -4.0, 0), 1)
+		# Suelo bajo el punto (desde un poco más arriba). Si hay un techo encima
+		# (torre de vigía, tienda, interior bajo) se sondea desde debajo de él,
+		# para no colocar al actor sobre el tejado.
+		var top := probe + Vector3(0, 2.5, 0)
+		var up := space.intersect_ray(PhysicsRayQueryParameters3D.create(probe + Vector3(0, 0.3, 0), top, 1))
+		if not up.is_empty():
+			top = (up["position"] as Vector3) - Vector3(0, 0.05, 0)
+		var q := PhysicsRayQueryParameters3D.create(top, probe + Vector3(0, -4.0, 0), 1)
 		var hit := space.intersect_ray(q)
 		if hit.is_empty():
 			continue

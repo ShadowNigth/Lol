@@ -69,9 +69,22 @@ ejecutarse sin GPU en este entorno. La lógica (física, IA, guardado, etc.) es 
   túnica con ribete; manos desnudas, guantes de cuero o guanteletes de láminas; escudo redondo de
   madera y escudo de cometa de hierro.
 
+- **Bandidos humanos** (los Cuervos): modelo voxel humano ampliado con capucha con visera, embozo
+  de tela, cabeza rapada, gorro de hierro con nasal, jubón de cuero tachonado con hombreras,
+  brazales, carcaj con plumas y cuello de piel; cuatro tipos con su propia arma y aspecto
+  (salteador con espada y escudo, matón con hacha, arquera, y el jefe Garra con maza, escudo de
+  hierro, peto y capa) y cara/colores distintos por individuo. Usan el rig humanoide con todas sus
+  animaciones (alerta, dos ataques, disparo, bloqueo, golpe, aturdimiento, muerte), sangre al
+  recibir golpes y voces sintetizadas (grito de alarma de dos sílabas, quejidos, estertor y un
+  silbido despreocupado cuando están tranquilos).
+- Animaciones nuevas del rig humanoide: **prisionera** (cabizbaja, muñecas atadas, cambia el peso de
+  pierna y levanta la vista) y **alegría** (brazos en alto y saltito al verse libre).
+- Bloques de **lona** (cubo, remate y faldón en escalera) con textura procedural de tejido y
+  remiendo; modelos de hoguera, jaula con puerta articulada, petate y tronco-asiento.
+
 **Falta**
-- Más criaturas (arañas, bandidos humanos) y armadura visible en el modelo del cuerpo de los PNJ
-  según su equipo (ahora se define por su apariencia).
+- Más criaturas (arañas) y armadura visible en el modelo del cuerpo de los PNJ según su equipo
+  (ahora se define por su apariencia).
 - Volumetría/AO de pantalla no disponibles en el renderizador Compatibility (se usa AO por vértice).
 
 ## Fase 3 — Región procedural · **HECHA (región inicial)**
@@ -115,6 +128,15 @@ un yelmo (18,9 → 25,3), que 20 de daño cortante quedan en 16 y 20 de fuego si
 cota por la túnica (+15 de magia, 10 % de resistencia al fuego, la cota vuelve al inventario),
 quitar y volver a poner el escudo y que todo se conserva al guardar y cargar.
 
+- **Cerraduras y ganzúas**: cofres y jaulas pueden tener cerradura de cinco niveles (muy sencilla a
+  muy difícil). Se abren con su llave o forzándolas: la probabilidad es 45 % + 1,5 % por punto de
+  la habilidad *Ganzúas* sobre la dificultad, más agilidad y suerte (entre 3 % y 95 %); al fallar,
+  la ganzúa se rompe la mitad de las veces. Acertar entrena mucho la habilidad y fallar, poco. El
+  aviso en pantalla muestra la dificultad, la probabilidad y las ganzúas que quedan; el estado de
+  cada cerradura se guarda. La mitad de los cofres de tesoro de las mazmorras y todos los de las
+  salas secretas están cerrados. El Explorador empieza con 5 ganzúas; se compran en la herrería y
+  las llevan encima muchos bandidos.
+
 **Falta**: piezas encantadas y desgaste/reparación del equipo.
 
 ## Fase 5 — PNJ, misiones y facciones · **HECHA (aldea inicial)**
@@ -136,7 +158,22 @@ hueso; se cobra en el propio tablón (oro y reputación con la facción del luga
 guarda con la partida y se valida al cargar. La autoprueba acepta el encargo de Robledal, comprueba
 que su definición sobrevive a un guardado JSON, lo cumple y lo cobra (oro 26 → 92, reputación +3).
 
-**Falta**: guardias que reaccionen a delitos; encargos de escolta o de búsqueda de personas.
+**Búsqueda de una persona desaparecida — «La hija de Bram»**: Bram (Robledal) no sabe nada de su hija
+Lina. Etapas: preguntar a Ulrico en la posada (su respuesta indica la dirección y distancia reales
+del campamento y lo **descubre en el mapa**), encontrar el campamento de los Cuervos (objetivo
+«llegar a» un lugar exterior), liberar a Lina (llave del jefe o ganzúas: objetivo de **bandera de
+historia**), hablar con ella y volver con Bram (150 de oro, queso, poción y +25 de reputación con
+Robledal). Al quedar libre, Lina celebra, sale del campamento por su propio pie y desde entonces
+aparece en Robledal (aparición condicionada por banderas). Si la liberas sin la misión, vuelve a
+casa igualmente (+10 de reputación) y la misión salta a la última etapa.
+
+**Sistema de misiones ampliado**: banderas de historia persistentes (`GameState.set_flag`, se guardan
+en la partida; las partidas antiguas siguen cargando), etapas con texto propio del PNJ al cumplirlas
+(con marcadores como `{dir:lugar}`), efectos al completar una etapa, objetivos «esperar bandera»,
+condiciones `requires_flag` / `requires_not_flag` / `skip_if_flag`, saludos que cambian según la
+historia y entidades que solo aparecen con (o sin) una bandera.
+
+**Falta**: guardias que reaccionen a delitos; encargos de escolta.
 
 ## Fase 6 — Expansión del mundo · **HECHA (región ampliada)**
 
@@ -170,6 +207,18 @@ que su definición sobrevive a un guardado JSON, lo cumple y lo cobra (oro 26 �
   con barandilla en los bordes, pilares de tronco hasta el lecho y rampa de media losa en la orilla
   (se sube sin saltar). La autoprueba recorre todos los caminos: 36 columnas sobre agua, 36 con puente.
 - **Tablones de anuncios** con encargos generados (ver fase 5).
+- **Campamento de los Cuervos** (bandidos): se planifica el último y con su propio generador (no
+  altera el resto de la región), en el bosque entre la posada y Robledal, unido por un sendero al
+  camino más cercano y con la entrada orientada hacia él. Empalizada circular de troncos aguzados con
+  puerta flanqueada por antorchas y una **brecha trasera** para entrar a escondidas; dos tiendas de
+  lona y la del jefe con gallardete; **torre de vigía** con escalera, barandilla y tejadillo; hoguera
+  con llamas, luz, humo y crepitar; troncos para sentarse, leña, paja, barriles y mercancía robada;
+  la **jaula** con Lina y el **arcón del jefe** (cerradura difícil). Lo defienden cinco bandidos que
+  se avisan entre sí (solo a los de su especie: un lobo ya no despierta a un bandido), con guardia
+  en la puerta, ronda interior, matón junto al fuego, arquera en la torre y el jefe ante su tienda.
+- **Lugares ocultos**: el campamento no aparece en el mapa (ni su marcador ni sus construcciones)
+  hasta que alguien te habla de él o lo encuentras; los lugares con identificador cuentan para los
+  objetivos «llegar a» al entrar en ellos.
 
 **Pruebas** (autoprueba, semilla de prueba): 6 lugares colocados en tierra firme (posada a ~200 m al
 oeste, Robledal a ~280 m al sur, túmulo a ~370 m al sudeste, cubil a ~260 m al noroeste); el túmulo y

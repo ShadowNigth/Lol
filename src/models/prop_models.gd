@@ -489,9 +489,154 @@ static func sack() -> VoxelModel:
 	return m
 
 
+# ---------------------------------------------------------------------------
+# Campamento de bandidos
+# ---------------------------------------------------------------------------
+
+## Hoguera: corro de piedras, lecho de ceniza con brasas y leños en tipi
+## carbonizados por arriba (las llamas y la luz las añade el generador).
+static func campfire() -> VoxelModel:
+	var m := VoxelModel.new(V, 120)
+	var c := _wood(m)
+	var stone := m.mat(Color(0.46, 0.46, 0.48), 0.0, 0.9, 0.0, 0.12)
+	var stone_dk := m.mat(Color(0.32, 0.32, 0.34), 0.0, 0.9, 0.0, 0.1)
+	var ash := m.mat(Color(0.24, 0.22, 0.21), 0.0, 1.0, 0.0, 0.15)
+	var ember := m.mat(Color(1.0, 0.42, 0.08), 0.0, 0.8, 2.2, 0.25)
+	var charred := m.mat(Color(0.12, 0.09, 0.07), 0.0, 1.0, 0.0, 0.1)
+	var p := m.part("body", "", Vector3.ZERO)
+	for a in 12:
+		var ang := TAU * a / 12.0
+		var x := int(round(-0.5 + cos(ang) * 8.0))
+		var z := int(round(-0.5 + sin(ang) * 8.0))
+		var h := 2 if a % 3 != 0 else 3
+		p.box(Vector3i(x - 1, 0, z - 1), Vector3i(x + 1, h, z + 1), stone if a % 2 == 0 else stone_dk)
+	p.cylinder_y(-0.5, -0.5, 6.2, 0, 0, ash)
+	for i in 18:
+		var ex := int(WorldGenerator.hash2(i, 3, 121) % 9) - 5
+		var ez := int(WorldGenerator.hash2(i, 7, 122) % 9) - 5
+		if Vector2(ex + 0.5, ez + 0.5).length() < 5.0:
+			p.put(Vector3i(ex, 1, ez), ember)
+	for k in 4:
+		var ang2 := TAU * k / 4.0 + 0.4
+		var base := Vector3(cos(ang2) * 5.0 - 0.5, 1.0, sin(ang2) * 5.0 - 0.5)
+		var top := Vector3(cos(ang2) * 0.8 - 0.5, 9.0, sin(ang2) * 0.8 - 0.5)
+		for o: Vector3 in [Vector3.ZERO, Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(1, 0, 1)]:
+			p.line(base + o, top + o, c["wood_dk"])
+	for y in range(6, 10):
+		for z2 in range(-3, 3):
+			for x2 in range(-3, 3):
+				if p.voxels.has(Vector3i(x2, y, z2)):
+					p.voxels[Vector3i(x2, y, z2)] = charred
+	return m
+
+
+## Jaula de madera para prisioneros: armazón de vigas, barrotes atados con
+## cuerda, suelo con paja y una puerta con cerrojo de hierro (pieza "door",
+## con el origen en la bisagra para poder abrirla).
+static func cage() -> VoxelModel:
+	var m := VoxelModel.new(V, 130)
+	var c := _wood(m)
+	var rope := m.mat(Color(0.52, 0.42, 0.27), 0.0, 0.95, 0.0, 0.06)
+	var straw := m.mat(Color(0.78, 0.66, 0.36), 0.0, 1.0, 0.0, 0.15)
+	var dark := m.mat(Color(0.05, 0.05, 0.05), 0.0, 1.0, 0.0, 0.0)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-16, 0, -16), Vector3i(15, 0, 15), c["wood_dk"])
+	for i in 60:
+		var sx := int(WorldGenerator.hash2(i, 1, 131) % 28) - 14
+		var sz := int(WorldGenerator.hash2(i, 2, 132) % 28) - 14
+		p.put(Vector3i(sx, 1, sz), straw)
+	for cx: int in [-16, 14]:
+		for cz: int in [-16, 14]:
+			p.box(Vector3i(cx, 0, cz), Vector3i(cx + 1, 34, cz + 1), c["wood_dk"])
+	for ry: int in [1, 32]:
+		p.box(Vector3i(-16, ry, -16), Vector3i(15, ry + 1, -15), c["wood"])
+		p.box(Vector3i(-16, ry, 14), Vector3i(15, ry + 1, 15), c["wood"])
+		p.box(Vector3i(-16, ry, -16), Vector3i(-15, ry + 1, 15), c["wood"])
+		p.box(Vector3i(14, ry, -16), Vector3i(15, ry + 1, 15), c["wood"])
+	# Techo de travesaños
+	for tx in range(-16, 16, 4):
+		p.box(Vector3i(tx, 34, -16), Vector3i(tx, 34, 15), c["wood_dk"])
+	# Barrotes de los costados y del fondo, con un travesaño a media altura
+	for b in range(-13, 14, 3):
+		p.box(Vector3i(b, 3, 15), Vector3i(b, 31, 15), c["wood_lt"])
+		p.box(Vector3i(-16, 3, b), Vector3i(-16, 31, b), c["wood_lt"])
+		p.box(Vector3i(15, 3, b), Vector3i(15, 31, b), c["wood_lt"])
+		p.put(Vector3i(b, 17, 14), rope)
+		p.put(Vector3i(-15, 17, b), rope)
+		p.put(Vector3i(14, 17, b), rope)
+	p.box(Vector3i(-16, 16, 15), Vector3i(15, 16, 15), c["wood"])
+	p.box(Vector3i(-16, 16, -16), Vector3i(-16, 16, 15), c["wood"])
+	p.box(Vector3i(15, 16, -16), Vector3i(15, 16, 15), c["wood"])
+	# Frente: barrotes a los lados de la puerta y jambas
+	for fb: int in [-13, -11, 10, 12]:
+		p.box(Vector3i(fb, 3, -16), Vector3i(fb, 31, -16), c["wood_lt"])
+	p.box(Vector3i(-16, 16, -16), Vector3i(-10, 16, -16), c["wood"])
+	p.box(Vector3i(9, 16, -16), Vector3i(15, 16, -16), c["wood"])
+	p.box(Vector3i(-10, 0, -16), Vector3i(-9, 33, -15), c["wood_dk"])
+	p.box(Vector3i(8, 0, -16), Vector3i(9, 33, -15), c["wood_dk"])
+	# Ataduras de cuerda en las esquinas superiores
+	for rx: int in [-17, 16]:
+		for rz: int in [-17, 16]:
+			p.box(Vector3i(rx, 30, rz), Vector3i(rx, 31, rz), rope)
+	# Puerta (pieza con origen en la bisagra izquierda)
+	var d := m.part("door", "", Vector3(-8.0 * V, 0.0, -16.0 * V))
+	d.box(Vector3i(0, 2, 0), Vector3i(0, 31, 0), c["wood_dk"])
+	d.box(Vector3i(15, 2, 0), Vector3i(15, 31, 0), c["wood_dk"])
+	d.box(Vector3i(0, 2, 0), Vector3i(15, 3, 0), c["wood"])
+	d.box(Vector3i(0, 30, 0), Vector3i(15, 31, 0), c["wood"])
+	d.box(Vector3i(0, 16, 0), Vector3i(15, 16, 0), c["wood"])
+	for x in range(3, 15, 3):
+		d.box(Vector3i(x, 4, 0), Vector3i(x, 29, 0), c["wood_lt"])
+	d.line(Vector3(1, 4, -1), Vector3(14, 29, -1), c["wood"])                    # tornapunta diagonal
+	d.box(Vector3i(0, 6, -1), Vector3i(4, 6, -1), c["iron"])                      # bisagras
+	d.box(Vector3i(0, 27, -1), Vector3i(4, 27, -1), c["iron"])
+	d.box(Vector3i(11, 13, -1), Vector3i(15, 18, -1), c["iron"])                  # cerradura
+	d.put(Vector3i(13, 15, -2), dark)
+	d.put(Vector3i(13, 16, -2), dark)
+	d.box(Vector3i(15, 15, -1), Vector3i(17, 16, -1), c["iron"])                  # pestillo
+	return m
+
+
+## Petate: manta de lana a rayas con un rollo de piel por almohada.
+static func bedroll() -> VoxelModel:
+	var m := VoxelModel.new(V, 131)
+	var wool := m.mat(Color(0.42, 0.32, 0.22), 0.0, 1.0, 0.0, 0.1)
+	var stripe := m.mat(Color(0.5, 0.18, 0.14), 0.0, 1.0, 0.0, 0.08)
+	var fur := m.mat(Color(0.56, 0.5, 0.42), 0.0, 1.0, 0.0, 0.12)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-6, 0, -14), Vector3i(5, 1, 13), wool)
+	for z in range(-10, 14, 6):
+		p.box(Vector3i(-6, 1, z), Vector3i(5, 1, z), stripe)
+	p.ellipsoid(Vector3(-0.5, 2.0, -12.0), Vector3(5.5, 2.0, 2.2), fur)
+	p.box(Vector3i(1, 2, 7), Vector3i(5, 2, 13), wool)
+	return m
+
+
+## Tronco partido para sentarse junto al fuego.
+static func log_seat() -> VoxelModel:
+	var m := VoxelModel.new(V, 132)
+	var c := _wood(m)
+	var bark := m.mat(Color(0.33, 0.24, 0.15), 0.0, 0.95, 0.0, 0.1)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.cylinder_z(-0.5, 3.5, 3.6, -9, 9, bark)
+	p.cylinder_z(-0.5, 3.5, 2.4, -10, -10, c["wood_lt"])
+	p.cylinder_z(-0.5, 3.5, 2.4, 10, 10, c["wood_lt"])
+	p.erase_box(Vector3i(-6, 6, -11), Vector3i(5, 9, 11))
+	p.recolor_box(Vector3i(-4, 5, -10), Vector3i(3, 5, 10), c["wood_lt"])
+	return m
+
+
 ## Devuelve el modelo por nombre de entidad.
 static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 	match prop:
+		"campfire":
+			return campfire()
+		"cage":
+			return cage()
+		"bedroll":
+			return bedroll()
+		"log_seat":
+			return log_seat()
 		"barrel":
 			return barrel()
 		"crate":

@@ -27,6 +27,13 @@ var _greeted := false
 var _stuck_t := 0.0
 var _last_pos := Vector3.ZERO
 var _lantern: OmniLight3D
+# Cautiverio (p. ej. Lina en la jaula de los Cuervos)
+var captive_flag := ""       # bandera que abre su jaula
+var rescued_flag := ""       # bandera de «rescatado»: se marcha a casa
+var exit_path: Array[Vector3] = []   # ruta al quedar libre (puerta, campamento, fuera) antes de desaparecer
+var _leaving := false
+var _cheered := false
+var _path_i := 0
 
 
 func setup(id: String, spawn: Dictionary, p: Player) -> void:
@@ -38,8 +45,24 @@ func setup(id: String, spawn: Dictionary, p: Player) -> void:
 		home_pos = spawn["home"]
 	for q: Vector3 in spawn.get("patrol", []):
 		patrol.append(q)
+	var cap: Dictionary = spawn.get("captive", {})
+	if not cap.is_empty():
+		captive_flag = str(cap.get("flag", ""))
+		rescued_flag = str(cap.get("rescued_flag", ""))
+		for wp: Vector3 in cap.get("path", []):
+			exit_path.append(wp)
 	player = p
 	_rng.seed = hash(id)
+
+
+## Encerrado tras una puerta que aún no se ha abierto.
+func is_caged() -> bool:
+	return captive_flag != "" and not GameState.has_flag(captive_flag)
+
+
+## Sigue cautivo (aunque la jaula esté abierta) hasta que se le rescata.
+func is_captive() -> bool:
+	return captive_flag != "" and not _leaving and (rescued_flag == "" or not GameState.has_flag(rescued_flag))
 
 
 func _ready() -> void:
@@ -92,7 +115,7 @@ func _ready() -> void:
 	root.add_child(anim_tree)
 	anim_tree.root_node = NodePath("..")
 	anim_tree.add_animation_library("", lib)
-	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["talk", "work", "wave"]))
+	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["talk", "work", "wave", "captive", "cheer"]))
 	anim_tree.active = true
 	playback = anim_tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
 	global_position = work_pos
@@ -105,6 +128,8 @@ func display_name() -> String:
 
 
 func get_interaction_text() -> String:
+	if _leaving:
+		return ""
 	return "[E] Hablar con %s" % display_name()
 
 
@@ -119,12 +144,14 @@ func interact(p: Node) -> void:
 
 func start_talking() -> void:
 	talking = true
-	playback.travel("talk")
+	if not is_caged():
+		playback.travel("talk")
 
 
 func stop_talking() -> void:
 	talking = false
-	playback.travel("loco")
+	if not is_caged():
+		playback.travel("loco")
 
 
 func _is_night() -> bool:
@@ -135,6 +162,8 @@ func _is_night() -> bool:
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
+	if captive_flag != "" and _captive_update(delta):
+		return
 	var move := Vector3.ZERO
 	var speed := 1.5
 	if talking and player:
@@ -177,6 +206,65 @@ func _physics_process(delta: float) -> void:
 		_greeted = false
 	if _lantern:
 		_lantern.visible = _is_night()
+
+
+## Comportamiento de cautivo. Devuelve true si se ha encargado del fotograma.
+func _captive_update(delta: float) -> bool:
+	if is_caged():
+		# Quieto en la jaula, cabizbajo; mira al jugador si se acerca
+		if playback.get_current_node() != &"captive":
+			playback.travel("captive")
+		if player and global_position.distance_to(player.global_position) < 5.0:
+			_face(player.global_position - global_position, delta, 2.0)
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		return true
+	if rescued_flag != "" and GameState.has_flag(rescued_flag) and not _leaving and not talking:
+		_leaving = true
+		_cheered = false
+	if not _leaving:
+		return false
+	# Libre: celebra, sale del campamento y se pierde de vista camino de casa
+	if not _cheered:
+		_cheered = true
+		playback.travel("cheer")
+		_wait_t = 0.0
+	_wait_t += delta
+	if _wait_t < 1.7:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		return true
+	if _path_i >= exit_path.size() or _wait_t > 60.0:
+		queue_free()
+		return true
+	var goal := exit_path[_path_i]
+	var d := goal - global_position
+	d.y = 0.0
+	if d.length() < 0.8:
+		_path_i += 1
+		_stuck_t = 0.0
+		return true
+	if playback.get_current_node() != &"loco":
+		playback.travel("loco")
+	_face(d, delta, 5.0)
+	var dir := d.normalized()
+	velocity.x = dir.x * 2.6
+	velocity.z = dir.z * 2.6
+	move_and_slide()
+	anim_tree.set("parameters/loco/blend_position", 1.4)
+	# Si algo la bloquea, salta al siguiente punto de la ruta
+	if global_position.distance_to(_last_pos) < 0.4 * delta:
+		_stuck_t += delta
+		if _stuck_t > 3.0:
+			_stuck_t = 0.0
+			global_position = goal
+			reset_physics_interpolation()
+	else:
+		_stuck_t = 0.0
+	_last_pos = global_position
+	return true
 
 
 func _current_goal() -> Vector3:

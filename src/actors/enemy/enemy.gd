@@ -58,6 +58,8 @@ var max_poise := 20.0
 var _poise_regen_delay := 0.0
 var _fled := false
 var _variant := -1
+## Mantiene su puesto (p. ej. la arquera de la torre de vigía): no retrocede ni avanza.
+var hold_position := false
 
 
 func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, player: Player) -> void:
@@ -72,6 +74,7 @@ func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, pl
 		patrol.append(p)
 	_rng.seed = hash(entity_id)
 	_variant = int(spawn.get("variant", -1))
+	hold_position = bool(spawn.get("hold", false))
 
 
 func _ready() -> void:
@@ -118,7 +121,13 @@ func _build_model() -> void:
 	_model_root.add_child(skeleton)
 	_model_root.scale = Vector3.ONE * data.model_scale
 	var variant := data.model_variant if data.model_variant >= 0 else _rng.randi() % 3
-	var model := CharacterModels.skeleton_warrior(variant)
+	var model: VoxelModel
+	match data.model:
+		"bandit":
+			# Cada bandido tiene su propia cara y colores (semilla por identificador)
+			model = CharacterModels.bandit(variant, absi(hash(entity_id)) % 100000 + 11)
+		_:
+			model = CharacterModels.skeleton_warrior(variant)
 	_material = ModelLibrary.unique_model_material()
 	var mi := MeshInstance3D.new()
 	mi.name = "Body"
@@ -142,7 +151,7 @@ func _build_model() -> void:
 		sa.bone_name = "forearm.L"
 		skeleton.add_child(sa)
 		var smesh := MeshInstance3D.new()
-		smesh.mesh = ModelLibrary.weapon_mesh("shield", false)
+		smesh.mesh = ModelLibrary.weapon_mesh(data.shield_model, false)
 		smesh.transform = Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(-0.09, -0.14, 0.0))
 		sa.add_child(smesh)
 	var lib := HumanoidAnims.build_library("warrior")
@@ -423,11 +432,13 @@ func _line_of_sight() -> bool:
 	return space.intersect_ray(q).is_empty()
 
 
-## La manada: avisa a los de su especie cercanos de dónde está la presa.
+## La manada (o la banda): avisa a los de su especie cercanos de dónde está la
+## presa. Un lobo no despierta a un bandido ni al revés.
 func _call_pack() -> void:
 	for n: Node in get_tree().get_nodes_in_group("enemies"):
 		var other := n as Enemy
-		if other and other != self and other.data and other.data.pack_call and other.global_position.distance_to(global_position) < 22.0:
+		if other and other != self and other.data and other.data.pack_call and other.data.model == data.model \
+				and other.global_position.distance_to(global_position) < 22.0:
 			other.hear_noise(global_position, 100.0)
 
 
@@ -520,7 +531,7 @@ func _chase_step(delta: float) -> Vector3:
 
 ## Arquero: mantiene la distancia y dispara cuando tiene línea de visión.
 func _ranged_step(dist: float, flat: Vector3) -> Vector3:
-	if dist < 5.0:
+	if dist < 5.0 and not hold_position:
 		_desired_speed = data.walk_speed * 1.6
 		return _steer(-flat)
 	if dist < data.attack_range and _attack_cd <= 0.0 and _line_of_sight():
@@ -532,7 +543,7 @@ func _ranged_step(dist: float, flat: Vector3) -> Vector3:
 		playback.travel("shoot")
 		Audio.play_3d("bow_draw", global_position + Vector3(0, 1.4, 0), -4.0)
 		return Vector3.ZERO
-	if dist > data.attack_range * 0.8 or not _line_of_sight():
+	if (dist > data.attack_range * 0.8 or not _line_of_sight()) and not hold_position:
 		_desired_speed = data.run_speed
 		var path := world.generator.find_path(global_position, target.global_position) if world else PackedVector3Array()
 		if path.size() > 2:

@@ -363,7 +363,14 @@ func _refresh_map() -> void:
 				var h := wg.height_at(wx, wz)
 				var col := _map_color(wg, wx, wz, h)
 				img.set_pixel(x, z, col)
+		# Lugares ocultos (campamentos) que aún no se han descubierto
+		var hidden := {}
+		for site0: Dictionary in wg.planner.sites:
+			if not StructurePlanner.site_known(site0):
+				hidden[str(site0["id"])] = true
 		for s: Dictionary in wg.planner.structures:
+			if hidden.has(str(s.get("site", ""))):
+				continue
 			var r: Rect2i = s["footprint"]
 			for zz in range(r.position.y, r.end.y, scale):
 				for xx in range(r.position.x, r.end.x, scale):
@@ -375,6 +382,8 @@ func _refresh_map() -> void:
 		var me := Vector2(center.x, center.z)
 		var legend: Array[String] = []
 		for site: Dictionary in wg.planner.sites:
+			if hidden.has(str(site["id"])):
+				continue
 			var sp: Vector2 = site["pos"]
 			var mcol := Color(0.95, 0.85, 0.4)
 			match str(site["kind"]):
@@ -382,6 +391,8 @@ func _refresh_map() -> void:
 					mcol = Color(1.0, 0.55, 0.15)
 				"dungeon":
 					mcol = Color(0.9, 0.15, 0.15)
+				"camp":
+					mcol = Color(0.7, 0.3, 0.9)
 			var mx := int((sp.x - ox) / scale)
 			var mz := int((sp.y - oz) / scale)
 			for dz in range(-2, 3):
@@ -389,7 +400,7 @@ func _refresh_map() -> void:
 					if absi(dx) + absi(dz) <= 3 and mx + dx >= 0 and mz + dz >= 0 and mx + dx < size and mz + dz < size:
 						img.set_pixel(mx + dx, mz + dz, mcol if absi(dx) + absi(dz) < 3 else Color(0.1, 0.08, 0.06))
 			legend.append("%s: %s" % [site["name"], StructurePlanner.direction_text(me, sp)])
-		_map_label.text = "Mapa de la región (cada píxel = %d m; tú en el centro, norte arriba). Amarillo: aldeas · Naranja: posadas · Rojo: mazmorras\n%s" % [scale, "  ·  ".join(legend)]
+		_map_label.text = "Mapa de la región (cada píxel = %d m; tú en el centro, norte arriba). Amarillo: aldeas · Naranja: posadas · Rojo: mazmorras · Morado: campamentos\n%s" % [scale, "  ·  ".join(legend)]
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
 			img.set_pixel(size / 2 + dx, size / 2 + dy, Color(1, 1, 1))

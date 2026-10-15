@@ -36,6 +36,8 @@ static func build(wr: ChunkWriter, s: Dictionary) -> void:
 			barrow(wr, s)
 		"cave_mouth":
 			cave_mouth(wr, s)
+		"bandit_camp":
+			bandit_camp(wr, s)
 		_:
 			push_warning("Estructura desconocida: %s" % s["type"])
 	var _unused := size
@@ -702,3 +704,152 @@ static func cave_mouth(wr: ChunkWriter, s: Dictionary) -> void:
 	wr.entity("bones", Vector3(ax + 1.2, 0, 2.2), 30.0, {"uid": "bones_1"})
 	wr.entity("bones", Vector3(ax - 2.4, 0, -1.4), 110.0, {"uid": "bones_2"})
 	wr.entity("dungeon_entrance", Vector3(ax + 0.5, 0, end_z + 0.85), 0.0, {"uid": "mouth", "dungeon": str(s.get("dungeon", "cave_lobos")), "style": "open"})
+
+
+# ---------------------------------------------------------------------------
+# Campamento de bandidos (los Cuervos): empalizada, tiendas, torre de vigía,
+# hoguera, jaula con prisionera y arcón del jefe
+# ---------------------------------------------------------------------------
+
+## Disposición en coordenadas locales (25 × 25, entrada en z = 0). El
+## planificador usa las mismas posiciones para enemigos y PNJ.
+const CAMP_SIZE := 25
+const CAMP_CENTER := Vector2(12.5, 12.5)
+const CAMP_CAGE := Vector3(6.0, 0.0, 6.0)
+const CAMP_STASH := Vector3(12.5, 0.0, 20.4)
+
+
+static func bandit_camp(wr: ChunkWriter, s: Dictionary) -> void:
+	var r := _rng(s)
+	var cx := 12
+	var cz := 12
+	# Suelo pisoteado y despejado dentro del cerco
+	for lz in CAMP_SIZE:
+		for lx in CAMP_SIZE:
+			var dist := Vector2(lx - cx, lz - cz).length()
+			if dist > 11.6:
+				continue
+			wr.foundation(lx, -1, lz, B.DIRT, 6)
+			var hsh := WorldGenerator.hash2(lx * 7 + 3, lz, 4401) % 10
+			var ground := B.GRASS
+			if dist < 3.2:
+				ground = B.GRAVEL if hsh < 6 else B.DIRT
+			elif hsh < 4:
+				ground = B.PATH
+			elif hsh < 6:
+				ground = B.DIRT
+			wr.put(lx, -1, lz, ground)
+			wr.clear(lx, 0, lz, lx, 6, lz)
+	# Empalizada de troncos aguzados (con huecos: puerta y brecha trasera)
+	for lz2 in CAMP_SIZE:
+		for lx2 in CAMP_SIZE:
+			var d2 := Vector2(lx2 - cx, lz2 - cz).length()
+			if d2 < 10.9 or d2 > 11.9:
+				continue
+			if absi(lx2 - cx) <= 1 and lz2 < cz:
+				continue                          # puerta principal
+			var ang := atan2(float(lz2 - cz), float(lx2 - cx))
+			if absf(ang - deg_to_rad(52.0)) < 0.13:
+				continue                          # brecha trasera para entrar a escondidas
+			wr.foundation(lx2, -1, lz2, B.DIRT, 6)
+			var hgt := 3 + WorldGenerator.hash2(lx2, lz2, 4402) % 2
+			for ly in hgt:
+				wr.put(lx2, ly, lz2, B.SPRUCE_LOG if (lx2 + lz2) % 3 != 0 else B.LOG)
+			wr.put(lx2, hgt, lz2, B.FENCE)       # punta afilada
+	# Postes de la puerta con antorchas
+	for gx: int in [cx - 2, cx + 2]:
+		for gy in 5:
+			wr.put(gx, gy, 1, B.LOG)
+		wr.put(gx, 5, 1, B.TORCH)
+	# Tiendas: dos laterales abiertas hacia la hoguera y la del jefe al fondo
+	_tent(wr, 3, 9, 6, 2, true, false)
+	_tent(wr, 17, 10, 5, 2, true, true)
+	_tent(wr, 9, 16, 6, 3, false, true)
+	wr.put(12, 3, 21, B.CANVAS)                   # mástil con el gallardete rojo del jefe
+	wr.put(12, 4, 21, B.FENCE)
+	wr.put(12, 5, 21, B.WOOL_RED)
+	wr.entity("bedroll", Vector3(5.5, 0, 11.5), 90.0, {"uid": "bedroll_a"})
+	wr.entity("bedroll", Vector3(19.5, 0, 12.5), -90.0, {"uid": "bedroll_b"})
+	wr.entity("bedroll", Vector3(10.4, 0, 19.5), 180.0, {"uid": "bedroll_chief"})
+	wr.entity("chest", CAMP_STASH, 0.0, {"uid": "stash", "loot": "bandit_stash", "lock": 60, "key": "key_cuervos"})
+	wr.entity("crate", Vector3(14.6, 0, 20.4), 15.0, {"uid": "crate_chief"})
+	# Torre de vigía con escalera, plataforma, barandilla y tejadillo
+	for px: int in [15, 17]:
+		for pz: int in [4, 6]:
+			for py in 6:
+				wr.put(px, py, pz, B.LOG)
+	for tz in range(4, 7):
+		for tx in range(15, 18):
+			if not ((tx == 15 or tx == 17) and (tz == 4 or tz == 6)):
+				wr.put(tx, 3, tz, B.PLANKS)
+				wr.put(tx, 6, tz, B.PLANK_SLAB)
+	for rail: Vector2i in [Vector2i(16, 4), Vector2i(15, 5), Vector2i(17, 5)]:
+		wr.put(rail.x, 4, rail.y, B.FENCE)
+	wr.put(15, 6, 4, B.PLANK_SLAB)
+	wr.put(17, 6, 4, B.PLANK_SLAB)
+	wr.put(15, 6, 6, B.PLANK_SLAB)
+	wr.put(17, 6, 6, B.PLANK_SLAB)
+	for step in 4:
+		var sz := 10 - step
+		wr.put(16, step, sz, B.stairs(B.PLANK_STAIRS, 0))
+		for fill in step:
+			wr.put(16, fill, sz, B.PLANKS)
+	# Hoguera con troncos para sentarse
+	wr.entity("campfire", Vector3(cx + 0.5, 0, cz + 0.5), 0.0, {"uid": "fire"})
+	for k in 3:
+		var a := PI * 0.75 + k * PI * 0.62
+		var sp := Vector3(cx + 0.5 + cos(a) * 2.6, 0, cz + 0.5 + sin(a) * 2.6)
+		wr.entity("log_seat", sp, rad_to_deg(-a), {"uid": "seat_%d" % k})
+	# Jaula de la prisionera (puerta hacia el interior del campamento)
+	wr.entity("cage", CAMP_CAGE, -90.0, {"uid": "cage", "lock": 45, "key": "key_cuervos", "flag": "jaula_cuervos_abierta", "captive": "lina"})
+	# Leña, paja, barriles y mercancía robada
+	for wx in range(3, 6):
+		wr.put(wx, 0, 15, B.LOG)
+	wr.put(4, 1, 15, B.LOG)
+	wr.put(20, 0, 7, B.HAY)
+	wr.put(21, 0, 8, B.HAY)
+	wr.put(20, 1, 7, B.HAY)
+	wr.entity("barrel", Vector3(7.6, 0, 3.6), 0.0, {"uid": "barrel_1"})
+	wr.entity("barrel", Vector3(8.5, 0, 3.2), 40.0, {"uid": "barrel_2"})
+	wr.entity("goods", Vector3(20.6, 0, 15.8), 200.0, {"uid": "goods_1", "kind": "cloth"})
+	wr.entity("sack", Vector3(19.6, 0, 16.7), 0.0, {"uid": "sack_1"})
+	wr.entity("sack", Vector3(9.4, 0, 3.9), 70.0, {"uid": "sack_2"})
+	wr.entity("crate", Vector3(4.4, 0, 16.6), 10.0, {"uid": "crate_1"})
+	var _unused := r
+
+
+## Tienda de lona a dos aguas. `along_x`: la cumbrera va a lo largo del eje X
+## local; (x0, z0) es la esquina mínima, `length` el largo de la cumbrera y
+## `half` el medio ancho (2 = tienda pequeña, 3 = tienda del jefe). La cabecera
+## de coordenada menor queda abierta si `open_min` (si no, la mayor).
+static func _tent(wr: ChunkWriter, x0: int, z0: int, length: int, half: int, along_x: bool, open_min: bool) -> void:
+	var c0 := (z0 if along_x else x0) + half
+	var a0 := x0 if along_x else z0
+	var open_a := a0 if open_min else a0 + length - 1
+	var closed_a := a0 + length - 1 if open_min else a0
+	var lo_face := 2 if along_x else 1
+	var hi_face := 0 if along_x else 3
+	for a in range(a0, a0 + length):
+		for o in range(-half, half + 1):
+			var y := half - absi(o)
+			var id := B.CANVAS_SLAB if o == 0 else B.stairs(B.CANVAS_STAIRS, lo_face if o < 0 else hi_face)
+			_tent_put(wr, along_x, a, c0 + o, y, id)
+			for yy in range(0, y):
+				_tent_put(wr, along_x, a, c0 + o, yy, B.AIR)
+			_tent_put(wr, along_x, a, c0 + o, -1, B.PATH if absi(o) < half else B.DIRT)
+	for o2 in range(-half + 1, half):
+		for yy2 in range(0, half - absi(o2)):
+			_tent_put(wr, along_x, closed_a, c0 + o2, yy2, B.CANVAS)
+	for side: int in [-1, 1]:
+		_tent_put(wr, along_x, open_a, c0 + side * (half - 1), 0, B.CANVAS)
+	# Vientos: estacas con cuerda en las esquinas
+	for corner: int in [a0 - 1, a0 + length]:
+		for side2: int in [-1, 1]:
+			_tent_put(wr, along_x, corner, c0 + side2 * (half + 1), 0, B.FENCE)
+
+
+static func _tent_put(wr: ChunkWriter, along_x: bool, a: int, o: int, y: int, id: int) -> void:
+	if along_x:
+		wr.put(a, y, o, id)
+	else:
+		wr.put(o, y, a, id)

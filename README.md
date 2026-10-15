@@ -28,11 +28,11 @@ juego usa el renderizador Compatibility (OpenGL 3.3), así que los colores puede
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Prototipo jugable: aldea voxel, jugador en 1.ª persona con brazos y espada, enemigo animado, combate real, HUD, menú, sonido | **Completada** |
-| 2 | Calidad visual y animaciones: armas con animaciones propias, arco y magia, brazos con IK, esqueletos y lobos con máquina de estados | **Mayormente hecha** |
+| 2 | Calidad visual y animaciones: armas con animaciones propias, arco y magia, brazos con IK, esqueletos, bandidos y lobos con máquina de estados | **Mayormente hecha** |
 | 3 | Región procedural, mazmorra conectada, carga por chunks, semilla persistente | **Hecha** |
-| 4 | Sistemas RPG y guardado: atributos, habilidades por uso, inventario con peso, **equipo por ranuras con armadura y resistencias**, comercio, guardado seguro | **Hecha** |
-| 5 | PNJ con horarios y diálogos, misiones con etapas, facciones y reputación | **Hecha** |
-| 6 | Expansión: posada de camino, aldea de Robledal, túmulo y cubil de lobos procedurales, caminos, fauna con manadas, mazmorras temáticas | **Hecha (región ampliada)** |
+| 4 | Sistemas RPG y guardado: atributos, habilidades por uso, inventario con peso, **equipo por ranuras con armadura y resistencias**, **cerraduras y ganzúas**, comercio, guardado seguro | **Hecha** |
+| 5 | PNJ con horarios y diálogos, misiones con etapas (incluida una de **búsqueda de una persona desaparecida**), banderas de historia, facciones y reputación | **Hecha** |
+| 6 | Expansión: posada de camino, aldea de Robledal, túmulo, cubil de lobos y **campamento de bandidos** procedurales, caminos, fauna con manadas, mazmorras temáticas | **Hecha (región ampliada)** |
 | 7 | Pulido y distribución Linux: exportación reproducible, paquete .tar.xz, instalador de usuario | **Parcial** (sin AppImage ni pruebas en GPU real) |
 
 Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las pruebas y lo que falta.
@@ -46,6 +46,9 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
   tejados de teja y paja, chimeneas humeantes, herrería con fragua y yunque, torre de vigilancia con
   escalera de caracol y almenas, muralla con puerta, pozo, puestos de mercado, huerto, farolas.
 - Abrir y cerrar **puertas**, abrir **cofres** con botín, tomar armas del **armero** de la herrería.
+- **Forzar cerraduras** de cofres y jaulas con **ganzúas** (la probabilidad depende de la habilidad
+  *Ganzúas*, la agilidad y la suerte frente a la dificultad; al fallar la ganzúa puede romperse) o
+  abrirlas con su llave. Algunos cofres de las mazmorras están cerrados.
 - Visitar la **capilla en ruinas de Velmar** y el **cementerio olvidado**, custodiados por
   **guerreros esqueleto**.
 - Combatir con **espada larga, hacha, maza o daga** (cada una con animaciones propias), bloquear,
@@ -64,6 +67,11 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
   mapa, tecla M, indica dirección y distancia), unidos por caminos.
 - Enfrentarte a **manadas de lobos** que acechan, se avisan entre sí, saltan a morder y huyen
   heridos; los animales salvajes reaparecen pasados unos días.
+- Buscar a **Lina**, la hija desaparecida del granjero Bram: preguntar en la posada, encontrar el
+  **campamento de los Cuervos** (empalizada, tiendas de lona, torre de vigía con arquera, hoguera) que
+  aparece en el mapa cuando alguien te habla de él, vencer a los **bandidos** (salteadores, matón,
+  arquera y su jefe Garra) o colarte por la brecha de la empalizada, y abrir la **jaula** con la llave
+  del jefe o con ganzúas. Lina vuelve a casa por su propio pie y desde entonces vive en Robledal.
 - Explorar **mazmorras temáticas** (cripta, túmulo, cueva) con llaves, palancas, salas secretas,
   trampas y jefes.
 - Ciclo de **día y noche** con cielo, nubes voxel, estrellas, luz de antorchas, faroles y aullidos
@@ -146,6 +154,9 @@ saquear, guardar y cargar) e imprime un informe; devuelve 0 si todo funciona.
 avanzando se lanza una estocada; moviéndose a izquierda o derecha, tajos en esa dirección.
 Bloquear justo antes de recibir el golpe produce una **parada perfecta** que aturde al enemigo.
 Un ataque agachado contra un enemigo que no te ha visto es un **ataque furtivo** (daño ×2,5).
+Ante un cofre o una jaula cerrados, **E** usa la llave si la llevas; si no, intenta **forzar la
+cerradura** con una ganzúa (el aviso en pantalla muestra la dificultad, la probabilidad y cuántas
+ganzúas te quedan).
 
 ## Opciones
 
@@ -195,7 +206,7 @@ src/world/gen/         Terreno/biomas, planificador regional (lugares, caminos, 
                        constructor de estructuras, mazmorras (generador + DungeonDB)
 src/world/props/       Puertas, cofres, armero, entradas de mazmorra, tablones de anuncios
 src/world/env/         Ciclo de día y noche
-src/models/            Modelos voxel (personajes, lobos, armas, mobiliario), rigs y caché de mallas
+src/models/            Modelos voxel (personajes, bandidos, lobos, armas, mobiliario), rigs y caché de mallas
 src/animation/         Animaciones de primera persona, humanoides y cuadrúpedos (AnimationTree)
 src/actors/            Jugador (movimiento, cámara, combate, IK de brazos) y enemigos (IA)
 src/combat/            Estadísticas, datos de armas/enemigos (Resource), patrones de ataque
@@ -205,7 +216,7 @@ src/audio/             Sintetizador de efectos de sonido
 src/quests/            Misiones, facciones y encargos generados de los tablones
 src/npc/               PNJ (horarios, diálogos), base de datos de personajes y tiendas
 src/debug/             Autoprueba integrada (--self-test)
-data/                  Armas y criaturas editables (.tres: esqueletos, lobos, jefes)
+data/                  Armas y criaturas editables (.tres: esqueletos, bandidos, lobos, jefes)
 shaders/               Terreno, recorte, agua, cielo, llamas, modelos, arma en 1.ª persona
 scripts/               Exportación, empaquetado y AppImage
 packaging/             Lanzador, instalador de usuario, .desktop e icono
@@ -221,7 +232,9 @@ Ver la sección de pruebas de [docs/FASES.md](docs/FASES.md). Resumen:
 - **Autoprueba de juego completa** superada tanto en el editor como con el **binario exportado**
   (`--self-test`): partida nueva, movimiento, compra, pociones, equipo, combate cuerpo a cuerpo,
   magia y arco, saqueo, guardado y carga, cripta (verificación, ruta al jefe, salida), lugares de la
-  región, puentes, combate contra un lobo, viaje a la posada y a Robledal y entrada en la cueva.
+  región, puentes, combate contra un lobo, viaje a la posada y a Robledal, entrada en la cueva,
+  combate contra un bandido y la misión de Lina completa (campamento, ganzúas, jaula, rescate,
+  arcón con llave, regreso a Robledal y banderas de historia en la partida guardada).
 - Paquete `.tar.xz`: suma SHA-256 verificada, autoprueba con el lanzador del paquete, instalación de
   usuario en un `HOME` limpio (lanzador, menú e icono), autoprueba del juego instalado y
   desinstalación (conserva las partidas).

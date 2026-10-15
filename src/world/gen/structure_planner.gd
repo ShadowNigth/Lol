@@ -160,6 +160,8 @@ func _plan_region() -> void:
 	_add_winding_road(Vector2(ham.x + side * 20.0, ham.z), Vector2(bar.x, bar.z - side * 0.0 - 11.0), 2.0, rng)
 	var den := _find_site(rng, Vector2(rng.randf_range(-230.0, -120.0), -240.0), 70.0, Vector2i(15, 15), true)
 	_plan_wolf_den(den)
+	# Se planifica el último y con su propio generador: no altera el resto de la región
+	_plan_bandit_camp(inn, ham)
 
 
 ## Busca el mejor emplazamiento cerca de `around`: seco, lo más llano posible
@@ -213,16 +215,16 @@ func _add_winding_road(a: Vector2, b: Vector2, width: float, rng: RandomNumberGe
 		reserved.append(Rect2i(rect))
 
 
-func _site_zone(c: Vector3i, half: Vector2i, name: String, margin: float = 16.0) -> void:
+func _site_zone(c: Vector3i, half: Vector2i, name: String, margin: float = 16.0, id: String = "") -> void:
 	var rect := Rect2i(c.x - half.x, c.z - half.y, half.x * 2, half.y * 2)
 	flatten_zones.append({"rect": rect, "height": float(c.y), "margin": margin})
-	locations.append({"name": name, "rect": rect})
+	locations.append({"name": name, "rect": rect, "id": id})
 	no_wildlife.append(rect.grow(30))
 
 
 func _plan_roadside_inn(c: Vector3i) -> void:
 	var fy := c.y + 1
-	_site_zone(c, Vector2i(16, 17), "Posada del Lobo Gris")
+	_site_zone(c, Vector2i(16, 17), "Posada del Lobo Gris", 16.0, "inn_lobo")
 	sites.append({"id": "inn_lobo", "name": "Posada del Lobo Gris", "kind": "inn", "pos": Vector2(c.x, c.z)})
 	paved.append({"rect": Rect2i(c.x - 6, c.z - 5, 13, 11), "block": B.COBBLE})
 	reserved.append(Rect2i(c.x - 7, c.z - 6, 15, 13))
@@ -247,7 +249,7 @@ func _plan_roadside_inn(c: Vector3i) -> void:
 
 func _plan_hamlet(c: Vector3i, rng: RandomNumberGenerator) -> void:
 	var fy := c.y + 1
-	_site_zone(c, Vector2i(20, 19), "Aldea de Robledal")
+	_site_zone(c, Vector2i(20, 19), "Aldea de Robledal", 16.0, "robledal")
 	sites.append({"id": "robledal", "name": "Aldea de Robledal", "kind": "village", "pos": Vector2(c.x, c.z)})
 	paved.append({"rect": Rect2i(c.x - 5, c.z - 5, 11, 11), "block": B.PATH})
 	reserved.append(Rect2i(c.x - 6, c.z - 6, 13, 13))
@@ -274,6 +276,9 @@ func _plan_hamlet(c: Vector3i, rng: RandomNumberGenerator) -> void:
 				"w": 1, "d": 1, "rot": 0, "margin": 1})
 	spawns.append({"type": "npc", "npc": "elena", "id": "npc/elena", "pos": Vector3(c.x + 2.5, fy, c.z - 3.5), "yaw": 180.0, "home": homes[0]})
 	spawns.append({"type": "npc", "npc": "bram", "id": "npc/bram", "pos": Vector3(c.x - 2.5, fy, c.z + 2.5), "yaw": 0.0, "home": homes[2]})
+	# Lina, la hija de Bram, solo está en casa después de que la rescaten
+	spawns.append({"type": "npc", "npc": "lina", "id": "npc/lina", "pos": Vector3(c.x - 4.0, fy, c.z + 3.5), "yaw": 60.0, "home": homes[2],
+			"requires_flag": "lina_rescued"})
 	spawns.append({"type": "notice_board", "id": "board/robledal", "site": "robledal", "pos": Vector3(c.x + 4.0, fy, c.z + 3.5), "yaw": 90.0})
 
 
@@ -300,6 +305,73 @@ func _plan_wolf_den(c: Vector3i) -> void:
 		var a := TAU * i / 3.0
 		spawns.append({"id": "cave_lobos/pack_%d" % i, "enemy": "wolf", "pos": Vector3(c.x + 0.5 + cos(a) * 3.0, fy, c.z - 10.5 + sin(a) * 2.0),
 				"yaw": 180.0, "respawn_days": 3})
+
+
+## Campamento de los Cuervos: en el bosque, entre la posada y Robledal, algo
+## apartado de los caminos y unido a ellos por un sendero. Oculto en el mapa
+## hasta que alguien te hable de él (bandera known_bandit_camp) o lo encuentres.
+func _plan_bandit_camp(inn: Vector3i, ham: Vector3i) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(gen.world_seed * 4513 + 977)
+	var mid := Vector2(inn.x, inn.z).lerp(Vector2(ham.x, ham.z), 0.5)
+	var away := mid.normalized() if mid.length() > 1.0 else Vector2(-0.55, 0.83)
+	var size := StructureBuilder.CAMP_SIZE
+	var c := _find_site(rng, mid + away * 45.0, 50.0, Vector2i(size + 6, size + 6), true)
+	var fy := c.y + 1
+	# Punto más cercano de los caminos existentes (destino del sendero)
+	var center := Vector2(c.x, c.z)
+	var best := center + Vector2(0, -40)
+	var best_d := INF
+	for road: Dictionary in roads:
+		var a: Vector2 = road["a"]
+		var b: Vector2 = road["b"]
+		var ab := b - a
+		var t := clampf((center - a).dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+		var q := a + ab * t
+		if q.distance_to(center) < best_d:
+			best_d = q.distance_to(center)
+			best = q
+	# La entrada (z = 0 local) mira hacia el sendero
+	var dir := best - center
+	var rot := 0
+	if absf(dir.x) > absf(dir.y):
+		rot = 1 if dir.x > 0.0 else 3
+	else:
+		rot = 2 if dir.y > 0.0 else 0
+	var half := size / 2
+	var o := Vector3i(c.x - half, fy, c.z - half)
+	_site_zone(c, Vector2i(half + 4, half + 4), "Campamento de los Cuervos", 10.0, "bandit_camp")
+	sites.append({"id": "bandit_camp", "name": "Campamento de los Cuervos", "kind": "camp", "pos": center, "hidden": true})
+	_add_structure({"id": "bandit_camp/camp", "type": "bandit_camp", "origin": o, "w": size, "d": size, "rot": rot,
+			"margin": 2, "site": "bandit_camp"})
+	var lw := func(lp: Vector3) -> Vector3: return ChunkWriter.local_to_world(o, size, size, rot, lp)
+	var gate: Vector3 = lw.call(Vector3(12.5, 0, -2.0))
+	_add_winding_road(Vector2(gate.x, gate.z), best, 1.5, rng)
+	var yaw_off := -rot * 90.0
+	# Los Cuervos: guardia de la puerta, matón junto al fuego, ronda interior,
+	# arquera en la torre y el jefe Garra ante su tienda (lleva la llave)
+	spawns.append({"id": "bandit_camp/gate", "enemy": "bandit", "pos": lw.call(Vector3(13.5, 0, 3.0)), "yaw": 180.0 + yaw_off,
+			"patrol": [lw.call(Vector3(10.0, 0, 3.0)), lw.call(Vector3(14.5, 0, 3.0))]})
+	spawns.append({"id": "bandit_camp/brute", "enemy": "bandit_brute", "pos": lw.call(Vector3(10.0, 0, 10.0)), "yaw": -135.0 + yaw_off})
+	spawns.append({"id": "bandit_camp/round", "enemy": "bandit", "pos": lw.call(Vector3(7.5, 0, 14.5)), "yaw": 90.0 + yaw_off,
+			"patrol": [lw.call(Vector3(7.5, 0, 14.5)), lw.call(Vector3(17.0, 0, 15.5)), lw.call(Vector3(13.0, 0, 7.5))]})
+	spawns.append({"id": "bandit_camp/archer", "enemy": "bandit_archer", "pos": lw.call(Vector3(16.5, 4.0, 5.5)), "yaw": 180.0 + yaw_off,
+			"hold": true})
+	spawns.append({"id": "bandit_camp/chief", "enemy": "bandit_chief", "pos": lw.call(Vector3(12.5, 0, 15.0)), "yaw": 0.0 + yaw_off})
+	# Lina, encerrada en la jaula; al quedar libre sale por la puerta del campamento
+	var cage: Vector3 = StructureBuilder.CAMP_CAGE
+	spawns.append({"type": "npc", "npc": "lina", "id": "npc/lina_cautiva", "pos": lw.call(cage), "yaw": -90.0 + yaw_off,
+			"unless_flag": "lina_rescued",
+			"captive": {"flag": "jaula_cuervos_abierta", "rescued_flag": "lina_rescued",
+				"path": [lw.call(cage + Vector3(2.2, 0, 0.6)), lw.call(Vector3(11.5, 0, 4.0)), lw.call(Vector3(12.5, 0, -2.0)),
+					lw.call(Vector3(12.5, 0, -9.0))]}})
+
+
+## ¿Están los lugares ocultos ya descubiertos? (para mapa y leyenda)
+static func site_known(site: Dictionary) -> bool:
+	if not bool(site.get("hidden", false)):
+		return true
+	return GameState.has_flag("known_" + str(site.get("id", "")))
 
 
 ## ¿Puede aparecer fauna salvaje en esta columna? (lejos de aldeas y caminos)
@@ -393,4 +465,14 @@ func location_at(x: float, z: float) -> String:
 		var r: Rect2i = loc["rect"]
 		if r.has_point(p):
 			return str(loc["name"])
+	return ""
+
+
+## Identificador del lugar (para objetivos «llegar a» y descubrimientos).
+func location_id_at(x: float, z: float) -> String:
+	var p := Vector2i(int(floor(x)), int(floor(z)))
+	for loc: Dictionary in locations:
+		var r: Rect2i = loc["rect"]
+		if r.has_point(p):
+			return str(loc.get("id", ""))
 	return ""

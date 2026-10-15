@@ -198,6 +198,35 @@ static func build_library(style: String = "warrior") -> AnimationLibrary:
 		"head": [[0.0, Vector3(0, 0, 0)], [0.5, Vector3(4, 0, 5)], [1.4, Vector3(0, 0, 0)]],
 	}))
 
+	# --- Prisionera: cabizbaja, hombros caídos y muñecas atadas por delante;
+	# cambia el peso de pierna, tiembla y levanta la vista de vez en cuando ---
+	lib.add_animation("captive", AnimBuilder.make(4.0, true, {
+		"spine": [[0.0, Vector3(-8, 0, 0)], [2.0, Vector3(-10, 0, 2)], [4.0, Vector3(-8, 0, 0)]],
+		"chest": [[0.0, Vector3(-6, 0, 0)], [1.0, Vector3(-8, 3, 0)], [2.0, Vector3(-6, 0, 0)], [3.0, Vector3(-8, -3, 0)], [4.0, Vector3(-6, 0, 0)]],
+		"head": [[0.0, Vector3(-28, 0, 0)], [1.2, Vector3(-30, 6, 3)], [2.0, Vector3(-8, -18, 0)], [2.6, Vector3(-10, 14, 0)], [3.2, Vector3(-26, 0, -2)], [4.0, Vector3(-28, 0, 0)]],
+		"upper_arm.R": [[0.0, Vector3(22, 0, -14)], [2.0, Vector3(24, 0, -15)], [4.0, Vector3(22, 0, -14)]],
+		"forearm.R": [[0.0, Vector3(58, 0, -12)], [2.0, Vector3(62, 0, -12)], [4.0, Vector3(58, 0, -12)]],
+		"upper_arm.L": [[0.0, Vector3(22, 0, 14)], [2.0, Vector3(24, 0, 15)], [4.0, Vector3(22, 0, 14)]],
+		"forearm.L": [[0.0, Vector3(58, 0, 12)], [2.0, Vector3(62, 0, 12)], [4.0, Vector3(58, 0, 12)]],
+		"thigh.R": [[0.0, Vector3(3, 0, 2)], [2.0, Vector3(-2, 0, 3)], [4.0, Vector3(3, 0, 2)]],
+		"thigh.L": [[0.0, Vector3(-2, 0, -3)], [2.0, Vector3(4, 0, -2)], [4.0, Vector3(-2, 0, -3)]],
+		"shin.R": [[0.0, Vector3(-4, 0, 0)], [2.0, Vector3(-10, 0, 0)], [4.0, Vector3(-4, 0, 0)]],
+		"shin.L": [[0.0, Vector3(-10, 0, 0)], [2.0, Vector3(-4, 0, 0)], [4.0, Vector3(-10, 0, 0)]],
+	}, {"hips": [[0.0, _p(HIPS_Y - 0.02)], [1.0, _p(HIPS_Y - 0.035)], [2.0, _p(HIPS_Y - 0.02)], [3.0, _p(HIPS_Y - 0.035)], [4.0, _p(HIPS_Y - 0.02)]]}))
+	# --- Alegría: alza los dos brazos y da un saltito al verse libre ---
+	lib.add_animation("cheer", AnimBuilder.make(1.6, false, {
+		"upper_arm.R": [[0.0, Vector3(5, 0, 8)], [0.3, Vector3(10, 0, 150)], [0.6, Vector3(10, 0, 140)], [0.9, Vector3(10, 0, 155)], [1.6, Vector3(5, 0, 8)]],
+		"forearm.R": [[0.0, Vector3(10, 0, 0)], [0.3, Vector3(25, 0, 0)], [0.9, Vector3(15, 0, 0)], [1.6, Vector3(10, 0, 0)]],
+		"upper_arm.L": [[0.0, Vector3(5, 0, -8)], [0.3, Vector3(10, 0, -150)], [0.6, Vector3(10, 0, -140)], [0.9, Vector3(10, 0, -155)], [1.6, Vector3(5, 0, -8)]],
+		"forearm.L": [[0.0, Vector3(10, 0, 0)], [0.3, Vector3(25, 0, 0)], [0.9, Vector3(15, 0, 0)], [1.6, Vector3(10, 0, 0)]],
+		"head": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(14, 0, 0)], [1.0, Vector3(8, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"chest": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(6, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"thigh.R": [[0.0, Vector3(0, 0, 0)], [0.25, Vector3(12, 0, 0)], [0.45, Vector3(0, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"thigh.L": [[0.0, Vector3(0, 0, 0)], [0.25, Vector3(12, 0, 0)], [0.45, Vector3(0, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"shin.R": [[0.0, Vector3(0, 0, 0)], [0.25, Vector3(-25, 0, 0)], [0.45, Vector3(0, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"shin.L": [[0.0, Vector3(0, 0, 0)], [0.25, Vector3(-25, 0, 0)], [0.45, Vector3(0, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+	}, {"hips": [[0.0, _p(HIPS_Y)], [0.2, _p(HIPS_Y - 0.08)], [0.42, _p(HIPS_Y + 0.08)], [0.6, _p(HIPS_Y)], [1.6, _p(HIPS_Y)]]}))
+
 	# --- Muerte: se desploma hacia atrás y queda en el suelo ---
 	lib.add_animation("death", AnimBuilder.make(1.5, false, {
 		"root": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(-8, 0, 0)], [0.75, Vector3(30, 0, 4)], [1.1, Vector3(84, 0, 6)], [1.25, Vector3(90, 0, 6)], [1.5, Vector3(88, 0, 6)]],
