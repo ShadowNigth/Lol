@@ -235,6 +235,16 @@ el binario exportado (`--self-test`).
   camino, mirando hacia él; deterministas por semilla y chunk, reaparecen a los 5 días. La
   autoprueba recorre los 56 chunks de la red de caminos y comprueba que todos los emboscados están
   junto a un camino y fuera de los poblados (semilla de prueba: una pareja).
+- **Revisión visual del campamento** (capturas automáticas, conjuntos `camp` y `bandits` de
+  `tools/dev/capture.gd`): reveló cuatro fallos que la autoprueba no podía ver y que se
+  corrigieron: (1) los bandidos de ronda saltaban sobre las estacas de las tiendas y acababan
+  **encaramados a la lona** — se quitaron las estacas, se rehízo la ronda por terreno despejado y
+  los enemigos ya no saltan sobre lona; (2) la arquera aparecía **sobre el tejadillo** de la torre —
+  la colocación de actores ahora sondea por debajo de cualquier techo; (3) la textura de lona
+  parecía **arenisca** — ahora es lino claro con costuras, pliegues y remiendos ocasionales; (4) las
+  puntas de la empalizada se unían como una **barandilla** (las vallas se conectan con los bloques
+  vecinos) — ahora alternan troncos altos con punta y bajos sin ella. También se aligeró la escalera
+  de la torre (peldaños sobre postes) y se suavizó la inclinación de cabeza de la prisionera.
 - **Lugares ocultos**: el campamento no aparece en el mapa (ni su marcador ni sus construcciones)
   hasta que alguien te habla de él o lo encuentras; los lugares con identificador cuentan para los
   objetivos «llegar a» al entrar en ellos.

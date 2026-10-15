@@ -740,22 +740,30 @@ static func bandit_camp(wr: ChunkWriter, s: Dictionary) -> void:
 				ground = B.DIRT
 			wr.put(lx, -1, lz, ground)
 			wr.clear(lx, 0, lz, lx, 6, lz)
-	# Empalizada de troncos aguzados (con huecos: puerta y brecha trasera)
-	for lz2 in CAMP_SIZE:
-		for lx2 in CAMP_SIZE:
-			var d2 := Vector2(lx2 - cx, lz2 - cz).length()
-			if d2 < 10.9 or d2 > 11.9:
-				continue
-			if absi(lx2 - cx) <= 1 and lz2 < cz:
-				continue                          # puerta principal
-			var ang := atan2(float(lz2 - cz), float(lx2 - cx))
-			if absf(ang - deg_to_rad(52.0)) < 0.13:
-				continue                          # brecha trasera para entrar a escondidas
-			wr.foundation(lx2, -1, lz2, B.DIRT, 6)
-			var hgt := 3 + WorldGenerator.hash2(lx2, lz2, 4402) % 2
-			for ly in hgt:
-				wr.put(lx2, ly, lz2, B.SPRUCE_LOG if (lx2 + lz2) % 3 != 0 else B.LOG)
-			wr.put(lx2, hgt, lz2, B.FENCE)       # punta afilada
+	# Empalizada: anillo de un tronco de grosor siguiendo el círculo, con
+	# huecos para la puerta y una brecha trasera para entrar a escondidas
+	var ring := {}
+	for step in 720:
+		var ang := TAU * step / 720.0
+		var cell := Vector2i(int(floor(CAMP_CENTER.x + cos(ang) * 11.2)), int(floor(CAMP_CENTER.y + sin(ang) * 11.2)))
+		ring[cell] = ang
+	for cell2: Vector2i in ring:
+		var lx2 := cell2.x
+		var lz2 := cell2.y
+		if absi(lx2 - cx) <= 1 and lz2 < cz:
+			continue                              # puerta principal
+		if absf(float(ring[cell2]) - deg_to_rad(52.0)) < 0.13:
+			continue                              # brecha trasera
+		wr.foundation(lx2, -1, lz2, B.DIRT, 6)
+		# Troncos alternos altos (con la punta afilada) y bajos: perfil dentado.
+		# La punta solo va en los altos para que no se una a un vecino más
+		# alto (las vallas se conectan con los bloques opacos de al lado).
+		var tall := (lx2 + lz2) % 2 == 0
+		var hgt := 4 if tall else 3
+		for ly in hgt:
+			wr.put(lx2, ly, lz2, B.SPRUCE_LOG if (lx2 * 7 + lz2) % 3 != 0 else B.LOG)
+		if tall:
+			wr.put(lx2, hgt, lz2, B.FENCE)
 	# Postes de la puerta con antorchas
 	for gx: int in [cx - 2, cx + 2]:
 		for gy in 5:
@@ -793,12 +801,13 @@ static func bandit_camp(wr: ChunkWriter, s: Dictionary) -> void:
 		var sz := 10 - step
 		wr.put(16, step, sz, B.stairs(B.PLANK_STAIRS, 0))
 		for fill in step:
-			wr.put(16, fill, sz, B.PLANKS)
-	# Hoguera con troncos para sentarse
+			wr.put(16, fill, sz, B.FENCE)        # postes bajo los peldaños (escalera abierta)
+	# Hoguera con troncos para sentarse (del lado de la entrada: detrás queda
+	# libre el paso de la ronda ante la tienda del jefe)
 	wr.entity("campfire", Vector3(cx + 0.5, 0, cz + 0.5), 0.0, {"uid": "fire"})
 	for k in 3:
-		var a := PI * 0.75 + k * PI * 0.62
-		var sp := Vector3(cx + 0.5 + cos(a) * 2.6, 0, cz + 0.5 + sin(a) * 2.6)
+		var a := deg_to_rad(200.0 + k * 70.0)
+		var sp := Vector3(cx + 0.5 + cos(a) * 2.4, 0, cz + 0.5 + sin(a) * 2.4)
 		wr.entity("log_seat", sp, rad_to_deg(-a), {"uid": "seat_%d" % k})
 	# Jaula de la prisionera (puerta hacia el interior del campamento)
 	wr.entity("cage", CAMP_CAGE, -90.0, {"uid": "cage", "lock": 45, "key": "key_cuervos", "flag": "jaula_cuervos_abierta", "captive": "lina"})
@@ -842,10 +851,6 @@ static func _tent(wr: ChunkWriter, x0: int, z0: int, length: int, half: int, alo
 			_tent_put(wr, along_x, closed_a, c0 + o2, yy2, B.CANVAS)
 	for side: int in [-1, 1]:
 		_tent_put(wr, along_x, open_a, c0 + side * (half - 1), 0, B.CANVAS)
-	# Vientos: estacas con cuerda en las esquinas
-	for corner: int in [a0 - 1, a0 + length]:
-		for side2: int in [-1, 1]:
-			_tent_put(wr, along_x, corner, c0 + side2 * (half + 1), 0, B.FENCE)
 
 
 static func _tent_put(wr: ChunkWriter, along_x: bool, a: int, o: int, y: int, id: int) -> void:

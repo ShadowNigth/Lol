@@ -353,11 +353,11 @@ func _plan_bandit_camp(inn: Vector3i, ham: Vector3i) -> void:
 	spawns.append({"id": "bandit_camp/gate", "enemy": "bandit", "pos": lw.call(Vector3(13.5, 0, 3.0)), "yaw": 180.0 + yaw_off,
 			"patrol": [lw.call(Vector3(10.0, 0, 3.0)), lw.call(Vector3(14.5, 0, 3.0))]})
 	spawns.append({"id": "bandit_camp/brute", "enemy": "bandit_brute", "pos": lw.call(Vector3(10.0, 0, 10.0)), "yaw": -135.0 + yaw_off})
-	spawns.append({"id": "bandit_camp/round", "enemy": "bandit", "pos": lw.call(Vector3(7.5, 0, 14.5)), "yaw": 90.0 + yaw_off,
-			"patrol": [lw.call(Vector3(7.5, 0, 14.5)), lw.call(Vector3(17.0, 0, 15.5)), lw.call(Vector3(13.0, 0, 7.5))]})
+	spawns.append({"id": "bandit_camp/round", "enemy": "bandit", "pos": lw.call(Vector3(10.6, 0, 14.2)), "yaw": 90.0 + yaw_off,
+			"patrol": [lw.call(Vector3(10.6, 0, 14.2)), lw.call(Vector3(15.4, 0, 14.2))]})
 	spawns.append({"id": "bandit_camp/archer", "enemy": "bandit_archer", "pos": lw.call(Vector3(16.5, 4.0, 5.5)), "yaw": 180.0 + yaw_off,
 			"hold": true})
-	spawns.append({"id": "bandit_camp/chief", "enemy": "bandit_chief", "pos": lw.call(Vector3(12.5, 0, 15.0)), "yaw": 0.0 + yaw_off})
+	spawns.append({"id": "bandit_camp/chief", "enemy": "bandit_chief", "pos": lw.call(Vector3(12.5, 0, 15.4)), "yaw": 0.0 + yaw_off})
 	# Lina, encerrada en la jaula; al quedar libre sale por la puerta del campamento
 	var cage: Vector3 = StructureBuilder.CAMP_CAGE
 	spawns.append({"type": "npc", "npc": "lina", "id": "npc/lina_cautiva", "pos": lw.call(cage), "yaw": -90.0 + yaw_off,

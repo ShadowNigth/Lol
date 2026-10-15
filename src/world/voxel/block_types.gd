@@ -96,7 +96,7 @@ const TEXTURES := [
 	["clay", 1], ["sandstone_side", 1], ["sandstone_top", 1], ["ice", 1], ["mud", 2],
 	["dead_bush", 1], ["mushroom", 1], ["bookshelf", 1], ["wool_red", 1],
 	["dungeon_brick", 3], ["dungeon_floor", 2], ["crop", 1], ["reeds", 1],
-	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1], ["canvas", 2],
+	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1], ["canvas", 4],
 ]
 
 # --- Tablas (rellenadas en _static_init) ------------------------------------

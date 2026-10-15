@@ -203,7 +203,7 @@ static func build_library(style: String = "warrior") -> AnimationLibrary:
 	lib.add_animation("captive", AnimBuilder.make(4.0, true, {
 		"spine": [[0.0, Vector3(-8, 0, 0)], [2.0, Vector3(-10, 0, 2)], [4.0, Vector3(-8, 0, 0)]],
 		"chest": [[0.0, Vector3(-6, 0, 0)], [1.0, Vector3(-8, 3, 0)], [2.0, Vector3(-6, 0, 0)], [3.0, Vector3(-8, -3, 0)], [4.0, Vector3(-6, 0, 0)]],
-		"head": [[0.0, Vector3(-28, 0, 0)], [1.2, Vector3(-30, 6, 3)], [2.0, Vector3(-8, -18, 0)], [2.6, Vector3(-10, 14, 0)], [3.2, Vector3(-26, 0, -2)], [4.0, Vector3(-28, 0, 0)]],
+		"head": [[0.0, Vector3(-8, 0, 0)], [1.2, Vector3(-9, 6, 3)], [2.0, Vector3(-2, -18, 0)], [2.6, Vector3(-2, 14, 0)], [3.2, Vector3(-7, 0, -2)], [4.0, Vector3(-8, 0, 0)]],
 		"upper_arm.R": [[0.0, Vector3(22, 0, -14)], [2.0, Vector3(24, 0, -15)], [4.0, Vector3(22, 0, -14)]],
 		"forearm.R": [[0.0, Vector3(58, 0, -12)], [2.0, Vector3(62, 0, -12)], [4.0, Vector3(58, 0, -12)]],
 		"upper_arm.L": [[0.0, Vector3(22, 0, 14)], [2.0, Vector3(24, 0, 15)], [4.0, Vector3(22, 0, 14)]],

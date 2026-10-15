@@ -15,8 +15,10 @@ terceros (ver [ATTRIBUTIONS.md](ATTRIBUTIONS.md)).
 |---|---|---|
 | ![Posada del Lobo Gris](docs/screenshots/posada.jpg) | ![Aldea de Robledal](docs/screenshots/robledal.jpg) | ![Lobo pardo](docs/screenshots/lobo.jpg) |
 | Posada del Lobo Gris | Aldea de Robledal | Lobo (rig cuadrúpedo animado) |
-| ![Cubil de Colmillo Negro](docs/screenshots/cueva.jpg) | ![Mapa regional](docs/screenshots/mapa.jpg) | |
-| Cueva de los lobos | Mapa regional con lugares | |
+| ![Cubil de Colmillo Negro](docs/screenshots/cueva.jpg) | ![Mapa regional](docs/screenshots/mapa.jpg) | ![Campamento de los Cuervos](docs/screenshots/campamento.jpg) |
+| Cueva de los lobos | Mapa regional con lugares | Campamento de los Cuervos |
+| ![Bandidos de los Cuervos](docs/screenshots/bandidos.jpg) | ![Jaula de la prisionera](docs/screenshots/jaula.jpg) | |
+| Salteador, matón, arquera, el jefe Garra y Lina (cautiva) | La jaula, con cerradura que se abre con llave o ganzúas | |
 
 *Capturas tomadas automáticamente con el binario de pruebas (Vulkan por software, sin GPU); el
 juego usa el renderizador Compatibility (OpenGL 3.3), así que los colores pueden variar un poco.*

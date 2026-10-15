@@ -3,7 +3,7 @@ extends Node
 ## con semilla fija, recorre puntos de vista y fotografía poses concretas de
 ## las animaciones (primera persona y esqueleto).
 ## Uso (con un renderizador real, p. ej. el binario de pruebas offscreen):
-##   godot --path . res://tools/dev/capture.tscn -- --out=/tmp/caps [--set=views,vm,enemy]
+##   godot --path . res://tools/dev/capture.tscn -- --out=/tmp/caps [--set=views,vm,enemy] [--only=nombre1,nombre2]
 
 var _out := "/tmp/caps"
 var _sets: PackedStringArray = ["views", "vm", "enemy"]
@@ -18,6 +18,7 @@ var _wolf: Node3D
 var _wolf_anim: AnimationPlayer
 var _wolf_variant := -1
 var _bandits: Array[Node3D] = []
+var _only: PackedStringArray = []      # --only=a,b: solo esas capturas
 
 
 func _ready() -> void:
@@ -26,6 +27,8 @@ func _ready() -> void:
 			_out = a.substr(6)
 		elif a.begins_with("--set="):
 			_sets = a.substr(6).split(",")
+		elif a.begins_with("--only="):
+			_only = a.substr(7).split(",")
 	DirAccess.make_dir_recursive_absolute(_out)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	call_deferred("_begin")
@@ -167,6 +170,12 @@ func _process(_delta: float) -> void:
 		if g and g.has_method("is_world_ready") and bool(g.call("is_world_ready")):
 			_started = true
 			_build_queue()
+			if not _only.is_empty():
+				var kept: Array[Dictionary] = []
+				for q: Dictionary in _queue:
+					if str(q["name"]) in _only:
+						kept.append(q)
+				_queue = kept
 			var hud := g.get("hud") as HUD
 			if hud:
 				hud.set_visible_hud("--hud" in OS.get_cmdline_user_args())

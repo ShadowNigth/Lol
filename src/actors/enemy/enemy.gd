@@ -296,8 +296,8 @@ func _apply_movement(dir: Vector3, delta: float) -> void:
 	velocity.z = lerpf(velocity.z, target_vel.z, clampf(accel * delta, 0.0, 1.0))
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
-	# Salto sobre obstáculos de un bloque
-	if dir.length() > 0.1 and is_on_floor() and _blocked_ahead(dir, 0.35) and not _blocked_ahead(dir, 1.35):
+	# Salto sobre obstáculos de un bloque (pero no se encaraman a las tiendas de lona)
+	if dir.length() > 0.1 and is_on_floor() and _blocked_ahead(dir, 0.35) and not _blocked_ahead(dir, 1.35) and not _canvas_ahead(dir):
 		velocity.y = 5.6
 	move_and_slide()
 	var hspeed := Vector2(velocity.x, velocity.z).length()
@@ -324,6 +324,19 @@ func _apply_movement(dir: Vector3, delta: float) -> void:
 			_avoid_dir = 1.0 if _rng.randf() < 0.5 else -1.0
 			_avoid_t = 1.2
 	_last_pos = global_position
+
+
+## ¿Lo que tiene delante (a la altura de las rodillas) es lona de una tienda?
+func _canvas_ahead(dir: Vector3) -> bool:
+	if world == null:
+		return false
+	var space := get_world_3d().direct_space_state
+	var from := global_position + Vector3(0, 0.35, 0)
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + dir.normalized() * 0.75, MASK_WORLD, [get_rid()]))
+	if hit.is_empty():
+		return false
+	var id := world.block_at((hit["position"] as Vector3) - (hit["normal"] as Vector3) * 0.05)
+	return id == BlockTypes.CANVAS or id == BlockTypes.CANVAS_SLAB or (id >= BlockTypes.CANVAS_STAIRS and id < BlockTypes.CANVAS_STAIRS + 4)
 
 
 func _blocked_ahead(dir: Vector3, height: float) -> bool:
