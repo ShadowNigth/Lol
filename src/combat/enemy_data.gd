@@ -45,3 +45,27 @@ extends Resource
 ## Ataca a distancia con arco (mantiene la distancia y dispara flechas).
 @export var ranged: bool = false
 @export var projectile_speed: float = 30.0
+
+@export_group("Cuerpo y comportamiento")
+## Tipo de cuerpo: "humanoid" (esqueletos) o "quadruped" (lobos).
+@export_enum("humanoid", "quadruped") var body: String = "humanoid"
+## Altura de los ojos (línea de visión).
+@export var eye_height: float = 1.6
+@export var collision_radius: float = 0.33
+@export var collision_height: float = 1.8
+## Tiempos de los dos ataques (instante del impacto y duración total).
+@export var attack1_hit: float = 0.55
+@export var attack1_len: float = 1.15
+@export var attack2_hit: float = 0.68
+@export var attack2_len: float = 1.35
+## Probabilidad de usar el ataque 1 (el resto, ataque 2).
+@export_range(0.0, 1.0, 0.05) var attack1_chance: float = 0.6
+## Impulso hacia delante durante el ataque 2 (salto de los lobos); 0 = sin salto.
+@export var lunge_speed: float = 0.0
+## Al detectar al jugador avisa a los de su especie cercanos (manada).
+@export var pack_call: bool = false
+## Fracción de salud por debajo de la cual huye un rato (0 = nunca).
+@export_range(0.0, 1.0, 0.05) var flee_health: float = 0.0
+@export var step_sound: String = "step_stone"
+## Los animales salvajes reaparecen pasados unos días (0 = nunca).
+@export var respawn_days: int = 0

@@ -18,12 +18,12 @@ terceros (ver [ATTRIBUTIONS.md](ATTRIBUTIONS.md)).
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Prototipo jugable: aldea voxel, jugador en 1.ª persona con brazos y espada, enemigo animado, combate real, HUD, menú, sonido | **Completada** |
-| 2 | Calidad visual y animaciones (varias armas con animaciones propias, brazos con IK, esqueleto con máquina de estados) | En curso (ver abajo) |
-| 3 | Región procedural, mazmorra conectada, carga por regiones | Parcial: terreno, biomas y streaming por chunks ya funcionan |
-| 4 | Sistemas RPG y guardado | Parcial: atributos, habilidades por uso, guardado versionado y seguro |
-| 5 | PNJ, misiones y facciones | Pendiente |
-| 6 | Expansión del mundo | Pendiente |
-| 7 | Pulido y distribución Linux | Parcial: exportación reproducible, paquete .tar.xz, instalador de usuario, AppImage (con `appimagetool`) |
+| 2 | Calidad visual y animaciones: armas con animaciones propias, arco y magia, brazos con IK, esqueletos y lobos con máquina de estados | **Mayormente hecha** |
+| 3 | Región procedural, mazmorra conectada, carga por chunks, semilla persistente | **Hecha** |
+| 4 | Sistemas RPG y guardado: atributos, habilidades por uso, inventario con peso, **equipo por ranuras con armadura y resistencias**, comercio, guardado seguro | **Hecha** |
+| 5 | PNJ con horarios y diálogos, misiones con etapas, facciones y reputación | **Hecha** |
+| 6 | Expansión: posada de camino, aldea de Robledal, túmulo y cubil de lobos procedurales, caminos, fauna con manadas, mazmorras temáticas | **Hecha (región ampliada)** |
+| 7 | Pulido y distribución Linux: exportación reproducible, paquete .tar.xz, instalador de usuario | **Parcial** (sin AppImage ni pruebas en GPU real) |
 
 Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las pruebas y lo que falta.
 
@@ -41,7 +41,21 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
 - Combatir con **espada larga, hacha, maza o daga** (cada una con animaciones propias), bloquear,
   hacer **paradas perfectas**, esquivar, atacar con sigilo; los enemigos detectan, persiguen,
   bloquean con escudo, reaccionan a los golpes, quedan aturdidos y mueren.
-- Ciclo de **día y noche** con cielo, nubes voxel, estrellas, luz de antorchas y faroles.
+- Usar **arco** (flechas físicas) y **magia** (bola de fuego, escarcha, curación) con estados alterados.
+- **Equiparte** por ranuras (cabeza, torso, manos, piernas, pies y escudo): ropa, cuero, malla y hierro
+  con valor de armadura que mejora con la habilidad, resistencias mágicas y aspecto visible en los
+  brazos; la armadura reduce el daño físico y las resistencias el mágico.
+- Hablar con los **PNJ** (horarios de trabajo y descanso, rumores, comercio) y completar **misiones**
+  que cambian la reputación con las facciones.
+- Viajar por la región: la **Posada del Lobo Gris** al oeste, la **aldea de Robledal** al sur, el
+  **Túmulo de los Reyes Grises** y el **Cubil de Colmillo Negro** (posiciones según la semilla; el
+  mapa, tecla M, indica dirección y distancia), unidos por caminos.
+- Enfrentarte a **manadas de lobos** que acechan, se avisan entre sí, saltan a morder y huyen
+  heridos; los animales salvajes reaparecen pasados unos días.
+- Explorar **mazmorras temáticas** (cripta, túmulo, cueva) con llaves, palancas, salas secretas,
+  trampas y jefes.
+- Ciclo de **día y noche** con cielo, nubes voxel, estrellas, luz de antorchas, faroles y aullidos
+  lejanos por la noche.
 - **Guardar y cargar** (también guardado rápido F5 / carga rápida F9).
 
 ## Requisitos

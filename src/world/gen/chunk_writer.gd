@@ -75,6 +75,27 @@ func to_world_pos(lpos: Vector3) -> Vector3:
 	return Vector3(x, oy + lpos.y, z)
 
 
+## Igual que to_world_pos pero sin instancia (para planificar posiciones de PNJ
+## dentro de edificios girados).
+static func local_to_world(origin: Vector3i, size_w: int, size_d: int, rotation: int, lpos: Vector3) -> Vector3:
+	var x: float
+	var z: float
+	match posmod(rotation, 4):
+		0:
+			x = origin.x + lpos.x
+			z = origin.z + lpos.z
+		1:
+			x = origin.x + size_d - lpos.z
+			z = origin.z + lpos.x
+		2:
+			x = origin.x + size_w - lpos.x
+			z = origin.z + size_d - lpos.z
+		_:
+			x = origin.x + lpos.z
+			z = origin.z + size_w - lpos.x
+	return Vector3(x, origin.y + lpos.y, z)
+
+
 func in_bounds_world(wx: int, wz: int) -> bool:
 	return wx >= _x0 and wx <= _x1 and wz >= _z0 and wz <= _z1
 

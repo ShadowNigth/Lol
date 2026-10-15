@@ -36,9 +36,11 @@ var max_stamina: float = 100.0
 var max_mana: float = 50.0
 var armor_rating: float = 0.0
 var resistances: Dictionary = {"fire": 0.0, "frost": 0.0, "poison": 0.0, "shock": 0.0}
+var gear_bonus: Dictionary = {}       # bonificaciones del equipo (max_health, max_stamina, max_mana)
 var dead: bool = false
 var effects: Dictionary = {}          # efecto -> {"time": s, "power": p}
 const EFFECT_NAMES := {"burn": "Ardiendo", "frost": "Congelado", "poison": "Envenenado"}
+const MAGIC_DAMAGE := ["fire", "frost", "poison", "shock"]   # la armadura no las reduce
 
 
 func _init() -> void:
@@ -59,6 +61,9 @@ func recalc(fill: bool = false) -> void:
 	max_health = 40.0 + end_v * 1.2 + str_v * 0.3 + (level - 1) * (4.0 + end_v * 0.08)
 	max_stamina = 50.0 + end_v * 0.6 + agi_v * 0.4 + wil_v * 0.3
 	max_mana = 10.0 + int_v * 1.0 + wil_v * 0.2
+	max_health += float(gear_bonus.get("max_health", 0.0))
+	max_stamina += float(gear_bonus.get("max_stamina", 0.0))
+	max_mana += float(gear_bonus.get("max_mana", 0.0))
 	if fill:
 		health = max_health
 		stamina = max_stamina
@@ -143,9 +148,22 @@ func apply_damage(amount: float) -> float:
 	return amount
 
 
-## Reducción por armadura: daño * 100 / (100 + armadura)
+## Aplica el resultado de Equipment.compute(): armadura, resistencias y bonificaciones.
+func apply_gear(gear: Dictionary) -> void:
+	armor_rating = float(gear.get("armor", 0.0))
+	var r: Dictionary = gear.get("resist", {})
+	for k: String in MAGIC_DAMAGE:
+		resistances[k] = float(r.get(k, 0.0))
+	gear_bonus = (gear.get("bonus", {}) as Dictionary).duplicate()
+	recalc()
+
+
+## Reducción por armadura: daño * 100 / (100 + armadura). La armadura no reduce
+## el daño mágico (fuego, escarcha, veneno, rayo): para eso están las resistencias.
 func mitigate(amount: float, damage_type: String) -> float:
-	var reduced := amount * 100.0 / (100.0 + armor_rating)
+	var reduced := amount
+	if not damage_type in MAGIC_DAMAGE:
+		reduced = amount * 100.0 / (100.0 + armor_rating)
 	if resistances.has(damage_type):
 		reduced *= 1.0 - clampf(float(resistances[damage_type]), -1.0, 0.9)
 	return reduced

@@ -6,6 +6,7 @@ extends RefCounted
 
 const B = preload("res://src/world/voxel/block_types.gd")
 const VILLAGE_FLOOR := WorldGenerator.SEA_LEVEL + 6   # altura del suelo de la aldea
+const SEA_LEVEL_SAFE := WorldGenerator.SEA_LEVEL + 4
 
 var gen: WorldGenerator
 var structures: Array[Dictionary] = []
@@ -15,6 +16,8 @@ var paved: Array[Dictionary] = []       # {rect: Rect2i, block: int}
 var reserved: Array[Rect2i] = []
 var spawns: Array[Dictionary] = []      # criaturas planificadas
 var locations: Array[Dictionary] = []   # zonas con nombre (HUD)
+var sites: Array[Dictionary] = []      # lugares de la región: {id, name, kind, pos: Vector2}
+var no_wildlife: Array[Rect2i] = []     # zonas habitadas: sin fauna salvaje
 var spawn_point := Vector3(3.5, VILLAGE_FLOOR + 1.0, 3.5)
 var spawn_yaw_deg := -90.0              # mirando al este
 
@@ -23,6 +26,7 @@ func _init(generator: WorldGenerator) -> void:
 	gen = generator
 	_plan_start_village()
 	_plan_east_ruins()
+	_plan_region()
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +128,191 @@ func _plan_east_ruins() -> void:
 	spawns.append({"id": "ruins/archer_0", "enemy": "skeleton_archer", "pos": Vector3(70.5, fy, 3.0), "yaw": 135.0})
 	spawns.append({"id": "ruins/skeleton_2", "enemy": "skeleton_warrior", "pos": Vector3(63.5, fy, -10.5), "yaw": 0.0,
 			"patrol": [Vector3(61.5, fy, -10.5), Vector3(66.5, fy, -10.5)]})
+
+
+# ---------------------------------------------------------------------------
+# Fase 6: región alrededor de la aldea (sitios con semilla y caminos)
+# ---------------------------------------------------------------------------
+
+## Posada del camino al oeste, aldea de Robledal al sur, túmulo cerca de
+## Robledal y cubil de lobos en los bosques del norte. Las posiciones
+## exactas dependen de la semilla y del relieve (se elige el terreno más
+## llano y seco entre varios candidatos); los identificadores son fijos para
+## que misiones y partidas guardadas los encuentren siempre.
+func _plan_region() -> void:
+	sites.append({"id": "village", "name": "Aldea de Hojarrubia", "kind": "village", "pos": Vector2(0, 0)})
+	sites.append({"id": "ruins", "name": "Capilla en ruinas de Velmar", "kind": "dungeon", "pos": Vector2(64, -10)})
+	no_wildlife.append(Rect2i(-110, -100, 220, 200))
+	no_wildlife.append(Rect2i(40, -40, 50, 75))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(gen.world_seed * 7919 + 1301)
+	var inn := _find_site(rng, Vector2(-215.0, rng.randf_range(-35.0, 35.0)), 45.0, Vector2i(32, 34))
+	_plan_roadside_inn(inn)
+	_add_winding_road(Vector2(-70, 0), Vector2(inn.x + 8, inn.z), 3.0, rng)
+	var ham := _find_site(rng, Vector2(rng.randf_range(-50.0, 50.0), 300.0), 55.0, Vector2i(42, 38))
+	_plan_hamlet(ham, rng)
+	_add_winding_road(Vector2(0, 80), Vector2(ham.x, ham.z - 18), 3.0, rng)
+	var side := 1.0 if rng.randf() < 0.5 else -1.0
+	var bar := _find_site(rng, Vector2(ham.x + side * 120.0, ham.z + 50.0), 40.0, Vector2i(19, 19))
+	_plan_barrow(bar)
+	_add_winding_road(Vector2(ham.x + side * 20.0, ham.z), Vector2(bar.x, bar.z - side * 0.0 - 11.0), 2.0, rng)
+	var den := _find_site(rng, Vector2(rng.randf_range(-230.0, -120.0), -240.0), 70.0, Vector2i(15, 15), true)
+	_plan_wolf_den(den)
+
+
+## Busca el mejor emplazamiento cerca de `around`: seco, lo más llano posible
+## y lejos de lo ya reservado. Devuelve (x, altura del suelo, z) del centro.
+func _find_site(rng: RandomNumberGenerator, around: Vector2, radius: float, size: Vector2i, prefer_forest: bool = false) -> Vector3i:
+	var best := Vector3i(int(around.x), SEA_LEVEL_SAFE, int(around.y))
+	var best_score := INF
+	for i in 24:
+		var ang := rng.randf() * TAU
+		var dist := sqrt(rng.randf()) * radius
+		var c := around + Vector2(cos(ang), sin(ang)) * dist
+		var lo := INF
+		var hi := -INF
+		var sum := 0.0
+		for gz in 5:
+			for gx in 5:
+				var h := gen.raw_height(c.x + (gx - 2) * size.x / 4.0, c.y + (gz - 2) * size.y / 4.0)
+				lo = minf(lo, h)
+				hi = maxf(hi, h)
+				sum += h
+		if lo < WorldGenerator.SEA_LEVEL + 2:
+			continue
+		var rect := Rect2i(int(c.x) - size.x / 2, int(c.y) - size.y / 2, size.x, size.y)
+		var blocked := false
+		for r: Rect2i in reserved:
+			if r.intersects(rect):
+				blocked = true
+				break
+		if blocked:
+			continue
+		var score := (hi - lo) + dist * 0.02 + maxf(sum / 25.0 - (WorldGenerator.SEA_LEVEL + 30.0), 0.0)
+		if prefer_forest:
+			var b := gen.biome_at(int(c.x), int(c.y), int(sum / 25.0))
+			if b in [WorldGenerator.Biome.FOREST, WorldGenerator.Biome.BIRCH_FOREST, WorldGenerator.Biome.TAIGA]:
+				score -= 4.0
+		if score < best_score:
+			best_score = score
+			best = Vector3i(int(round(c.x)), int(round(sum / 25.0)), int(round(c.y)))
+	best.y = clampi(best.y, WorldGenerator.SEA_LEVEL + 2, WorldGenerator.SEA_LEVEL + 40)
+	return best
+
+
+## Camino con un quiebro intermedio (no una recta perfecta entre lugares).
+func _add_winding_road(a: Vector2, b: Vector2, width: float, rng: RandomNumberGenerator) -> void:
+	var mid := (a + b) * 0.5
+	var perp := (b - a).orthogonal().normalized()
+	mid += perp * rng.randf_range(-0.12, 0.12) * a.distance_to(b)
+	for seg: Array in [[a, mid], [mid, b]]:
+		_add_road(seg[0], seg[1], width)
+		var rect := Rect2(seg[0], Vector2.ZERO).expand(seg[1]).grow(width * 0.5 + 1.0)
+		reserved.append(Rect2i(rect))
+
+
+func _site_zone(c: Vector3i, half: Vector2i, name: String, margin: float = 16.0) -> void:
+	var rect := Rect2i(c.x - half.x, c.z - half.y, half.x * 2, half.y * 2)
+	flatten_zones.append({"rect": rect, "height": float(c.y), "margin": margin})
+	locations.append({"name": name, "rect": rect})
+	no_wildlife.append(rect.grow(30))
+
+
+func _plan_roadside_inn(c: Vector3i) -> void:
+	var fy := c.y + 1
+	_site_zone(c, Vector2i(16, 17), "Posada del Lobo Gris")
+	sites.append({"id": "inn_lobo", "name": "Posada del Lobo Gris", "kind": "inn", "pos": Vector2(c.x, c.z)})
+	paved.append({"rect": Rect2i(c.x - 6, c.z - 5, 13, 11), "block": B.COBBLE})
+	reserved.append(Rect2i(c.x - 7, c.z - 6, 15, 13))
+	var inn_o := Vector3i(c.x - 17, fy, c.z - 5)
+	_add_structure({"id": "inn_lobo/inn", "type": "house", "origin": inn_o, "w": 11, "d": 9, "rot": 1,
+			"floors": 2, "style": "timber", "roof": B.ROOF_STAIRS, "interior": "inn", "name": "Posada del Lobo Gris"})
+	_add_structure({"id": "inn_lobo/stable", "type": "house", "origin": Vector3i(c.x - 3, fy, c.z - 15), "w": 7, "d": 6, "rot": 2,
+			"floors": 1, "style": "timber", "roof": B.THATCH_STAIRS})
+	_add_structure({"id": "inn_lobo/well", "type": "well", "origin": Vector3i(c.x + 2, fy, c.z + 1), "w": 3, "d": 3, "rot": 0, "margin": 2})
+	_add_structure({"id": "inn_lobo/stall", "type": "stall", "origin": Vector3i(c.x - 1, fy, c.z + 8), "w": 3, "d": 2, "rot": 0,
+			"goods": "food", "margin": 1})
+	for p: Vector2i in [Vector2i(c.x - 7, c.z - 6), Vector2i(c.x + 7, c.z + 6), Vector2i(c.x + 7, c.z - 6)]:
+		_add_structure({"id": "inn_lobo/lamp_%d_%d" % [p.x, p.y], "type": "lamp", "origin": Vector3i(p.x, fy, p.y),
+				"w": 1, "d": 1, "rot": 0, "margin": 1})
+	# Ulrico tras la barra (misma posición local que Berta en La Jarra del Roble)
+	var bar := ChunkWriter.local_to_world(inn_o, 11, 9, 1, Vector3(5.5, 0, 7.5))
+	spawns.append({"type": "npc", "npc": "ulrico", "id": "npc/ulrico", "pos": bar, "yaw": -90.0})
+	spawns.append({"type": "npc", "npc": "edda", "id": "npc/edda", "pos": Vector3(c.x + 4.5, fy, c.z - 2.5), "yaw": -90.0,
+			"home": ChunkWriter.local_to_world(inn_o, 11, 9, 1, Vector3(3.5, 0, 3.5))})
+
+
+func _plan_hamlet(c: Vector3i, rng: RandomNumberGenerator) -> void:
+	var fy := c.y + 1
+	_site_zone(c, Vector2i(20, 19), "Aldea de Robledal")
+	sites.append({"id": "robledal", "name": "Aldea de Robledal", "kind": "village", "pos": Vector2(c.x, c.z)})
+	paved.append({"rect": Rect2i(c.x - 5, c.z - 5, 11, 11), "block": B.PATH})
+	reserved.append(Rect2i(c.x - 6, c.z - 6, 13, 13))
+	_add_structure({"id": "robledal/well", "type": "well", "origin": Vector3i(c.x - 1, fy, c.z - 1), "w": 3, "d": 3, "rot": 0, "margin": 2})
+	# Casas alrededor de la plaza, con la fachada hacia el centro
+	var styles := ["timber", "stone", "brick", "timber"]
+	var roofs := [B.THATCH_STAIRS, B.ROOF_STAIRS]
+	var homes: Array[Vector3] = []
+	var slots := [[Vector3i(c.x - 4, fy, c.z - 15), 2], [Vector3i(c.x + 7, fy, c.z - 4), 3], [Vector3i(c.x - 4, fy, c.z + 8), 0], [Vector3i(c.x - 15, fy, c.z - 4), 1]]
+	for i in slots.size():
+		var o: Vector3i = slots[i][0]
+		var rot: int = slots[i][1]
+		var w := 9 if i % 2 == 0 else 7
+		var d := 7
+		if rot % 2 == 1:
+			o = Vector3i(o.x, o.y, o.z - (w - 7) / 2)
+		var st := str(styles[(i + rng.randi()) % styles.size()])
+		_add_structure({"id": "robledal/house_%d" % i, "type": "house", "origin": o, "w": w, "d": d, "rot": rot,
+				"floors": 1 + (rng.randi() % 2), "style": st, "roof": roofs[rng.randi() % roofs.size()]})
+		homes.append(ChunkWriter.local_to_world(o, w, d, rot, Vector3(w * 0.5, 0, 2.5)))
+	_add_structure({"id": "robledal/field", "type": "field", "origin": Vector3i(c.x + 6, fy, c.z + 7), "w": 9, "d": 9, "rot": 0})
+	for p: Vector2i in [Vector2i(c.x - 6, c.z - 6), Vector2i(c.x + 6, c.z + 6)]:
+		_add_structure({"id": "robledal/lamp_%d_%d" % [p.x, p.y], "type": "lamp", "origin": Vector3i(p.x, fy, p.y),
+				"w": 1, "d": 1, "rot": 0, "margin": 1})
+	spawns.append({"type": "npc", "npc": "elena", "id": "npc/elena", "pos": Vector3(c.x + 2.5, fy, c.z - 3.5), "yaw": 180.0, "home": homes[0]})
+	spawns.append({"type": "npc", "npc": "bram", "id": "npc/bram", "pos": Vector3(c.x - 2.5, fy, c.z + 2.5), "yaw": 0.0, "home": homes[2]})
+
+
+func _plan_barrow(c: Vector3i) -> void:
+	var fy := c.y + 1
+	_site_zone(c, Vector2i(10, 10), "Túmulo de los Reyes Grises", 12.0)
+	sites.append({"id": "barrow_grises", "name": "Túmulo de los Reyes Grises", "kind": "dungeon", "pos": Vector2(c.x, c.z)})
+	_add_structure({"id": "barrow_grises/mound", "type": "barrow", "origin": Vector3i(c.x - 7, fy, c.z - 7), "w": 15, "d": 15, "rot": 0,
+			"dungeon": "barrow_grises", "margin": 2})
+	# Guardianes en el exterior (esqueletos que salen de noche y de día)
+	spawns.append({"id": "barrow_grises/out_0", "enemy": "skeleton_warrior", "pos": Vector3(c.x - 4.5, fy, c.z - 10.5), "yaw": 180.0,
+			"patrol": [Vector3(c.x - 4.5, fy, c.z - 10.5), Vector3(c.x + 4.5, fy, c.z - 10.5)]})
+	spawns.append({"id": "barrow_grises/out_1", "enemy": "skeleton_archer", "pos": Vector3(c.x + 6.5, fy, c.z - 9.5), "yaw": 200.0})
+
+
+func _plan_wolf_den(c: Vector3i) -> void:
+	var fy := c.y + 1
+	_site_zone(c, Vector2i(7, 7), "Cubil de Colmillo Negro", 10.0)
+	sites.append({"id": "cave_lobos", "name": "Cubil de Colmillo Negro", "kind": "dungeon", "pos": Vector2(c.x, c.z)})
+	_add_structure({"id": "cave_lobos/mouth", "type": "cave_mouth", "origin": Vector3i(c.x - 6, fy, c.z - 6), "w": 13, "d": 13, "rot": 0,
+			"dungeon": "cave_lobos", "margin": 2})
+	no_wildlife.pop_back()   # junto al cubil sí hay lobos: la manada de guardia
+	for i in 3:
+		var a := TAU * i / 3.0
+		spawns.append({"id": "cave_lobos/pack_%d" % i, "enemy": "wolf", "pos": Vector3(c.x + 0.5 + cos(a) * 3.0, fy, c.z - 10.5 + sin(a) * 2.0),
+				"yaw": 180.0, "respawn_days": 3})
+
+
+## ¿Puede aparecer fauna salvaje en esta columna? (lejos de aldeas y caminos)
+func wildlife_allowed(x: int, z: int) -> bool:
+	var p := Vector2i(x, z)
+	for r: Rect2i in no_wildlife:
+		if r.has_point(p):
+			return false
+	return not is_reserved(x, z)
+
+
+## Texto de dirección y distancia aproximada de un lugar (para mapa y diálogos).
+static func direction_text(from: Vector2, to: Vector2) -> String:
+	var d := to - from
+	var ang := fposmod(rad_to_deg(atan2(d.x, -d.y)), 360.0)
+	var names := ["norte", "nordeste", "este", "sudeste", "sur", "sudoeste", "oeste", "noroeste"]
+	return "%d m al %s" % [int(round(d.length() / 10.0) * 10.0), names[int(round(ang / 45.0)) % 8]]
 
 
 # ---------------------------------------------------------------------------

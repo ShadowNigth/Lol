@@ -16,6 +16,14 @@ const ITEMS := {
 			"description": "Restaura 40 puntos de magia.", "effect": {"mana": 40.0}},
 	"bread": {"name": "Hogaza de pan", "category": "food", "value": 3, "weight": 0.4, "rarity": "common",
 			"description": "Pan de centeno. Restaura un poco de salud.", "effect": {"heal": 8.0}},
+	"cheese": {"name": "Cuña de queso", "category": "food", "value": 5, "weight": 0.3, "rarity": "common",
+			"description": "Queso curado de oveja. Restaura salud y aguante.", "effect": {"heal": 12.0, "stamina": 15.0}},
+	"wolf_pelt": {"name": "Piel de lobo", "category": "ingredient", "value": 18, "weight": 1.5, "rarity": "common",
+			"description": "Piel gruesa de lobo. Los peleteros y cazadores la pagan bien."},
+	"wolf_fang": {"name": "Colmillo de lobo", "category": "ingredient", "value": 6, "weight": 0.05, "rarity": "common",
+			"description": "Colmillo afilado. Algunos lo llevan como amuleto."},
+	"alpha_pelt": {"name": "Piel de Colmillo Negro", "category": "quest", "value": 120, "weight": 2.5, "rarity": "rare",
+			"description": "La piel negra y enorme del lobo alfa que guiaba a las manadas del norte."},
 	"apple": {"name": "Manzana", "category": "food", "value": 2, "weight": 0.2, "rarity": "common",
 			"description": "Crujiente y dulce.", "effect": {"heal": 5.0, "stamina": 10.0}},
 	"bone_dust": {"name": "Polvo de hueso", "category": "ingredient", "value": 6, "weight": 0.1, "rarity": "common",
@@ -47,15 +55,71 @@ const ITEMS := {
 	"weapon_axe": {"name": "Hacha de guerra", "category": "weapon", "value": 60, "weight": 5.0, "rarity": "common", "weapon": "res://data/weapons/axe.tres"},
 	"weapon_mace": {"name": "Maza de armas", "category": "weapon", "value": 55, "weight": 5.5, "rarity": "common", "weapon": "res://data/weapons/mace.tres"},
 	"weapon_dagger": {"name": "Daga", "category": "weapon", "value": 30, "weight": 1.0, "rarity": "common", "weapon": "res://data/weapons/dagger.tres"},
+
+	# --- Ropa, armaduras y escudos (equipables por ranuras; ver Equipment) ---
+	# armor: valor base · armor_type: cloth/light/heavy (habilidad que lo mejora)
+	# look: aspecto en los brazos de primera persona · resist/bonus: efectos extra
+	"tunic_wool": {"name": "Camisa de lana", "category": "clothing", "value": 6, "weight": 1.0, "rarity": "common",
+			"slot": "chest", "armor": 1, "armor_type": "cloth", "look": "cloth",
+			"description": "Ropa sencilla de viaje, abrigada y remendada."},
+	"robe_apprentice": {"name": "Túnica de aprendiz", "category": "clothing", "value": 55, "weight": 1.5, "rarity": "uncommon",
+			"slot": "chest", "armor": 2, "armor_type": "cloth", "look": "robe",
+			"resist": {"fire": 0.1, "frost": 0.1}, "bonus": {"max_mana": 15.0},
+			"description": "Túnica azul bordada con runas de protección. Aumenta la magia y protege del fuego y la escarcha."},
+	"hood_leather": {"name": "Capucha de cuero", "category": "armor", "value": 18, "weight": 1.0, "rarity": "common",
+			"slot": "head", "armor": 4, "armor_type": "light",
+			"description": "Capucha de cuero curtido con cogulla."},
+	"armor_leather": {"name": "Jubón de cuero", "category": "armor", "value": 60, "weight": 5.0, "rarity": "common",
+			"slot": "chest", "armor": 10, "armor_type": "light", "look": "leather",
+			"description": "Jubón de cuero endurecido con remaches. Protege sin estorbar."},
+	"gloves_leather": {"name": "Guantes de cuero", "category": "armor", "value": 12, "weight": 0.5, "rarity": "common",
+			"slot": "hands", "armor": 3, "armor_type": "light", "look": "leather_gloves",
+			"description": "Guantes de cuero con refuerzo en los nudillos."},
+	"pants_leather": {"name": "Calzas de cuero", "category": "armor", "value": 25, "weight": 2.5, "rarity": "common",
+			"slot": "legs", "armor": 6, "armor_type": "light",
+			"description": "Calzas de cuero acolchado."},
+	"boots_leather": {"name": "Botas de cuero", "category": "armor", "value": 15, "weight": 1.5, "rarity": "common",
+			"slot": "feet", "armor": 3, "armor_type": "light",
+			"description": "Botas altas de caña, buenas para el camino."},
+	"helm_iron": {"name": "Yelmo de hierro", "category": "armor", "value": 70, "weight": 3.0, "rarity": "uncommon",
+			"slot": "head", "armor": 8, "armor_type": "heavy",
+			"description": "Yelmo de hierro con nasal."},
+	"armor_chain": {"name": "Cota de malla", "category": "armor", "value": 160, "weight": 12.0, "rarity": "uncommon",
+			"slot": "chest", "armor": 18, "armor_type": "heavy", "look": "chain",
+			"description": "Miles de anillas de hierro remachadas sobre un gambesón. Pesada pero fiable."},
+	"gauntlets_iron": {"name": "Guanteletes de hierro", "category": "armor", "value": 55, "weight": 2.0, "rarity": "uncommon",
+			"slot": "hands", "armor": 5, "armor_type": "heavy", "look": "gauntlets",
+			"description": "Guanteletes de láminas articuladas."},
+	"greaves_iron": {"name": "Grebas de hierro", "category": "armor", "value": 80, "weight": 6.0, "rarity": "uncommon",
+			"slot": "legs", "armor": 10, "armor_type": "heavy",
+			"description": "Grebas y quijotes de hierro."},
+	"boots_iron": {"name": "Escarpes de hierro", "category": "armor", "value": 50, "weight": 3.0, "rarity": "uncommon",
+			"slot": "feet", "armor": 5, "armor_type": "heavy",
+			"description": "Calzado de láminas de hierro."},
+	"shield_wood": {"name": "Escudo redondo de madera", "category": "shield", "value": 25, "weight": 4.0, "rarity": "common",
+			"slot": "offhand", "armor": 3, "armor_type": "light", "block": 0.8, "model": "shield",
+			"description": "Escudo de tablas con umbo de hierro, pintado con los colores de la Marca. Detiene el 80% del daño al bloquear."},
+	"shield_iron": {"name": "Escudo de hierro", "category": "shield", "value": 90, "weight": 7.0, "rarity": "uncommon",
+			"slot": "offhand", "armor": 6, "armor_type": "heavy", "block": 0.9, "model": "shield_iron",
+			"description": "Escudo de cometa forjado en hierro. Detiene el 90% del daño al bloquear."},
+	"velmar_helm": {"name": "Yelmo del Señor de Velmar", "category": "armor", "value": 300, "weight": 3.5, "rarity": "epic",
+			"slot": "head", "armor": 12, "armor_type": "heavy", "resist": {"frost": 0.25, "poison": 0.25},
+			"description": "Yelmo antiguo de un caballero de Velmar. Su metal frío resiste la escarcha y el veneno."},
 }
 
 
 static func get_def(id: String) -> Dictionary:
-	return ITEMS.get(id, {})
+	if ITEMS.has(id):
+		return ITEMS[id]
+	# Llaves de mazmorras generadas: "key_<id de mazmorra>" (ver DungeonDB)
+	if id.begins_with("key_") and DungeonDB.DUNGEONS.has(id.substr(4)):
+		return {"name": "Llave de hierro (%s)" % DungeonDB.display_name(id.substr(4)), "category": "key", "value": 0,
+				"weight": 0.1, "rarity": "rare", "description": "Abre la puerta cerrada de %s." % DungeonDB.display_name(id.substr(4))}
+	return {}
 
 
 static func exists(id: String) -> bool:
-	return ITEMS.has(id)
+	return not get_def(id).is_empty()
 
 
 static func display_name(id: String) -> String:

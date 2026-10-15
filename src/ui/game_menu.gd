@@ -12,6 +12,8 @@ var _inv_list: ItemList
 var _inv_ids: Array[String] = []
 var _inv_info: RichTextLabel
 var _weap_list: ItemList
+var _equip_list: ItemList
+var _equip_slots: Array[String] = []
 var _char_text: RichTextLabel
 var _journal_text: RichTextLabel
 var _map_rect: TextureRect
@@ -74,12 +76,22 @@ func _build_inventory() -> void:
 	h.add_child(right)
 	_inv_info = RichTextLabel.new()
 	_inv_info.bbcode_enabled = true
-	_inv_info.custom_minimum_size = Vector2(480, 380)
+	_inv_info.custom_minimum_size = Vector2(480, 250)
 	right.add_child(_inv_info)
+	var le := Label.new()
+	le.text = "Equipo puesto (doble clic para quitar)"
+	le.add_theme_color_override("font_color", UITheme.GOLD)
+	right.add_child(le)
+	_equip_list = ItemList.new()
+	_equip_list.custom_minimum_size = Vector2(480, 160)
+	_equip_list.item_activated.connect(func(_i: int) -> void: _unequip_selected())
+	_equip_list.item_selected.connect(_on_equip_selected)
+	right.add_child(_equip_list)
 	var buttons := HBoxContainer.new()
-	buttons.add_child(UITheme.button("Usar / Leer", _use_selected, 150))
-	buttons.add_child(UITheme.button("Equipar arma", _equip_selected_weapon, 160))
-	buttons.add_child(UITheme.button("Soltar", _drop_selected, 120))
+	buttons.add_child(UITheme.button("Usar / Equipar", _use_selected, 150))
+	buttons.add_child(UITheme.button("Quitar", _unequip_selected, 100))
+	buttons.add_child(UITheme.button("Equipar arma", _equip_selected_weapon, 150))
+	buttons.add_child(UITheme.button("Soltar", _drop_selected, 100))
 	right.add_child(buttons)
 
 
@@ -102,6 +114,8 @@ func _build_map() -> void:
 	v.name = "Mapa"
 	_tabs.add_child(v)
 	_map_label = Label.new()
+	_map_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_map_label.custom_minimum_size = Vector2(900, 0)
 	v.add_child(_map_label)
 	_map_rect = TextureRect.new()
 	_map_rect.custom_minimum_size = Vector2(512, 512)
@@ -169,10 +183,46 @@ func _refresh_inventory() -> void:
 	for i in player.weapons.size():
 		var w := player.weapons[i]
 		_weap_list.add_item("%d. %s%s  (daño %d-%d, peso %.1f)" % [i + 1, w.display_name, "  [equipada]" if i == player.weapon_index else "", int(w.damage_min), int(w.damage_max), w.weight])
+	_equip_list.clear()
+	_equip_slots.clear()
+	for slot: String in Equipment.SLOTS:
+		var id := str(GameState.equipment.get(slot, ""))
+		_equip_list.add_item("%s: %s" % [Equipment.SLOT_NAMES[slot], ItemDB.display_name(id) if id != "" else "—"])
+		_equip_slots.append(slot)
 	var weight := GameState.carry_weight()
-	for w2 in player.weapons:
-		weight += w2.weight
-	_inv_info.text = "[b]Oro:[/b] %d\n[b]Peso:[/b] %.1f / %.0f\n\nSelecciona un objeto para ver su descripción." % [player.gold, weight, carry_capacity()]
+	_inv_info.text = "[b]Oro:[/b] %d\n[b]Peso:[/b] %.1f / %.0f\n%s\n\nSelecciona un objeto para ver su descripción." % [player.gold,
+			weight, carry_capacity(), _protection_text()]
+
+
+func _protection_text() -> String:
+	var s := player.stats
+	var t := "[b]Armadura:[/b] %d (reduce el daño físico un %d%%)" % [int(s.armor_rating), int(100.0 - 10000.0 / (100.0 + s.armor_rating))]
+	var parts: Array[String] = []
+	for k: String in Equipment.RESIST_NAMES:
+		var v := float(s.resistances.get(k, 0.0))
+		if absf(v) > 0.001:
+			parts.append("%s %+d%%" % [Equipment.RESIST_NAMES[k], int(v * 100.0)])
+	if not parts.is_empty():
+		t += "\n[b]Resistencias:[/b] " + ", ".join(parts)
+	return t
+
+
+func _on_equip_selected(i: int) -> void:
+	var id := str(GameState.equipment.get(_equip_slots[i], ""))
+	if id == "":
+		_inv_info.text = "Ranura vacía: %s.\n\n%s" % [Equipment.SLOT_NAMES[_equip_slots[i]], _protection_text()]
+		return
+	var def := ItemDB.get_def(id)
+	_inv_info.text = "[b]%s[/b] [i](puesto)[/i]\n\n%s\n\n%s\n\nValor: %d oro    Peso: %.2f" % [def.get("name", id),
+			def.get("description", ""), Equipment.describe(id, player.stats), int(def.get("value", 0)), float(def.get("weight", 0.0))]
+
+
+func _unequip_selected() -> void:
+	var sel := _equip_list.get_selected_items()
+	if sel.is_empty():
+		return
+	GameState.unequip_slot(player, _equip_slots[sel[0]])
+	refresh()
 
 
 func _on_item_selected(i: int) -> void:
@@ -180,10 +230,16 @@ func _on_item_selected(i: int) -> void:
 	var def := ItemDB.get_def(id)
 	var rarity := {"common": "Común", "uncommon": "Poco común", "rare": "Raro", "epic": "Épico"}
 	var cats := {"potion": "Poción", "food": "Comida", "ingredient": "Ingrediente", "key": "Llave", "misc": "Varios",
-			"tool": "Herramienta", "book": "Libro", "weapon": "Arma", "quest": "Objeto de misión"}
+			"tool": "Herramienta", "book": "Libro", "weapon": "Arma", "quest": "Objeto de misión",
+			"armor": "Armadura", "clothing": "Ropa", "shield": "Escudo", "ammo": "Munición"}
 	var text := "[b]%s[/b]\n[i]%s · %s[/i]\n\n%s\n\nValor: %d oro    Peso: %.2f" % [def.get("name", id),
 			cats.get(def.get("category", ""), "Varios"), rarity.get(def.get("rarity", "common"), "Común"),
 			def.get("description", ""), int(def.get("value", 0)), float(def.get("weight", 0.0))]
+	if Equipment.is_equippable(id):
+		text += "\n\n" + Equipment.describe(id, player.stats)
+		var worn := str(GameState.equipment.get(Equipment.slot_of(id), ""))
+		if worn != "":
+			text += "\n[i]Sustituiría a: %s[/i]" % ItemDB.display_name(worn)
 	if def.has("text"):
 		text += "\n\n[i]«%s»[/i]" % def["text"]
 	_inv_info.text = text
@@ -201,7 +257,9 @@ func _use_selected() -> void:
 	if id == "":
 		return
 	var def := ItemDB.get_def(id)
-	if def.has("effect"):
+	if Equipment.is_equippable(id):
+		GameState.equip_item(player, id)
+	elif def.has("effect"):
 		GameState.use_item(player, id)
 	elif def.has("text"):
 		_on_item_selected(_inv_list.get_selected_items()[0])
@@ -281,7 +339,7 @@ func _refresh_map() -> void:
 	if gen == null:
 		return
 	var size := 128
-	var scale := 2 if not gen.is_interior() else 1
+	var scale := 4 if not gen.is_interior() else 1
 	var img := Image.create_empty(size, size, false, Image.FORMAT_RGB8)
 	var center := player.global_position
 	var ox := int(center.x) - size * scale / 2
@@ -312,7 +370,25 @@ func _refresh_map() -> void:
 					var pz2 := (zz - oz) / scale
 					if px2 >= 0 and pz2 >= 0 and px2 < size and pz2 < size:
 						img.set_pixel(px2, pz2, Color(0.55, 0.25, 0.2))
-		_map_label.text = "Mapa de la región (cada píxel = %d m). Tú estás en el centro (punto blanco). Norte arriba." % scale
+		# Lugares de la región: marcadores y leyenda con dirección y distancia
+		var me := Vector2(center.x, center.z)
+		var legend: Array[String] = []
+		for site: Dictionary in wg.planner.sites:
+			var sp: Vector2 = site["pos"]
+			var mcol := Color(0.95, 0.85, 0.4)
+			match str(site["kind"]):
+				"inn":
+					mcol = Color(1.0, 0.55, 0.15)
+				"dungeon":
+					mcol = Color(0.9, 0.15, 0.15)
+			var mx := int((sp.x - ox) / scale)
+			var mz := int((sp.y - oz) / scale)
+			for dz in range(-2, 3):
+				for dx in range(-2, 3):
+					if absi(dx) + absi(dz) <= 3 and mx + dx >= 0 and mz + dz >= 0 and mx + dx < size and mz + dz < size:
+						img.set_pixel(mx + dx, mz + dz, mcol if absi(dx) + absi(dz) < 3 else Color(0.1, 0.08, 0.06))
+			legend.append("%s: %s" % [site["name"], StructurePlanner.direction_text(me, sp)])
+		_map_label.text = "Mapa de la región (cada píxel = %d m; tú en el centro, norte arriba). Amarillo: aldeas · Naranja: posadas · Rojo: mazmorras\n%s" % [scale, "  ·  ".join(legend)]
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
 			img.set_pixel(size / 2 + dx, size / 2 + dy, Color(1, 1, 1))

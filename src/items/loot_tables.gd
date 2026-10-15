@@ -3,13 +3,17 @@ extends RefCounted
 ## Tablas de botín: cada entrada [id, probabilidad, mín, máx].
 
 const TABLES := {
-	"skeleton": [["bone_dust", 0.6, 1, 2], ["old_coin", 0.25, 1, 2], ["potion_health", 0.15, 1, 1], ["weapon_rusty_sword", 0.08, 1, 1]],
+	"skeleton": [["bone_dust", 0.6, 1, 2], ["old_coin", 0.25, 1, 2], ["potion_health", 0.15, 1, 1], ["weapon_rusty_sword", 0.08, 1, 1], ["boots_leather", 0.04, 1, 1]],
 	"home": [["bread", 0.7, 1, 2], ["apple", 0.5, 1, 3], ["potion_health", 0.3, 1, 1], ["lockpick", 0.3, 1, 2]],
 	"inn": [["bread", 0.8, 1, 3], ["potion_stamina", 0.5, 1, 1], ["silver_ring", 0.1, 1, 1]],
-	"dungeon": [["potion_health", 0.7, 1, 2], ["old_coin", 0.8, 2, 6], ["potion_stamina", 0.4, 1, 1], ["silver_ring", 0.15, 1, 1], ["weapon_axe", 0.08, 1, 1]],
-	"secret": [["silver_ring", 0.8, 1, 2], ["potion_health", 1.0, 2, 3], ["potion_mana", 0.8, 1, 2], ["weapon_mace", 0.3, 1, 1], ["old_coin", 1.0, 5, 10]],
-	"boss": [["velmar_crown", 1.0, 1, 1], ["potion_health", 1.0, 2, 3], ["silver_ring", 0.6, 1, 1], ["old_coin", 1.0, 8, 15]],
+	"dungeon": [["potion_health", 0.7, 1, 2], ["old_coin", 0.8, 2, 6], ["potion_stamina", 0.4, 1, 1], ["silver_ring", 0.15, 1, 1], ["weapon_axe", 0.08, 1, 1], ["hood_leather", 0.1, 1, 1], ["gloves_leather", 0.1, 1, 1], ["boots_iron", 0.06, 1, 1]],
+	"secret": [["silver_ring", 0.8, 1, 2], ["potion_health", 1.0, 2, 3], ["potion_mana", 0.8, 1, 2], ["weapon_mace", 0.3, 1, 1], ["old_coin", 1.0, 5, 10], ["shield_iron", 0.35, 1, 1], ["helm_iron", 0.3, 1, 1]],
+	"boss": [["velmar_crown", 1.0, 1, 1], ["velmar_helm", 1.0, 1, 1], ["potion_health", 1.0, 2, 3], ["silver_ring", 0.6, 1, 1], ["old_coin", 1.0, 8, 15]],
 	"skeleton_lord": [["bone_dust", 1.0, 3, 5], ["old_coin", 1.0, 4, 8]],
+	"wolf": [["wolf_pelt", 0.85, 1, 1], ["wolf_fang", 0.5, 1, 2]],
+	"wolf_alpha": [["alpha_pelt", 1.0, 1, 1], ["wolf_fang", 1.0, 2, 4], ["wolf_pelt", 1.0, 1, 1]],
+	"boss_barrow": [["helm_iron", 1.0, 1, 1], ["greaves_iron", 0.6, 1, 1], ["potion_health", 1.0, 2, 3], ["silver_ring", 0.7, 1, 2], ["old_coin", 1.0, 10, 18]],
+	"boss_den": [["potion_health", 1.0, 1, 2], ["wolf_pelt", 1.0, 2, 3], ["gauntlets_iron", 0.5, 1, 1], ["old_coin", 1.0, 4, 9], ["weapon_bow", 0.3, 1, 1]],
 	"ruins": [["potion_health", 0.9, 1, 2], ["old_coin", 0.8, 2, 5], ["book_velmar", 1.0, 1, 1], ["rusty_key", 1.0, 1, 1], ["potion_mana", 0.4, 1, 1]],
 }
 

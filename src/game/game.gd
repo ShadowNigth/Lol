@@ -22,6 +22,7 @@ var _location_timer := 0.0
 var _current_location := ""
 var _ambient_day: AudioStreamPlayer
 var _ambient_night: AudioStreamPlayer
+var _howl_timer := 20.0
 var _block_textures: Texture2DArray
 var _switching := false
 var _pending_spawn := Vector3.INF
@@ -343,19 +344,23 @@ func _apply_new_or_loaded_player() -> void:
 		for s: String in sk:
 			if player.stats.skills.has(s):
 				player.stats.skills[s] = sk[s]
-		player.stats.recalc(true)
+		GameState.equipment = Equipment.sanitize(tpl.get("equipment", {}))
 		player.weapons.clear()
 		for wid: String in tpl["weapons"]:
 			var w := load("res://data/weapons/%s.tres" % wid) as WeaponData
 			if w:
 				player.weapons.append(w)
 		player._equip_index(0)
+		player.apply_equipment()
+		player.stats.recalc(true)
 		player.gold = 25
 		if GameState.character_class == "rogue":
 			GameState.give_item(player, {"id": "arrow", "count": 30})
 		elif GameState.character_class == "mage":
 			GameState.give_item(player, {"id": "potion_mana", "count": 2})
 		return
+	# Las bonificaciones del equipo deben estar antes de restaurar salud/magia
+	player.stats.gear_bonus = Equipment.compute(GameState.equipment, player.stats)["bonus"]
 	player.stats.from_dict(data.get("stats", {}))
 	player.gold = int(data.get("gold", 0))
 	player.weapons.clear()
@@ -366,6 +371,7 @@ func _apply_new_or_loaded_player() -> void:
 	if player.weapons.is_empty():
 		player.weapons.append(load("res://data/weapons/sword.tres") as WeaponData)
 	player._equip_index(int(data.get("weapon_index", 0)))
+	player.apply_equipment()
 
 
 func _process(delta: float) -> void:
@@ -391,6 +397,13 @@ func _process(delta: float) -> void:
 		_ambient_day.volume_db = lerpf(-14.0, -22.0, night)
 	if _ambient_night:
 		_ambient_night.volume_db = lerpf(-50.0, -12.0, night)
+	# Aullidos lejanos de lobos por la noche (solo en el exterior)
+	if night > 0.6 and not generator.is_interior():
+		_howl_timer -= delta
+		if _howl_timer <= 0.0:
+			_howl_timer = randf_range(35.0, 80.0)
+			var ang := randf() * TAU
+			Audio.play_3d("wolf_howl", player.global_position + Vector3(cos(ang) * 40.0, 8.0, sin(ang) * 40.0), -4.0, 0.08)
 
 
 func is_world_ready() -> bool:

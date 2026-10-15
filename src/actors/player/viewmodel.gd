@@ -17,6 +17,8 @@ const GRIP_OFFSET := Vector3(-0.012, -0.055, -0.01)
 var kind: String = "sword"
 var weapon_id: String = "sword"
 var offhand_id: String = ""
+var _rig: Rig
+var _appearance: String = "cloth|bare"
 var skeleton: Skeleton3D
 var anim: AnimationPlayer
 var anim_left: AnimationPlayer
@@ -63,12 +65,10 @@ func _build() -> void:
 		rig.add("hand." + n, "forearm." + n, sh + Vector3(0, -L_UPPER - L_FORE, 0))
 	skeleton = rig.create_skeleton()
 	add_child(skeleton)
-	var model := CharacterModels.player_arms()
-	for p in model.parts:
-		p.origin = rig.rest_position(p.bone)
+	_rig = rig
 	_arms_mesh = MeshInstance3D.new()
 	_arms_mesh.name = "Arms"
-	_arms_mesh.mesh = model.build_skinned_mesh(rig.bone_names(), ModelLibrary.viewmodel_material())
+	_arms_mesh.mesh = _arms_mesh_for("cloth", "bare")
 	_arms_mesh.skin = rig.create_skin()
 	_arms_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_arms_mesh.layers = 2
@@ -137,8 +137,24 @@ func _build() -> void:
 	anim_left.animation_finished.connect(_on_left_finished)
 
 
+func _arms_mesh_for(chest: String, hands: String) -> ArrayMesh:
+	var model := CharacterModels.player_arms(chest, hands)
+	for p in model.parts:
+		p.origin = _rig.rest_position(p.bone)
+	return model.build_skinned_mesh(_rig.bone_names(), ModelLibrary.viewmodel_material())
+
+
+## Cambia mangas y manos según la ropa/armadura del torso y de las manos.
+func set_appearance(chest: String, hands: String) -> void:
+	var key := chest + "|" + hands
+	if key == _appearance or _arms_mesh == null:
+		return
+	_appearance = key
+	_arms_mesh.mesh = _arms_mesh_for(chest, hands)
+
+
 func has_shield() -> bool:
-	return offhand_id == "shield" and kind in ["sword", "axe", "mace", "dagger"]
+	return offhand_id.begins_with("shield") and kind in ["sword", "axe", "mace", "dagger"]
 
 
 ## Animación que corresponde a la mano izquierda para una acción dada.

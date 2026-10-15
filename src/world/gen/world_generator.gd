@@ -242,7 +242,53 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 	_decorate(data, heights, biomes)
 	planner.stamp_structures(data)
 	planner.add_spawns(data, heights)
+	_add_wildlife(data, cx, cz, heights, biomes)
 	return data
+
+
+# ---------------------------------------------------------------------------
+# Fauna salvaje (manadas de lobos) — determinista por semilla y chunk
+# ---------------------------------------------------------------------------
+
+func _add_wildlife(data: ChunkData, cx: int, cz: int, heights: PackedInt32Array, biomes: PackedByteArray) -> void:
+	var pad := ChunkData.PAD
+	var mid := (ChunkData.SIZE / 2 + 1) + (ChunkData.SIZE / 2 + 1) * pad
+	var biome := int(biomes[mid])
+	var chance := 0.0
+	match biome:
+		Biome.FOREST, Biome.BIRCH_FOREST:
+			chance = 0.045
+		Biome.TAIGA, Biome.SNOW:
+			chance = 0.05
+		Biome.PLAINS, Biome.ROCKY:
+			chance = 0.015
+	if chance <= 0.0 or hashf(cx, cz, world_seed % 100000 + 777) > chance:
+		return
+	var wx0 := cx * ChunkData.SIZE
+	var wz0 := cz * ChunkData.SIZE
+	if not planner.wildlife_allowed(wx0 + 8, wz0 + 8):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("wolves|%d|%d|%d" % [world_seed, cx, cz])
+	var count := rng.randi_range(2, 3)
+	var cold := biome in [Biome.TAIGA, Biome.SNOW]
+	for i in count:
+		var lx := rng.randi_range(3, ChunkData.SIZE - 4)
+		var lz := rng.randi_range(3, ChunkData.SIZE - 4)
+		var h := heights[(lx + 1) + (lz + 1) * pad]
+		if h <= SEA_LEVEL + 1 or not planner.wildlife_allowed(wx0 + lx, wz0 + lz):
+			continue
+		var pos := Vector3(wx0 + lx + 0.5, h + 1, wz0 + lz + 0.5)
+		# Merodean entre unos pocos puntos cercanos
+		var patrol: Array[Vector3] = [pos]
+		for k in 2:
+			var px := clampi(lx + rng.randi_range(-6, 6), 1, ChunkData.SIZE - 2)
+			var pz := clampi(lz + rng.randi_range(-6, 6), 1, ChunkData.SIZE - 2)
+			var ph := heights[(px + 1) + (pz + 1) * pad]
+			if ph > SEA_LEVEL + 1 and absi(ph - h) <= 2:
+				patrol.append(Vector3(wx0 + px + 0.5, ph + 1, wz0 + pz + 0.5))
+		data.entities.append({"type": "enemy", "enemy": "wolf", "id": "wild/wolf_%d_%d_%d" % [cx, cz, i], "pos": pos,
+				"yaw": rng.randf() * 360.0, "variant": 2 if cold else -1, "respawn_days": 3, "patrol": patrol})
 
 
 # ---------------------------------------------------------------------------

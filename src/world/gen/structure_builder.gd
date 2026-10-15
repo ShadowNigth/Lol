@@ -32,6 +32,10 @@ static func build(wr: ChunkWriter, s: Dictionary) -> void:
 			field(wr, s)
 		"lamp":
 			lamp_post(wr, s)
+		"barrow":
+			barrow(wr, s)
+		"cave_mouth":
+			cave_mouth(wr, s)
 		_:
 			push_warning("Estructura desconocida: %s" % s["type"])
 	var _unused := size
@@ -607,3 +611,94 @@ static func lamp_post(wr: ChunkWriter, _s: Dictionary) -> void:
 	wr.put(0, 1, 0, B.FENCE)
 	wr.put(0, 2, 0, B.FENCE)
 	wr.put(0, 3, 0, B.TORCH)
+
+
+# ---------------------------------------------------------------------------
+# Fase 6: túmulo funerario y boca de cueva (entradas a mazmorras)
+# ---------------------------------------------------------------------------
+
+## Túmulo: montículo de tierra y hierba con un corredor de piedra (dolmen) que
+## lleva a la puerta de la mazmorra, y un círculo de piedras erguidas.
+static func barrow(wr: ChunkWriter, s: Dictionary) -> void:
+	var w := int(s["w"])
+	var d := int(s["d"])
+	var cx := (w - 1) / 2.0
+	var cz := (d - 1) / 2.0 + 1.0
+	var rad := minf(w, d) * 0.5 - 1.0
+	var height := 5.0
+	for lz in d:
+		for lx in w:
+			var r := Vector2(lx - cx, lz - cz).length()
+			if r > rad:
+				continue
+			var top := int(round(height * sqrt(maxf(1.0 - (r / rad) * (r / rad), 0.0))))
+			for ly in range(0, top + 1):
+				wr.put(lx, ly, lz, B.DIRT)
+			wr.put(lx, top, lz, B.GRASS if WorldGenerator.hash2(lx, lz, 3) % 5 != 0 else B.MOSS_STONE)
+			wr.foundation(lx, -1, lz, B.DIRT, 6)
+	# Corredor de entrada (frente en z = 0): muros y dintel de piedra musgosa
+	var ax := int(cx)
+	var door_z := int(cz) - 1
+	for lz2 in range(0, door_z + 1):
+		for ly2 in range(0, 4):
+			wr.put(ax - 2, ly2, lz2, _vary(wr, ax - 2, ly2, lz2, B.MOSSY_BRICK, B.COBBLE, 30))
+			wr.put(ax + 2, ly2, lz2, _vary(wr, ax + 2, ly2, lz2, B.MOSSY_BRICK, B.COBBLE, 30))
+		wr.fill(ax - 1, 0, lz2, ax + 1, 2, lz2, B.AIR)
+		wr.put(ax - 1, -1, lz2, B.COBBLE)
+		wr.put(ax, -1, lz2, B.GRAVEL)
+		wr.put(ax + 1, -1, lz2, B.COBBLE)
+		wr.fill(ax - 2, 3, lz2, ax + 2, 3, lz2, B.CHISELED if lz2 == 0 else B.MOSSY_BRICK)
+	wr.fill(ax - 2, 0, door_z + 1, ax + 2, 3, door_z + 1, B.MOSSY_BRICK)
+	wr.put(ax - 2, 4, 0, B.COBBLE_SLAB)
+	wr.put(ax + 2, 4, 0, B.COBBLE_SLAB)
+	wr.put(ax - 1, 2, 1, B.TORCH)
+	wr.put(ax + 1, 2, 1, B.TORCH)
+	wr.entity("dungeon_entrance", Vector3(ax + 0.5, 0, door_z + 0.9), 0.0, {"uid": "door", "dungeon": str(s.get("dungeon", "barrow_grises"))})
+	# Piedras erguidas alrededor
+	var r2 := _rng(s)
+	for i in 7:
+		var ang := PI * 0.15 + i * PI * 1.7 / 6.0
+		var px := int(round(cx + sin(ang) * (rad + 0.5)))
+		var pz := int(round(cz + cos(ang) * (rad + 0.5)))
+		if px < 0 or pz < 0 or px >= w or pz >= d or pz <= 1:
+			continue
+		var hgt := r2.randi_range(2, 3)
+		for ly3 in hgt:
+			wr.put(px, ly3, pz, B.STONE if ly3 < hgt - 1 else B.MOSS_STONE)
+
+
+## Boca de cueva: un risco de roca con un túnel que se adentra en la oscuridad.
+static func cave_mouth(wr: ChunkWriter, s: Dictionary) -> void:
+	var w := int(s["w"])
+	var d := int(s["d"])
+	var cx := (w - 1) / 2.0
+	var cz := (d - 1) / 2.0 + 1.0
+	var rad := minf(w, d) * 0.5 - 0.5
+	for lz in d:
+		for lx in w:
+			var r := Vector2(lx - cx, lz - cz).length() + WorldGenerator.hashf(lx, lz, 41) * 1.2
+			if r > rad:
+				continue
+			var top := int(round(7.0 * sqrt(maxf(1.0 - (r / rad) * (r / rad), 0.0)) + WorldGenerator.hashf(lx, lz, 43) * 1.5))
+			for ly in range(0, top + 1):
+				var hsh := WorldGenerator.hash2(lx * 13 + ly, lz, 47) % 9
+				wr.put(lx, ly, lz, B.GRAVEL if hsh == 0 else (B.MOSS_STONE if hsh == 1 else B.STONE))
+			if top >= 4 and WorldGenerator.hash2(lx, lz, 49) % 4 == 0:
+				wr.put(lx, top, lz, B.GRASS)
+			wr.foundation(lx, -1, lz, B.STONE, 6)
+	# Túnel de entrada irregular (frente en z = 0)
+	var ax := int(cx)
+	var end_z := int(cz)
+	for lz2 in range(0, end_z + 1):
+		var half := 1 if lz2 > 1 else 2
+		var hgt := 3 if lz2 > 1 else 4
+		wr.fill(ax - half, 0, lz2, ax + half, hgt - 1, lz2, B.AIR)
+		wr.put(ax, -1, lz2, B.GRAVEL)
+		wr.put(ax - 1, -1, lz2, B.DIRT)
+		wr.put(ax + 1, -1, lz2, B.GRAVEL)
+	wr.put(ax - 2, 0, 0, B.MOSS_STONE)
+	wr.put(ax + 2, 1, 0, B.STONE)
+	wr.put(ax - 1, 0, 1, B.MUSHROOM)
+	wr.entity("bones", Vector3(ax + 1.2, 0, 2.2), 30.0, {"uid": "bones_1"})
+	wr.entity("bones", Vector3(ax - 2.4, 0, -1.4), 110.0, {"uid": "bones_2"})
+	wr.entity("dungeon_entrance", Vector3(ax + 0.5, 0, end_z + 0.85), 0.0, {"uid": "mouth", "dungeon": str(s.get("dungeon", "cave_lobos")), "style": "open"})

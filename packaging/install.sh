@@ -15,11 +15,23 @@ if [ "$1" = "--uninstall" ]; then
   echo "Vaelmoor desinstalado (las partidas guardadas siguen en ~/.local/share/vaelmoor)."
   exit 0
 fi
+for f in vaelmoor.x86_64 vaelmoor.pck vaelmoor.png vaelmoor.desktop; do
+  if [ ! -f "$HERE/$f" ]; then
+    echo "Error: falta $f junto a install.sh (¿paquete incompleto?)." >&2
+    exit 1
+  fi
+done
 mkdir -p "$DEST" "$BIN" "$APPS" "$ICONS"
 cp "$HERE/vaelmoor.x86_64" "$HERE/vaelmoor.pck" "$DEST/"
 chmod +x "$DEST/vaelmoor.x86_64"
-printf '#!/bin/sh\nexec "%s/vaelmoor.x86_64" --main-pack "%s/vaelmoor.pck" "$@"\n' "$DEST" "$DEST" > "$BIN/vaelmoor"
+# El ejecutable carga vaelmoor.pck por nombre desde su misma carpeta
+# (las plantillas de exportación no admiten --main-pack ni --path).
+printf '#!/bin/sh\nexec "%s/vaelmoor.x86_64" "$@"\n' "$DEST" > "$BIN/vaelmoor"
 chmod +x "$BIN/vaelmoor"
 cp "$HERE/vaelmoor.png" "$ICONS/vaelmoor.png"
 sed "s|^Exec=.*|Exec=$BIN/vaelmoor|" "$HERE/vaelmoor.desktop" > "$APPS/vaelmoor.desktop"
 echo "Vaelmoor instalado. Ejecuta 'vaelmoor' o búscalo en el menú de aplicaciones."
+case ":$PATH:" in
+  *":$BIN:"*) ;;
+  *) echo "Nota: $BIN no está en tu PATH; usa '$BIN/vaelmoor' o añádelo al PATH." ;;
+esac

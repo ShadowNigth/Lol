@@ -79,3 +79,29 @@ static func humanoid(scale: float = 1.0) -> Rig:
 		r.add("shin." + n, "thigh." + n, Vector3(0.11 * sx, 0.50, 0) * s)
 		r.add("foot." + n, "shin." + n, Vector3(0.11 * sx, 0.09, 0) * s)
 	return r
+
+
+## Esqueleto cuadrúpedo (lobo, ~1,3 m de largo y 0,75 m a la cruz), mirando a -Z.
+## Patas: *_up (hombro/muslo), *_low (antebrazo/caña) y *_paw; f = delanteras, b = traseras.
+static func quadruped(scale: float = 1.0) -> Rig:
+	var r := Rig.new()
+	var s := scale
+	r.add("root", "", Vector3.ZERO)
+	r.add("hips", "root", Vector3(0, 0.70, 0.36) * s)
+	r.add("spine", "hips", Vector3(0, 0.72, 0.04) * s)
+	r.add("chest", "spine", Vector3(0, 0.74, -0.28) * s)
+	r.add("neck", "chest", Vector3(0, 0.84, -0.46) * s)
+	r.add("head", "neck", Vector3(0, 0.92, -0.6) * s)
+	r.add("jaw", "head", Vector3(0, 0.86, -0.66) * s)
+	r.add("tail.1", "hips", Vector3(0, 0.74, 0.52) * s)
+	r.add("tail.2", "tail.1", Vector3(0, 0.62, 0.78) * s)
+	for side: Array in [["R", 1.0], ["L", -1.0]]:
+		var n: String = side[0]
+		var sx: float = side[1]
+		r.add("f_up." + n, "chest", Vector3(0.13 * sx, 0.66, -0.34) * s)
+		r.add("f_low." + n, "f_up." + n, Vector3(0.13 * sx, 0.38, -0.36) * s)
+		r.add("f_paw." + n, "f_low." + n, Vector3(0.13 * sx, 0.07, -0.36) * s)
+		r.add("b_up." + n, "hips", Vector3(0.13 * sx, 0.66, 0.38) * s)
+		r.add("b_low." + n, "b_up." + n, Vector3(0.13 * sx, 0.36, 0.44) * s)
+		r.add("b_paw." + n, "b_low." + n, Vector3(0.13 * sx, 0.07, 0.4) * s)
+	return r

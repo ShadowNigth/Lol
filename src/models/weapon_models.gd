@@ -173,6 +173,37 @@ static func shield() -> VoxelModel:
 	return m
 
 
+## Escudo de cometa de hierro: borde remachado, banda central y umbo.
+static func shield_iron() -> VoxelModel:
+	var m := VoxelModel.new(V, 73)
+	var c := _mats(m, false)
+	var plate := m.mat(Color(0.52, 0.54, 0.58), 0.85, 0.4, 0.0, 0.05)
+	var plate_dk := m.mat(Color(0.34, 0.35, 0.39), 0.85, 0.45, 0.0, 0.05)
+	var paint := m.mat(Color(0.14, 0.22, 0.42), 0.2, 0.7, 0.0, 0.06)
+	var gold := m.mat(Color(0.8, 0.65, 0.3), 0.9, 0.35, 0.0, 0.05)
+	var p := m.part("shield", "shield", Vector3.ZERO)
+	for y in range(-16, 12):
+		# Mitad superior recta; la inferior se estrecha hasta la punta
+		var half := 10.0 if y >= -2 else 10.0 * (1.0 - float(-2 - y) / 15.0)
+		if y >= 9:
+			half = 10.0 - (y - 8) * 1.2
+		for x in range(-11, 11):
+			var fx := absf(x + 0.5)
+			if fx > half:
+				continue
+			var col := paint
+			if fx > half - 1.6 or y >= 10 or y <= -15:
+				col = plate_dk if (x + y) % 3 == 0 else plate
+			elif absi(x) <= 1:
+				col = gold
+			p.put(Vector3i(x, y, 0), col)
+			if fx > half - 1.6:
+				p.put(Vector3i(x, y, -1), plate_dk)
+	p.ellipsoid(Vector3(-0.5, 1.0, -1.0), Vector3(2.6, 2.6, 1.8), plate)
+	p.box(Vector3i(-1, -3, 1), Vector3i(0, 4, 2), c["grip"])
+	return m
+
+
 static func staff() -> VoxelModel:
 	var m := VoxelModel.new(V, 81)
 	var c := _mats(m, false)
@@ -204,6 +235,8 @@ static func by_id(weapon_id: String) -> VoxelModel:
 			return bow()
 		"shield":
 			return shield()
+		"shield_iron":
+			return shield_iron()
 		"staff":
 			return staff()
 	return sword(false)

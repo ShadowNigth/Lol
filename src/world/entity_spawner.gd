@@ -58,7 +58,7 @@ func _spawn(e: Dictionary) -> Node:
 	var id := str(e.get("id", ""))
 	match type:
 		"enemy":
-			if GameState.is_killed(id):
+			if GameState.is_killed(id, int(e.get("respawn_days", 0))):
 				return null
 			return _spawn_enemy(e)
 		"npc":
@@ -93,7 +93,7 @@ func _spawn(e: Dictionary) -> Node:
 			return rack
 		"dungeon_entrance":
 			var de := DungeonEntrance.new()
-			de.setup(id, str(e.get("dungeon", "")))
+			de.setup(id, str(e.get("dungeon", "")), str(e.get("style", "door")))
 			add_child(de)
 			de.global_position = pos
 			de.rotation.y = yaw

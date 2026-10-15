@@ -59,11 +59,60 @@ const NPCS := {
 				"Ayuda a la gente de la aldea y te abrirán sus puertas."],
 		"work": "plaza", "work_anim": "talk",
 	},
+	# --- Fase 6: Posada del Lobo Gris y aldea de Robledal ---
+	"ulrico": {
+		"name": "Ulrico", "role": "Posadero", "faction": "robledal",
+		"look": {"skin": Color(0.72, 0.52, 0.4), "hair": Color(0.35, 0.25, 0.18), "tunic": Color(0.42, 0.3, 0.16), "pants": Color(0.22, 0.2, 0.18), "apron": Color(0.8, 0.76, 0.66), "beard": true},
+		"quests": ["lobos_del_camino"], "trade": "posada_lobo",
+		"greet": ["Bienvenido al Lobo Gris, el último techo antes del bosque.", "Cerveza, pan y una cama. Aquí no preguntamos de dónde vienes."],
+		"greet_friend": ["¡El cazador de lobos! Tu jarra corre de mi cuenta."],
+		"rumors": ["Las manadas bajan de los bosques del norte. Dicen que las guía un alfa negro como la pez.",
+				"Edda, la cazadora, conoce esos bosques mejor que nadie. Suele parar aquí.",
+				"Por el camino del este se llega a Hojarrubia; por el sur, a Robledal."],
+		"work": "inn_bar", "work_anim": "talk",
+	},
+	"edda": {
+		"name": "Edda", "role": "Cazadora", "faction": "robledal",
+		"look": {"skin": Color(0.8, 0.6, 0.47), "hair": Color(0.6, 0.22, 0.1), "tunic": Color(0.25, 0.32, 0.18), "pants": Color(0.3, 0.22, 0.14), "female": true, "cape": true},
+		"quests": ["piel_alfa"], "trade": "cazadora",
+		"greet": ["Pisa sin hacer ruido. Los lobos te oyen antes de que tú los veas.", "¿Necesitas flechas? Las hago yo misma."],
+		"greet_friend": ["Buena caza, compañero. El bosque es más tranquilo gracias a ti."],
+		"rumors": ["Un lobo que huye no está vencido: vuelve con la manada. Acaba lo que empiezas.",
+				"Los lobos saltan antes de morder. Si los ves agazaparse, bloquea.",
+				"Las pieles de lobo se pagan bien. Yo te las compro."],
+		"work": "plaza", "work_anim": "idle",
+	},
+	"elena": {
+		"name": "Elena", "role": "Alcaldesa de Robledal", "faction": "robledal",
+		"look": {"skin": Color(0.74, 0.55, 0.43), "hair": Color(0.25, 0.18, 0.12), "tunic": Color(0.2, 0.3, 0.45), "pants": Color(0.2, 0.18, 0.2), "female": true, "cape": true},
+		"quests": ["reyes_grises"], "trade": "",
+		"greet": ["Robledal es pequeña, pero aquí nadie pasa hambre. Bienvenido.", "¿Vienes de Hojarrubia? Dales recuerdos a Tomás."],
+		"greet_friend": ["Robledal te debe mucho. Siempre tendrás un sitio en nuestra mesa."],
+		"rumors": ["El túmulo de los Reyes Grises estuvo sellado cien años. Ahora la losa está rota.",
+				"Mis abuelos decían que los Reyes Grises fueron enterrados con sus escudos de hierro.",
+				"Los campos dan buen centeno, pero de noche nadie sale más allá de la cerca."],
+		"work": "plaza", "work_anim": "talk",
+	},
+	"bram": {
+		"name": "Bram", "role": "Granjero", "faction": "robledal",
+		"look": {"skin": Color(0.68, 0.48, 0.36), "hair": Color(0.75, 0.6, 0.3), "tunic": Color(0.45, 0.4, 0.25), "pants": Color(0.3, 0.25, 0.18), "beard": true},
+		"quests": [], "trade": "",
+		"greet": ["Buen día. Si buscas trabajo, la alcaldesa siempre necesita manos.", "Este año la cosecha viene bien, si los muertos nos dejan."],
+		"greet_friend": ["¡Hombre! Pasa, que hay sidra fresca."],
+		"rumors": ["Anoche vi luces en el túmulo. Azules, como las del cementerio de Hojarrubia.",
+				"Los lobos se llevaron dos ovejas la semana pasada.",
+				"Dicen que en la Posada del Lobo Gris se come el mejor estofado de la Marca."],
+		"work": "well", "work_anim": "work",
+	},
 }
 
 const SHOPS := {
-	"posada": {"gold": 300, "stock": [["bread", 6], ["apple", 8], ["potion_health", 3], ["potion_stamina", 3], ["torch_item", 4]]},
-	"herreria": {"gold": 500, "stock": [["weapon_sword", 1], ["weapon_axe", 1], ["weapon_mace", 1], ["weapon_dagger", 2], ["weapon_bow", 1], ["arrow", 60], ["lockpick", 5], ["potion_health", 1]]},
+	"posada": {"gold": 300, "stock": [["bread", 6], ["apple", 8], ["potion_health", 3], ["potion_stamina", 3], ["torch_item", 4], ["tunic_wool", 2]]},
+	"herreria": {"gold": 700, "stock": [["weapon_sword", 1], ["weapon_axe", 1], ["weapon_mace", 1], ["weapon_dagger", 2], ["weapon_bow", 1], ["arrow", 60], ["lockpick", 5], ["potion_health", 1],
+			["shield_wood", 2], ["shield_iron", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 2], ["pants_leather", 1], ["boots_leather", 2],
+			["helm_iron", 1], ["armor_chain", 1], ["gauntlets_iron", 1], ["greaves_iron", 1], ["boots_iron", 1]]},
+	"posada_lobo": {"gold": 250, "stock": [["bread", 5], ["cheese", 4], ["potion_health", 2], ["potion_stamina", 2], ["torch_item", 3], ["tunic_wool", 1]]},
+	"cazadora": {"gold": 400, "stock": [["arrow", 80], ["weapon_bow", 1], ["weapon_dagger", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 1], ["pants_leather", 1], ["boots_leather", 1], ["potion_health", 2]]},
 }
 
 

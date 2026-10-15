@@ -8,7 +8,7 @@ extends CharacterBody3D
 
 signal killed(enemy: Enemy)
 
-enum State { IDLE, PATROL, ALERT, CHASE, ATTACK, BLOCK, HIT, STUN, RETURN, DEAD }
+enum State { IDLE, PATROL, ALERT, CHASE, ATTACK, BLOCK, HIT, STUN, RETURN, FLEE, DEAD }
 
 const GRAVITY := 15.0
 const MASK_WORLD := 1
@@ -56,6 +56,8 @@ var stat_blocks := 0
 var poise := 20.0
 var max_poise := 20.0
 var _poise_regen_delay := 0.0
+var _fled := false
+var _variant := -1
 
 
 func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, player: Player) -> void:
@@ -69,6 +71,7 @@ func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, pl
 	for p: Vector3 in pts:
 		patrol.append(p)
 	_rng.seed = hash(entity_id)
+	_variant = int(spawn.get("variant", -1))
 
 
 func _ready() -> void:
@@ -79,10 +82,10 @@ func _ready() -> void:
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	var sc := data.model_scale
-	cap.radius = 0.33 * sc
-	cap.height = 1.8 * sc
+	cap.radius = data.collision_radius * sc
+	cap.height = data.collision_height * sc
 	cs.shape = cap
-	cs.position = Vector3(0, 0.9 * sc, 0)
+	cs.position = Vector3(0, data.collision_height * 0.5 * sc, 0)
 	add_child(cs)
 	if data.is_boss:
 		max_poise = 60.0
@@ -107,6 +110,9 @@ func _build_model() -> void:
 	_model_root = Node3D.new()
 	_model_root.name = "Model"
 	add_child(_model_root)
+	if data.body == "quadruped":
+		_build_quadruped()
+		return
 	var rig := Rig.humanoid()
 	skeleton = rig.create_skeleton()
 	_model_root.add_child(skeleton)
@@ -148,6 +154,38 @@ func _build_model() -> void:
 	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["alert", "attack_1", "attack_2", "shoot", "block", "hit", "stun", "death"]))
 	anim_tree.active = true
 	playback = anim_tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
+
+
+## Cuerpo cuadrúpedo (lobos): sin armas; muerde con la mandíbula animada.
+func _build_quadruped() -> void:
+	var rig := Rig.quadruped()
+	skeleton = rig.create_skeleton()
+	_model_root.add_child(skeleton)
+	_model_root.scale = Vector3.ONE * data.model_scale
+	var variant := data.model_variant
+	if variant < 0:
+		variant = _variant if _variant >= 0 else _rng.randi() % 2
+	var model := CharacterModels.wolf(variant)
+	_material = ModelLibrary.unique_model_material()
+	var mi := MeshInstance3D.new()
+	mi.name = "Body"
+	mi.mesh = model.build_skinned_mesh(rig.bone_names(), _material)
+	mi.skin = rig.create_skin()
+	skeleton.add_child(mi)
+	mi.skeleton = NodePath("..")
+	var lib := QuadrupedAnims.build_library()
+	anim_tree = AnimationTree.new()
+	anim_tree.name = "AnimationTree"
+	_model_root.add_child(anim_tree)
+	anim_tree.root_node = NodePath("..")
+	anim_tree.add_animation_library("", lib)
+	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["alert", "attack_1", "attack_2", "hit", "stun", "death"]))
+	anim_tree.active = true
+	playback = anim_tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
+
+
+func _voice_pos() -> Vector3:
+	return global_position + Vector3(0, data.eye_height * data.model_scale, 0)
 
 
 func is_alive() -> bool:
@@ -218,7 +256,9 @@ func _physics_process(delta: float) -> void:
 		State.CHASE:
 			move_dir = _chase_step(delta)
 		State.ATTACK:
-			_attack_step(delta)
+			move_dir = _attack_step(delta)
+		State.FLEE:
+			move_dir = _flee_step()
 		State.BLOCK:
 			_face_target(delta, 6.0)
 			if _state_t > _block_until:
@@ -261,9 +301,9 @@ func _apply_movement(dir: Vector3, delta: float) -> void:
 		_step_accum += hspeed * delta
 		if _step_accum > (1.4 if hspeed < 3.0 else 2.0):
 			_step_accum = 0.0
-			Audio.play_3d("step_stone", global_position, -14.0, 0.2)
+			Audio.play_3d(data.step_sound, global_position, -14.0, 0.2)
 			if _rng.randf() < 0.3:
-				Audio.play_3d(data.sound_idle, global_position + Vector3(0, 1.4, 0), -16.0)
+				Audio.play_3d(data.sound_idle, _voice_pos(), -16.0)
 	# Atascos: cambiar de dirección de esquiva
 	if dir.length() > 0.1:
 		if global_position.distance_to(_last_pos) < 0.4 * delta * maxf(_desired_speed, 1.0):
@@ -364,7 +404,9 @@ func _perceive() -> void:
 			if state in [State.IDLE, State.PATROL, State.RETURN]:
 				_set_state(State.ALERT)
 				playback.travel("alert")
-				Audio.play_3d(data.sound_alert, global_position + Vector3(0, 1.5, 0), 0.0)
+				Audio.play_3d(data.sound_alert, _voice_pos(), 0.0)
+			if data.pack_call:
+				_call_pack()
 	elif _aware:
 		_lost_t += 0.2
 		if _lost_t > 7.0 or global_position.distance_to(home) > 40.0:
@@ -375,10 +417,18 @@ func _perceive() -> void:
 
 func _line_of_sight() -> bool:
 	var space := get_world_3d().direct_space_state
-	var from := global_position + Vector3(0, 1.6, 0)
+	var from := global_position + Vector3(0, data.eye_height * data.model_scale, 0)
 	var to := target.global_position + Vector3(0, 1.4, 0)
 	var q := PhysicsRayQueryParameters3D.create(from, to, MASK_WORLD, [get_rid()])
 	return space.intersect_ray(q).is_empty()
+
+
+## La manada: avisa a los de su especie cercanos de dónde está la presa.
+func _call_pack() -> void:
+	for n: Node in get_tree().get_nodes_in_group("enemies"):
+		var other := n as Enemy
+		if other and other != self and other.data and other.data.pack_call and other.global_position.distance_to(global_position) < 22.0:
+			other.hear_noise(global_position, 100.0)
 
 
 ## Notificación de ruido (combate cercano, etc.)
@@ -390,7 +440,7 @@ func hear_noise(pos: Vector3, radius: float) -> void:
 		_last_seen = pos
 		_set_state(State.ALERT)
 		playback.travel("alert")
-		Audio.play_3d(data.sound_alert, global_position + Vector3(0, 1.5, 0), -2.0)
+		Audio.play_3d(data.sound_alert, _voice_pos(), -2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +451,7 @@ func _idle_sounds(delta: float) -> void:
 	_idle_sound_t -= delta
 	if _idle_sound_t <= 0.0:
 		_idle_sound_t = _rng.randf_range(5.0, 11.0)
-		Audio.play_3d(data.sound_idle, global_position + Vector3(0, 1.5, 0), -10.0)
+		Audio.play_3d(data.sound_idle, _voice_pos(), -10.0)
 
 
 func _patrol_step(delta: float) -> Vector3:
@@ -508,24 +558,35 @@ func _shoot_arrow() -> void:
 func _begin_attack() -> void:
 	_set_state(State.ATTACK)
 	_attack_done = false
-	if _rng.randf() < 0.6:
+	if _rng.randf() < data.attack1_chance:
 		_attack_name = "attack_1"
-		_attack_hit_time = 0.55
-		_attack_len = 1.15
+		_attack_hit_time = data.attack1_hit
+		_attack_len = data.attack1_len
 	else:
 		_attack_name = "attack_2"
-		_attack_hit_time = 0.68
-		_attack_len = 1.35
+		_attack_hit_time = data.attack2_hit
+		_attack_len = data.attack2_len
 	playback.travel(_attack_name)
+	var quad := data.body == "quadruped"
 	get_tree().create_timer(_attack_hit_time * 0.7).timeout.connect(func() -> void:
 		if state == State.ATTACK and is_instance_valid(self):
-			Audio.play_3d("swing_heavy" if _attack_name == "attack_2" else "swing", global_position + Vector3(0, 1.4, 0), -3.0))
+			if quad:
+				Audio.play_3d(data.sound_idle, _voice_pos(), -2.0)
+			else:
+				Audio.play_3d("swing_heavy" if _attack_name == "attack_2" else "swing", global_position + Vector3(0, 1.4, 0), -3.0))
 
 
-func _attack_step(delta: float) -> void:
+func _attack_step(delta: float) -> Vector3:
+	var lunge := Vector3.ZERO
 	# Durante la preparación sigue al jugador; después se compromete con el golpe.
 	if _state_t < _attack_hit_time - 0.15:
 		_face_target(delta, 5.0)
+	# Salto real hacia delante (lobos): el cuerpo físico avanza durante el impulso.
+	if _attack_name == "attack_2" and data.lunge_speed > 0.0 and _state_t > _attack_hit_time - 0.28 and _state_t < _attack_hit_time + 0.05:
+		lunge = -global_basis.z
+		lunge.y = 0.0
+		lunge = lunge.normalized()
+		_desired_speed = data.lunge_speed
 	if not _attack_done and _state_t >= _attack_hit_time:
 		_attack_done = true
 		if data.ranged:
@@ -535,6 +596,19 @@ func _attack_step(delta: float) -> void:
 	if _state_t >= _attack_len:
 		_attack_cd = data.attack_cooldown * _rng.randf_range(0.8, 1.4)
 		_set_state(State.CHASE)
+	return lunge
+
+
+## Huida: se aleja del jugador un rato y luego vuelve a la carga.
+func _flee_step() -> Vector3:
+	if target == null or _state_t > 3.5:
+		_set_state(State.CHASE if _aware else State.RETURN)
+		return Vector3.ZERO
+	var away := global_position - target.global_position
+	away.y = 0.0
+	_face_dir(away.normalized(), get_physics_process_delta_time(), 6.0)
+	_desired_speed = data.run_speed
+	return _steer(away)
 
 
 func _resolve_attack_hit() -> void:
@@ -548,6 +622,8 @@ func _resolve_attack_hit() -> void:
 	if dist > data.attack_range + 0.45 or angle > 55.0 or absf(d.y) > 1.7 or not _line_of_sight():
 		return
 	var dmg := _rng.randf_range(data.damage_min, data.damage_max) * (1.0 + (data.level - 1) * 0.15)
+	if data.body == "quadruped":
+		Audio.play_3d("bite", _voice_pos(), 0.0)
 	var info := {"attacker": self, "damage_type": data.damage_type, "position": global_position + Vector3(0, 1.3, 0)}
 	var result := target.take_hit(dmg, info)
 	match result:
@@ -623,7 +699,11 @@ func take_hit(amount: float, info: Dictionary) -> String:
 	if stats.dead:
 		_die(info)
 		return "killed"
-	Audio.play_3d(data.sound_hurt, global_position + Vector3(0, 1.5, 0), -4.0)
+	Audio.play_3d(data.sound_hurt, _voice_pos(), -4.0)
+	if data.flee_health > 0.0 and not _fled and health_ratio() < data.flee_health and state != State.ATTACK:
+		_fled = true
+		_set_state(State.FLEE)
+		return "hit"
 	# Aguante postural: solo se interrumpe al enemigo cuando se rompe su
 	# guardia, y es inmune a interrupciones al final de la preparación.
 	poise -= dmg * float(info.get("stagger", 1.0))
@@ -645,7 +725,7 @@ func take_hit(amount: float, info: Dictionary) -> String:
 func _die(_info: Dictionary) -> void:
 	_set_state(State.DEAD)
 	playback.travel("death")
-	Audio.play_3d(data.sound_death, global_position + Vector3(0, 1.0, 0), 0.0)
+	Audio.play_3d(data.sound_death, _voice_pos(), 0.0)
 	# El cadáver deja de bloquear al jugador pero sigue siendo saqueable
 	collision_layer = 16
 	collision_mask = MASK_WORLD

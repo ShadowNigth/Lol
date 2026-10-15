@@ -281,37 +281,221 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 
 
 ## Brazos del jugador en primera persona (1/40 m, más detalle cerca de cámara).
-static func player_arms(sleeve: Color = Color(0.3, 0.22, 0.15), skin: Color = Color(0.6, 0.42, 0.31)) -> VoxelModel:
+## chest: "cloth", "leather", "chain" o "robe" (mangas); hands: "bare",
+## "leather_gloves" o "gauntlets". Así la armadura equipada se ve en las manos.
+static func player_arms(chest: String = "cloth", hands: String = "bare") -> VoxelModel:
 	var m := VoxelModel.new(1.0 / 40.0, 777)
+	var skin := Color(0.6, 0.42, 0.31)
 	var skin_m := m.mat(skin, 0.0, 0.7, 0.0, 0.04)
 	var skin_dk := m.mat(skin.darkened(0.18), 0.0, 0.75, 0.0, 0.04)
-	var sleeve_m := m.mat(sleeve, 0.0, 0.92, 0.0, 0.08)
-	var sleeve_dk := m.mat(sleeve.darkened(0.3), 0.0, 0.92, 0.0, 0.06)
 	var leather := m.mat(Color(0.28, 0.17, 0.09), 0.0, 0.7, 0.0, 0.08)
 	var strap := m.mat(Color(0.18, 0.11, 0.06), 0.0, 0.7, 0.0, 0.05)
 	var buckle := m.mat(Color(0.75, 0.62, 0.3), 0.9, 0.35, 0.0, 0.05)
+	var iron := m.mat(Color(0.56, 0.58, 0.62), 0.85, 0.38, 0.0, 0.05)
+	var iron_dk := m.mat(Color(0.36, 0.37, 0.41), 0.85, 0.45, 0.0, 0.05)
+	# Mangas según la prenda del torso
+	var sleeve_m: int
+	var sleeve_dk: int
+	var sleeve_r := 2.6
+	match chest:
+		"leather":
+			sleeve_m = m.mat(Color(0.36, 0.22, 0.12), 0.0, 0.72, 0.0, 0.07)
+			sleeve_dk = m.mat(Color(0.22, 0.13, 0.07), 0.0, 0.75, 0.0, 0.05)
+			sleeve_r = 2.8
+		"chain":
+			sleeve_m = iron
+			sleeve_dk = iron_dk
+			sleeve_r = 2.8
+		"robe":
+			sleeve_m = m.mat(Color(0.17, 0.2, 0.45), 0.0, 0.9, 0.0, 0.07)
+			sleeve_dk = m.mat(Color(0.1, 0.12, 0.3), 0.0, 0.9, 0.0, 0.05)
+			sleeve_r = 2.9
+		_:
+			sleeve_m = m.mat(Color(0.3, 0.22, 0.15), 0.0, 0.92, 0.0, 0.08)
+			sleeve_dk = m.mat(Color(0.21, 0.15, 0.1), 0.0, 0.92, 0.0, 0.06)
 	for side: Array in [["R", 1.0], ["L", -1.0]]:
 		var n: String = side[0]
 		# Brazo superior (manga)
 		var ua := m.part("upper." + n, "upper_arm." + n, Vector3.ZERO)
-		ua.cylinder_y(-0.5, -0.5, 2.6, -12, 0, sleeve_m)
-		for y in range(-12, 1, 3):
-			ua.recolor_box(Vector3i(-4, y, -4), Vector3i(3, y, 3), sleeve_dk)
-		# Antebrazo con brazal de cuero
+		ua.cylinder_y(-0.5, -0.5, sleeve_r, -12, 0, sleeve_m)
+		if chest == "chain":
+			# Malla: anillas alternas claras y oscuras
+			for y in range(-12, 1):
+				for x in range(-4, 4):
+					for z in range(-4, 4):
+						if (x + y + z) % 2 == 0:
+							ua.recolor_box(Vector3i(x, y, z), Vector3i(x, y, z), iron_dk)
+		else:
+			for y in range(-12, 1, 3):
+				ua.recolor_box(Vector3i(-4, y, -4), Vector3i(3, y, 3), sleeve_dk)
+		if chest == "leather":
+			# Remaches del jubón
+			for y: int in [-10, -6, -2]:
+				ua.put(Vector3i(-1, y, -3), buckle)
+				ua.put(Vector3i(2, y, -1), buckle)
+		# Antebrazo
 		var fa := m.part("fore." + n, "forearm." + n, Vector3.ZERO)
-		fa.cylinder_y(-0.5, -0.5, 2.2, -11, 0, sleeve_m)
-		fa.cylinder_y(-0.5, -0.5, 2.4, -10, -4, leather)
-		for y: int in [-9, -6]:
-			fa.recolor_box(Vector3i(-4, y, -4), Vector3i(3, y, 3), strap)
-		fa.put(Vector3i(-1, -9, -3), buckle)
-		fa.put(Vector3i(-1, -6, -3), buckle)
-		fa.cylinder_y(-0.5, -0.5, 1.8, -12, -11, skin_m)
-		# Mano cerrada (puño) sujetando una empuñadura a lo largo de -Z local
+		if chest == "robe":
+			# Manga ancha con ribete dorado en el puño
+			fa.cylinder_y(-0.5, -0.5, 2.3, -11, 0, sleeve_m)
+			fa.cylinder_y(-0.5, -0.5, 3.0, -9, -6, sleeve_m)
+			fa.cylinder_y(-0.5, -0.5, 3.0, -9, -9, buckle)
+		else:
+			fa.cylinder_y(-0.5, -0.5, 2.2, -11, 0, sleeve_m)
+			if chest == "chain":
+				fa.cylinder_y(-0.5, -0.5, 2.3, -4, 0, iron_dk)
+			fa.cylinder_y(-0.5, -0.5, 2.4, -10, -4, leather)      # brazal de cuero
+			for y: int in [-9, -6]:
+				fa.recolor_box(Vector3i(-4, y, -4), Vector3i(3, y, 3), strap)
+			fa.put(Vector3i(-1, -9, -3), buckle)
+			fa.put(Vector3i(-1, -6, -3), buckle)
 		var hd := m.part("hand." + n, "hand." + n, Vector3.ZERO)
-		hd.box(Vector3i(-2, -4, -2), Vector3i(1, 0, 1), skin_m)        # palma
-		for fy in range(-4, 0):
-			hd.box(Vector3i(-3, fy, -3), Vector3i(1, fy, -3), skin_m if fy % 2 == 0 else skin_dk)  # dedos
-		hd.box(Vector3i(-3, -4, -2), Vector3i(-3, -1, 1), skin_dk)
-		hd.box(Vector3i(2, -3, -3), Vector3i(2, -1, -1), skin_m)        # pulgar
-		hd.box(Vector3i(-2, -1, 2), Vector3i(1, 0, 2), leather)         # guante (dorso)
+		match hands:
+			"gauntlets":
+				# Puño acampanado y láminas articuladas
+				fa.cylinder_y(-0.5, -0.5, 2.7, -12, -8, iron)
+				fa.cylinder_y(-0.5, -0.5, 2.7, -10, -10, iron_dk)
+				hd.box(Vector3i(-2, -4, -2), Vector3i(1, 0, 1), iron)
+				for fy in range(-4, 0):
+					hd.box(Vector3i(-3, fy, -3), Vector3i(1, fy, -3), iron if fy % 2 == 0 else iron_dk)
+				hd.box(Vector3i(-3, -4, -2), Vector3i(-3, -1, 1), iron_dk)
+				hd.box(Vector3i(2, -3, -3), Vector3i(2, -1, -1), iron)
+				hd.box(Vector3i(-2, -1, 2), Vector3i(1, 0, 2), iron_dk)
+			"leather_gloves":
+				var glove := m.mat(Color(0.34, 0.21, 0.11), 0.0, 0.72, 0.0, 0.06)
+				var glove_dk := m.mat(Color(0.24, 0.14, 0.07), 0.0, 0.75, 0.0, 0.05)
+				fa.cylinder_y(-0.5, -0.5, 2.0, -12, -11, glove)
+				hd.box(Vector3i(-2, -4, -2), Vector3i(1, 0, 1), glove)
+				for fy in range(-4, 0):
+					hd.box(Vector3i(-3, fy, -3), Vector3i(1, fy, -3), glove if fy % 2 == 0 else glove_dk)
+				hd.box(Vector3i(-3, -4, -2), Vector3i(-3, -1, 1), glove_dk)
+				hd.box(Vector3i(2, -3, -3), Vector3i(2, -1, -1), glove)
+				hd.box(Vector3i(-2, -1, 2), Vector3i(1, 0, 2), strap)
+				hd.put(Vector3i(-1, -2, -3), buckle)                        # refuerzo de nudillos
+			_:
+				fa.cylinder_y(-0.5, -0.5, 1.8, -12, -11, skin_m)
+				# Mano cerrada (puño) sujetando una empuñadura a lo largo de -Z local
+				hd.box(Vector3i(-2, -4, -2), Vector3i(1, 0, 1), skin_m)        # palma
+				for fy in range(-4, 0):
+					hd.box(Vector3i(-3, fy, -3), Vector3i(1, fy, -3), skin_m if fy % 2 == 0 else skin_dk)  # dedos
+				hd.box(Vector3i(-3, -4, -2), Vector3i(-3, -1, 1), skin_dk)
+				hd.box(Vector3i(2, -3, -3), Vector3i(2, -1, -1), skin_m)        # pulgar
+				hd.box(Vector3i(-2, -1, 2), Vector3i(1, 0, 2), leather)         # guante (dorso)
+	return m
+
+
+## Lobo en micro-vóxeles para el rig cuadrúpedo. Variantes: 0 gris, 1 pardo,
+## 2 blanco (nieve), 3 negro (lobo alfa, con cicatriz y ojos rojos).
+static func wolf(variant: int = 0) -> VoxelModel:
+	var m := VoxelModel.new(V, 9100 + variant)
+	var palette: Array = [
+		[Color(0.46, 0.44, 0.42), Color(0.29, 0.28, 0.27), Color(0.74, 0.71, 0.65)],
+		[Color(0.5, 0.37, 0.24), Color(0.31, 0.22, 0.14), Color(0.74, 0.63, 0.48)],
+		[Color(0.86, 0.86, 0.89), Color(0.66, 0.67, 0.72), Color(0.96, 0.96, 0.98)],
+		[Color(0.2, 0.19, 0.19), Color(0.1, 0.1, 0.1), Color(0.38, 0.36, 0.34)],
+	]
+	var pal: Array = palette[clampi(variant, 0, 3)]
+	var fur := m.mat(pal[0], 0.0, 0.95, 0.0, 0.11)
+	var fur_dk := m.mat(pal[1], 0.0, 0.95, 0.0, 0.1)
+	var belly := m.mat(pal[2], 0.0, 0.95, 0.0, 0.08)
+	var nose := m.mat(Color(0.06, 0.05, 0.05), 0.0, 0.4, 0.0, 0.02)
+	var lip := m.mat(Color(0.12, 0.09, 0.09), 0.0, 0.7, 0.0, 0.02)
+	var tooth := m.mat(Color(0.93, 0.9, 0.82), 0.0, 0.5, 0.0, 0.03)
+	var mouth := m.mat(Color(0.45, 0.12, 0.14), 0.0, 0.7, 0.0, 0.05)
+	var claw := m.mat(Color(0.15, 0.13, 0.12), 0.0, 0.5, 0.0, 0.03)
+	var eye := m.mat(Color(1.0, 0.18, 0.1) if variant == 3 else Color(1.0, 0.72, 0.18), 0.0, 0.4, 0.8, 0.0)
+	var scar := m.mat(Color(0.55, 0.32, 0.3), 0.0, 0.8, 0.0, 0.03)
+
+	# --- Cuarto trasero (cadera) ---
+	var rear := m.part("rear", "hips", Vector3(0, 0.70, 0.36))
+	rear.box(Vector3i(-4, -3, -6), Vector3i(3, 3, 4), fur)
+	rear.recolor_box(Vector3i(-3, 2, -6), Vector3i(2, 3, 4), fur_dk)
+	rear.recolor_box(Vector3i(-3, -3, -6), Vector3i(2, -3, 2), belly)
+	for c: Vector3i in [Vector3i(-4, 3, 4), Vector3i(3, 3, 4), Vector3i(-4, -3, 4), Vector3i(3, -3, 4)]:
+		rear.erase(c)
+	# --- Lomo ---
+	var mid := m.part("mid", "spine", Vector3(0, 0.72, 0.04))
+	mid.box(Vector3i(-4, -4, -4), Vector3i(3, 3, 3), fur)
+	mid.recolor_box(Vector3i(-3, 2, -4), Vector3i(2, 3, 3), fur_dk)
+	mid.recolor_box(Vector3i(-3, -4, -4), Vector3i(2, -4, 3), belly)
+	# --- Pecho y cruz (más ancho, con gorguera clara) ---
+	var chest := m.part("chest", "chest", Vector3(0, 0.74, -0.28))
+	chest.box(Vector3i(-5, -6, -4), Vector3i(4, 4, 3), fur)
+	chest.recolor_box(Vector3i(-4, 3, -4), Vector3i(3, 4, 3), fur_dk)
+	chest.recolor_box(Vector3i(-3, -6, -4), Vector3i(2, 0, -3), belly)
+	chest.recolor_box(Vector3i(-2, -6, -2), Vector3i(1, -6, 3), belly)
+	for c2: Vector3i in [Vector3i(-5, 4, -4), Vector3i(4, 4, -4), Vector3i(-5, -6, -4), Vector3i(4, -6, -4)]:
+		chest.erase(c2)
+	# --- Cuello ---
+	var neck := m.part("neck", "neck", Vector3(0, 0.84, -0.46))
+	neck.box(Vector3i(-3, -3, -4), Vector3i(2, 3, 2), fur)
+	neck.recolor_box(Vector3i(-2, 2, -4), Vector3i(1, 3, 2), fur_dk)
+	neck.recolor_box(Vector3i(-2, -3, -4), Vector3i(1, -1, -3), belly)
+	# --- Cabeza: cráneo, hocico, nariz, ojos y orejas ---
+	var head := m.part("head", "head", Vector3(0, 0.92, -0.6))
+	head.box(Vector3i(-3, -2, -4), Vector3i(2, 3, 1), fur)
+	head.recolor_box(Vector3i(-2, 3, -4), Vector3i(1, 3, 1), fur_dk)
+	head.box(Vector3i(-2, -2, -9), Vector3i(1, 0, -5), fur)
+	head.recolor_box(Vector3i(-2, -2, -9), Vector3i(1, -2, -5), belly)
+	head.box(Vector3i(-1, 1, -8), Vector3i(0, 1, -5), fur_dk)           # caña nasal
+	head.put(Vector3i(-1, 0, -10), nose)
+	head.put(Vector3i(0, 0, -10), nose)
+	head.put(Vector3i(-1, -1, -10), lip)
+	head.put(Vector3i(0, -1, -10), lip)
+	head.recolor_box(Vector3i(-3, -2, -4), Vector3i(-3, 0, -2), belly)  # mejillas
+	head.recolor_box(Vector3i(2, -2, -4), Vector3i(2, 0, -2), belly)
+	head.put(Vector3i(-3, 1, -4), eye)
+	head.put(Vector3i(2, 1, -4), eye)
+	head.put(Vector3i(-3, 2, -4), fur_dk)
+	head.put(Vector3i(2, 2, -4), fur_dk)
+	head.put(Vector3i(-2, -3, -8), tooth)                               # colmillos superiores
+	head.put(Vector3i(1, -3, -8), tooth)
+	for side: int in [-3, 1]:
+		head.box(Vector3i(side, 4, -1), Vector3i(side + 1, 5, 0), fur_dk)
+		head.put(Vector3i(side if side < 0 else side + 1, 6, 0), fur_dk)
+		head.put(Vector3i(side + (1 if side < 0 else 0), 4, -2), belly)  # interior de la oreja
+	if variant == 3:
+		head.put(Vector3i(2, 2, -3), scar)
+		head.put(Vector3i(2, 1, -2), scar)
+		head.put(Vector3i(2, 0, -1), scar)
+	# --- Mandíbula (se abre en los mordiscos) ---
+	var jaw := m.part("jaw", "jaw", Vector3(0, 0.86, -0.66))
+	jaw.box(Vector3i(-2, -1, -7), Vector3i(1, 0, 0), belly)
+	jaw.recolor_box(Vector3i(-1, 0, -6), Vector3i(0, 0, -1), mouth)
+	for tz in range(-7, -2, 2):
+		jaw.put(Vector3i(-2, 1, tz), tooth)
+		jaw.put(Vector3i(1, 1, tz), tooth)
+	# --- Cola tupida ---
+	var t1 := m.part("tail1", "tail.1", Vector3(0, 0.74, 0.52))
+	for k in 7:
+		var ty := -int(round(k * 0.46))
+		t1.box(Vector3i(-1, ty - 1, k), Vector3i(1, ty + 1, k), fur if k % 3 != 2 else fur_dk)
+	var t2 := m.part("tail2", "tail.2", Vector3(0, 0.62, 0.78))
+	for k2 in 7:
+		var ty2 := -int(round(k2 * 0.7))
+		var tip := belly if k2 >= 5 and variant != 3 else fur_dk
+		t2.box(Vector3i(-1, ty2 - 1, k2), Vector3i(0 if k2 > 3 else 1, ty2, k2), tip if k2 >= 5 else fur)
+	# --- Patas ---
+	for s: Array in [["R", 1.0], ["L", -1.0]]:
+		var n: String = s[0]
+		var sx: float = s[1]
+		var fu := m.part("f_up." + n, "f_up." + n, Vector3(0.13 * sx, 0.66, -0.34))
+		fu.box(Vector3i(-1, -7, -1), Vector3i(1, 1, 1), fur)
+		fu.box(Vector3i(-2, -2, -2), Vector3i(1, 2, 1), fur)
+		var fl := m.part("f_low." + n, "f_low." + n, Vector3(0.13 * sx, 0.38, -0.36))
+		fl.box(Vector3i(-1, -7, -1), Vector3i(0, 0, 0), fur)
+		fl.recolor_box(Vector3i(-1, -7, -1), Vector3i(0, -5, -1), belly)
+		var fp := m.part("f_paw." + n, "f_paw." + n, Vector3(0.13 * sx, 0.07, -0.36))
+		fp.box(Vector3i(-1, -2, -3), Vector3i(1, 0, 0), fur_dk)
+		fp.put(Vector3i(-1, -2, -4), claw)
+		fp.put(Vector3i(1, -2, -4), claw)
+		var bu := m.part("b_up." + n, "b_up." + n, Vector3(0.13 * sx, 0.66, 0.38))
+		bu.box(Vector3i(-2, -7, -2), Vector3i(1, 1, 2), fur)
+		bu.recolor_box(Vector3i(-2, -7, -2), Vector3i(1, -6, 2), fur_dk)
+		var bl := m.part("b_low." + n, "b_low." + n, Vector3(0.13 * sx, 0.36, 0.44))
+		bl.box(Vector3i(-1, -7, -1), Vector3i(0, 0, 0), fur)
+		var bp := m.part("b_paw." + n, "b_paw." + n, Vector3(0.13 * sx, 0.07, 0.4))
+		bp.box(Vector3i(-1, -2, -3), Vector3i(1, 0, 0), fur_dk)
+		bp.put(Vector3i(-1, -2, -4), claw)
+		bp.put(Vector3i(1, -2, -4), claw)
 	return m

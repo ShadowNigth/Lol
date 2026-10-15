@@ -32,7 +32,8 @@ var head_anchor: Node3D
 var weapon: WeaponData
 var weapons: Array[WeaponData] = []
 var weapon_index: int = 0
-var offhand_id: String = "shield"
+var offhand_id: String = ""          # modelo del escudo equipado ("" = mano libre)
+var shield_block: float = 0.0        # fracción de daño que detiene el escudo
 var gold: int = 0
 var controls_enabled: bool = true
 var is_dead: bool = false
@@ -149,6 +150,21 @@ func _load_default_weapons() -> void:
 	if sword:
 		weapons.append(sword)
 	_equip_index(0)
+
+
+## Aplica el equipo puesto (GameState.equipment): armadura, resistencias,
+## bonificaciones, escudo y aspecto de los brazos.
+func apply_equipment() -> void:
+	var gear := Equipment.compute(GameState.equipment, stats)
+	stats.apply_gear(gear)
+	var look := Equipment.appearance(GameState.equipment)
+	viewmodel.set_appearance(str(look["chest"]), str(look["hands"]))
+	var new_off := str(look["shield"])
+	shield_block = float(look["block"])
+	if new_off != offhand_id:
+		offhand_id = new_off
+		if weapon:
+			_equip_index(weapon_index)
 
 
 func add_weapon(w: WeaponData) -> bool:
@@ -740,6 +756,12 @@ func _sweep(t0: float, t1: float) -> void:
 		var dir := camera.global_basis * local_dir
 		var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * reach, MASK_WORLD | MASK_ACTORS, [get_rid()])
 		var hit := space.intersect_ray(q)
+		if hit.is_empty() or not _is_actor(hit.get("collider")):
+			# Barrido bajo: el arma también alcanza a criaturas pequeñas (lobos)
+			# a la altura de la cintura; solo cuentan los impactos con actores.
+			var low := _low_sweep_hit(space, origin, dir, reach)
+			if not low.is_empty():
+				hit = low
 		if hit.is_empty():
 			continue
 		var col := hit["collider"] as Node
@@ -763,6 +785,21 @@ func _sweep(t0: float, t1: float) -> void:
 				_trauma = minf(_trauma + 0.15, 0.6)
 				attacked.emit(false)
 				return
+
+
+func _low_sweep_hit(space: PhysicsDirectSpaceState3D, origin: Vector3, dir: Vector3, reach: float) -> Dictionary:
+	var right := camera.global_basis.x
+	for deg: float in [-22.0, -40.0]:
+		var d2 := dir.rotated(right, deg_to_rad(deg))
+		var q := PhysicsRayQueryParameters3D.create(origin, origin + d2 * reach, MASK_WORLD | MASK_ACTORS, [get_rid()])
+		var h := space.intersect_ray(q)
+		if not h.is_empty() and _is_actor(h.get("collider")):
+			return h
+	return {}
+
+
+static func _is_actor(o: Variant) -> bool:
+	return o != null and is_instance_valid(o) and (o as Object).has_method("take_hit")
 
 
 func _deliver_hit(target: Node, pos: Vector3, normal: Vector3, dir: Vector3) -> void:
@@ -813,8 +850,8 @@ func take_hit(amount: float, info: Dictionary) -> String:
 	if _blocking and front and bool(info.get("blockable", true)):
 		var w := weapon
 		var reduction := w.block_reduction if w else 0.4
-		if offhand_id != "" and viewmodel.offhand_id != "":
-			reduction = maxf(reduction, 0.82)
+		if offhand_id != "" and viewmodel.has_shield():
+			reduction = maxf(reduction, shield_block)
 		var cost := (w.block_stamina_cost if w else 12.0) + amount * 0.6
 		stats.use_stamina(cost)
 		_stamina_delay = 1.0
@@ -832,7 +869,19 @@ func take_hit(amount: float, info: Dictionary) -> String:
 		return "blocked"
 	var dmg := stats.mitigate(amount, str(info.get("damage_type", "slash")))
 	take_damage_raw(dmg, str(info.get("damage_type", "slash")), attacker_pos)
+	_train_armor()
 	return "hit"
+
+
+## Las habilidades de armadura mejoran al recibir golpes llevándola puesta.
+func _train_armor() -> void:
+	var counts := Equipment.type_counts(GameState.equipment)
+	var trained := false
+	for t: String in counts:
+		if int(counts[t]) > 0:
+			trained = stats.train(str(Equipment.TYPE_SKILL[t]), 0.35 * int(counts[t])) or trained
+	if trained:
+		apply_equipment()
 
 
 ## Daño directo (caídas, trampas, efectos).

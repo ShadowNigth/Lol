@@ -28,11 +28,15 @@ var bounds: Rect2i
 var verified: bool = false
 var _astar: AStarGrid2D
 var _rng := RandomNumberGenerator.new()
+var _theme: Dictionary = {}
 
 
 func _init(id: String, world_seed: int, diff: int = 1) -> void:
 	dungeon_id = id
-	difficulty = diff
+	var def := DungeonDB.get_def(id)
+	display_name = str(def.get("name", display_name))
+	difficulty = maxi(diff, int(def.get("difficulty", 1)))
+	_theme = DungeonDB.theme(id)
 	for attempt in 6:
 		seed_value = absi(hash("%s|%d|%d" % [id, world_seed, attempt]))
 		_rng.seed = seed_value
@@ -341,6 +345,9 @@ func _populate_room(i: int) -> void:
 	var role := str(r["role"])
 	var center := Vector3(rect.position.x + rect.size.x * 0.5, FLOOR_Y, rect.position.y + rect.size.y * 0.5)
 	var rid := "%s/room_%d" % [dungeon_id, i]
+	var def := DungeonDB.get_def(dungeon_id)
+	var guards := str(def.get("guards", "skeleton_warrior"))
+	var minions: Array = def.get("minions", ["skeleton_warrior"])
 	# Braseros en esquinas (salas medianas o grandes)
 	if role != "junction" and rect.size.x >= 5:
 		for corner: Vector2i in [rect.position, Vector2i(rect.end.x - 1, rect.end.y - 1)]:
@@ -349,25 +356,26 @@ func _populate_room(i: int) -> void:
 		"entrance":
 			entities.append({"type": "dungeon_exit", "pos": Vector3(center.x, FLOOR_Y, rect.end.y - 0.6), "yaw": 180.0, "id": rid + "/exit"})
 		"boss":
-			entities.append({"type": "enemy", "enemy": "skeleton_lord", "pos": center + Vector3(0, 0, -1.5), "yaw": 180.0, "id": rid + "/boss"})
-			entities.append({"type": "enemy", "enemy": "skeleton_warrior", "pos": center + Vector3(-2.5, 0, 1.0), "yaw": 180.0, "id": rid + "/guard_0"})
-			entities.append({"type": "enemy", "enemy": "skeleton_warrior", "pos": center + Vector3(2.5, 0, 1.0), "yaw": 180.0, "id": rid + "/guard_1"})
-			entities.append({"type": "chest", "pos": Vector3(center.x, FLOOR_Y, rect.position.y + 1.0), "yaw": 180.0, "id": rid + "/chest", "loot": "boss"})
+			entities.append({"type": "enemy", "enemy": str(def.get("boss", "skeleton_lord")), "pos": center + Vector3(0, 0, -1.5), "yaw": 180.0, "id": rid + "/boss"})
+			entities.append({"type": "enemy", "enemy": guards, "pos": center + Vector3(-2.5, 0, 1.0), "yaw": 180.0, "id": rid + "/guard_0"})
+			entities.append({"type": "enemy", "enemy": guards, "pos": center + Vector3(2.5, 0, 1.0), "yaw": 180.0, "id": rid + "/guard_1"})
+			entities.append({"type": "chest", "pos": Vector3(center.x, FLOOR_Y, rect.position.y + 1.0), "yaw": 180.0, "id": rid + "/chest",
+					"loot": str(def.get("boss_loot", "boss"))})
 			for px: int in [rect.position.x + 1, rect.end.x - 2]:
 				for pz: int in [rect.position.y + 2, rect.end.y - 3]:
 					entities.append({"type": "pillar", "pos": Vector3(px + 0.5, FLOOR_Y, pz + 0.5), "id": rid + "/pillar_%d_%d" % [px, pz]})
 		"treasure":
 			entities.append({"type": "chest", "pos": center, "yaw": float(_rng.randi() % 4) * 90.0, "id": rid + "/chest", "loot": "dungeon"})
-			entities.append({"type": "enemy", "enemy": "skeleton_warrior", "pos": center + Vector3(1.2, 0, 1.2), "yaw": 0.0, "id": rid + "/e0"})
+			entities.append({"type": "enemy", "enemy": guards, "pos": center + Vector3(1.2, 0, 1.2), "yaw": 0.0, "id": rid + "/e0"})
 		"secret":
 			entities.append({"type": "chest", "pos": center, "yaw": 0.0, "id": rid + "/chest", "loot": "secret"})
 		"room":
 			var n := _rng.randi_range(0, 1 + difficulty)
 			for k in n:
 				var off := Vector3(_rng.randf_range(-1.5, 1.5), 0, _rng.randf_range(-1.5, 1.5))
-				var kind := "skeleton_archer" if _rng.randf() < 0.25 else "skeleton_warrior"
+				var kind := str(minions[minions.size() - 1]) if _rng.randf() < float(def.get("ranged_chance", 0.25)) else str(minions[0])
 				entities.append({"type": "enemy", "enemy": kind, "pos": center + off, "yaw": _rng.randf() * 360.0, "id": rid + "/e%d" % k})
-			if _rng.randf() < 0.5:
+			if _rng.randf() < 0.5 and bool(_theme.get("sarcophagi", true)):
 				entities.append({"type": "sarcophagus", "pos": center + Vector3(0, 0, -1.0), "yaw": 90.0 * (_rng.randi() % 2), "id": rid + "/sarc"})
 			if _rng.randf() < 0.6:
 				entities.append({"type": "bones", "pos": center + Vector3(_rng.randf_range(-2, 2), 0, _rng.randf_range(-2, 2)), "yaw": _rng.randf() * 360.0, "id": rid + "/bones"})
@@ -447,6 +455,11 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 	var pad := ChunkData.PAD
 	var y_min := FLOOR_Y - 3
 	var y_max := FLOOR_Y + 8
+	var wall_a := int(_theme.get("wall", B.DUNGEON_BRICK))
+	var wall_b := int(_theme.get("wall_alt", B.STONE))
+	var floor_a := int(_theme.get("floor", B.DUNGEON_FLOOR))
+	var floor_b := int(_theme.get("floor_alt", B.MOSS_STONE))
+	var webs := bool(_theme.get("cobwebs", true))
 	for pz in pad:
 		for px in pad:
 			var wx := x0 + px
@@ -456,16 +469,18 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 			var col := px + pz * pad
 			for y in range(y_min, y_max + 1):
 				var h := WorldGenerator.hash2(wx * 7 + y, wz, 4242)
-				blocks[col + y * layer] = B.DUNGEON_BRICK if h % 9 != 0 else B.STONE
+				blocks[col + y * layer] = wall_a if h % 9 != 0 else wall_b
 			var t := Vector2i(wx, wz)
 			if floor_tiles.has(t):
 				var ceil_h := _ceiling_height(t)
-				var floor_id := B.DUNGEON_FLOOR if WorldGenerator.hash2(wx, wz, 77) % 11 != 0 else B.MOSS_STONE
+				if str(DungeonDB.get_def(dungeon_id).get("theme", "")) == "cave":
+					ceil_h = maxi(3, ceil_h + WorldGenerator.hash2(wx, wz, 99) % 3 - 1)   # techo irregular de roca
+				var floor_id := floor_a if WorldGenerator.hash2(wx, wz, 77) % 11 != 0 else floor_b
 				blocks[col + (FLOOR_Y - 1) * layer] = floor_id
 				for y2 in range(FLOOR_Y, FLOOR_Y + ceil_h):
 					blocks[col + y2 * layer] = B.AIR
 				# Telarañas en las esquinas altas
-				if ceil_h >= 4 and _is_corner(t) and WorldGenerator.hash2(wx, wz, 13) % 3 == 0:
+				if webs and ceil_h >= 4 and _is_corner(t) and WorldGenerator.hash2(wx, wz, 13) % 3 == 0:
 					blocks[col + (FLOOR_Y + ceil_h - 1) * layer] = B.COBWEB
 	data.blocks = blocks
 	data.max_y = y_max

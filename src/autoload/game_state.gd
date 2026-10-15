@@ -7,6 +7,7 @@ extends Node
 ## partida válida con datos incompletos.
 
 signal inventory_changed
+signal equipment_changed
 
 const SAVE_VERSION := 1
 const SAVE_DIR := "user://saves"
@@ -22,6 +23,7 @@ var day: int = 1
 var playtime: float = 0.0
 var world_changes: Dictionary = {"looted": {}, "killed": {}, "opened": {}, "dropped": []}
 var inventory: Array[Dictionary] = []   # {"id": String, "count": int}
+var equipment: Dictionary = {}          # ranura -> id de objeto (ver Equipment)
 var pending_load: Dictionary = {}       # datos a aplicar al entrar en la escena de juego
 var current_area: Dictionary = {"type": "overworld"}   # exterior o mazmorra (con punto de regreso)
 var quests: Dictionary = {}             # id -> {"stage", "progress", "done"}
@@ -84,6 +86,7 @@ func start_new_game(config: Dictionary) -> void:
 	reputations = {}
 	shops = {}
 	inventory.clear()
+	equipment = {}
 	inventory.append({"id": "potion_health", "count": 2})
 	inventory.append({"id": "bread", "count": 1})
 	pending_load = {}
@@ -97,12 +100,15 @@ static func class_template(cls: String) -> Dictionary:
 	match cls:
 		"rogue":
 			return {"name": "Explorador", "attributes": {"strength": 38, "agility": 55, "endurance": 40, "intelligence": 40, "willpower": 35, "personality": 45, "luck": 50},
-					"skills": {"blade": 18, "archery": 25, "sneak": 25, "acrobatics": 20, "lockpick": 20}, "weapons": ["dagger", "sword", "bow"]}
+					"skills": {"blade": 18, "archery": 25, "sneak": 25, "acrobatics": 20, "lockpick": 20, "light_armor": 22}, "weapons": ["dagger", "sword", "bow"],
+					"equipment": {"head": "hood_leather", "chest": "armor_leather", "hands": "gloves_leather", "feet": "boots_leather"}}
 		"mage":
 			return {"name": "Mago de batalla", "attributes": {"strength": 32, "agility": 40, "endurance": 36, "intelligence": 60, "willpower": 55, "personality": 42, "luck": 40},
-					"skills": {"destruction": 28, "restoration": 22, "alteration": 18, "blade": 12, "blunt": 15}, "weapons": ["mace"]}
+					"skills": {"destruction": 28, "restoration": 22, "alteration": 18, "blade": 12, "blunt": 15}, "weapons": ["mace"],
+					"equipment": {"chest": "robe_apprentice", "feet": "boots_leather"}}
 	return {"name": "Guerrero", "attributes": {"strength": 55, "agility": 40, "endurance": 55, "intelligence": 32, "willpower": 38, "personality": 38, "luck": 40},
-			"skills": {"blade": 25, "block": 25, "heavy_armor": 20, "axe": 18, "blunt": 18, "athletics": 18}, "weapons": ["sword"]}
+			"skills": {"blade": 25, "block": 25, "heavy_armor": 20, "axe": 18, "blunt": 18, "athletics": 18}, "weapons": ["sword"],
+			"equipment": {"chest": "armor_chain", "feet": "boots_leather", "offhand": "shield_wood"}}
 
 
 # ---------------------------------------------------------------------------
@@ -123,8 +129,16 @@ func mark_killed(id: String) -> void:
 		(world_changes["killed"] as Dictionary)[id] = day
 
 
-func is_killed(id: String) -> bool:
-	return (world_changes["killed"] as Dictionary).has(id)
+## `respawn_days` > 0: los animales salvajes vuelven pasados esos días.
+func is_killed(id: String, respawn_days: int = 0) -> bool:
+	var k := world_changes["killed"] as Dictionary
+	if not k.has(id):
+		return false
+	if respawn_days > 0 and day - int(k[id]) >= respawn_days:
+		k.erase(id)
+		(world_changes["looted"] as Dictionary).erase(id)
+		return false
+	return true
 
 
 func set_opened(id: String, opened: bool) -> void:
@@ -215,11 +229,65 @@ func remove_item(id: String, count: int = 1) -> bool:
 	return false
 
 
+## Peso total cargado: inventario, equipo puesto y armas.
 func carry_weight() -> float:
-	var total := 0.0
+	var total := Equipment.weight(equipment)
+	if player and is_instance_valid(player):
+		for w: WeaponData in (player as Player).weapons:
+			total += w.weight
 	for e in inventory:
 		total += float(ItemDB.get_def(str(e["id"])).get("weight", 0.0)) * int(e["count"])
 	return total
+
+
+# ---------------------------------------------------------------------------
+# Equipo (ropa, armaduras, escudo)
+# ---------------------------------------------------------------------------
+
+## Equipa un objeto del inventario. Lo que ocupaba la ranura vuelve al inventario.
+func equip_item(p: Node, id: String) -> bool:
+	if not Equipment.is_equippable(id) or item_count(id) <= 0:
+		return false
+	var slot := Equipment.slot_of(id)
+	if not remove_item(id, 1):
+		return false
+	var old := str(equipment.get(slot, ""))
+	equipment[slot] = id
+	if old != "":
+		_return_to_inventory(old)
+	_after_equipment_change(p)
+	Audio.play_2d("equip", -4.0)
+	Events.notify.emit("Te pones: %s" % ItemDB.display_name(id), "item")
+	return true
+
+
+## Quita lo que haya en una ranura y lo devuelve al inventario.
+func unequip_slot(p: Node, slot: String) -> bool:
+	var id := str(equipment.get(slot, ""))
+	if id == "":
+		return false
+	equipment.erase(slot)
+	_return_to_inventory(id)
+	_after_equipment_change(p)
+	Audio.play_2d("equip", -8.0)
+	Events.notify.emit("Te quitas: %s" % ItemDB.display_name(id), "item")
+	return true
+
+
+func _return_to_inventory(id: String) -> void:
+	for e in inventory:
+		if e["id"] == id:
+			e["count"] = int(e["count"]) + 1
+			inventory_changed.emit()
+			return
+	inventory.append({"id": id, "count": 1})
+	inventory_changed.emit()
+
+
+func _after_equipment_change(p: Node) -> void:
+	if p and p.has_method("apply_equipment"):
+		p.call("apply_equipment")
+	equipment_changed.emit()
 
 
 ## Usa un consumible y aplica su efecto al jugador.
@@ -277,6 +345,7 @@ func build_save_data() -> Dictionary:
 		"playtime": playtime,
 		"player": pdata,
 		"inventory": inventory.duplicate(true),
+		"equipment": equipment.duplicate(),
 		"world_changes": world_changes.duplicate(true),
 		"area": current_area.duplicate(true),
 		"quests": quests.duplicate(true),
@@ -388,6 +457,8 @@ func load_game(slot: String) -> String:
 	for e: Variant in d["inventory"]:
 		if e is Dictionary and ItemDB.exists(str((e as Dictionary).get("id", ""))):
 			inventory.append({"id": str(e["id"]), "count": maxi(1, int(e.get("count", 1)))})
+	# Partidas anteriores al sistema de equipo: todos llevaban escudo de madera.
+	equipment = Equipment.sanitize(d.get("equipment", {"offhand": "shield_wood"}))
 	var wc: Dictionary = d["world_changes"]
 	world_changes = {"looted": wc.get("looted", {}), "killed": wc.get("killed", {}), "opened": wc.get("opened", {}),
 			"dropped": wc.get("dropped", []) if wc.get("dropped", []) is Array else []}

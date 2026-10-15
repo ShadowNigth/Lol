@@ -242,11 +242,54 @@ func build_library() -> Dictionary:
 	lib["trap"] = to_stream(_normalize(_hit_metal(0.4, 0.6), 0.8))
 	lib["lever"] = to_stream(_normalize(_knock(0.2, [330.0, 900.0]), 0.7))
 	lib["stone_door"] = to_stream(_normalize(_filtered_noise(1.4, 120.0, 220.0, 90.0, 0.9, 0, 0.2, 0.9), 0.8))
+	lib["wolf_alert"] = to_stream(_normalize(_growl(0.9), 0.85))
+	lib["wolf_hurt"] = to_stream(_normalize(_vocal(0.24, 980.0, 560.0, [1300.0, 2700.0], 0.12), 0.8))
+	lib["wolf_death"] = to_stream(_normalize(_vocal(1.0, 760.0, 260.0, [1100.0, 2300.0], 0.2), 0.8))
+	lib["wolf_idle"] = to_stream(_normalize(_vocal(0.4, 120.0, 100.0, [480.0, 950.0], 0.85), 0.55))
+	lib["wolf_howl"] = to_stream(_normalize(_howl(2.8), 0.7))
+	lib["bite"] = to_stream(_normalize(_bite(), 0.85))
 	lib["wind_loop"] = to_stream(_normalize(_wind_loop(6.0), 0.35), true)
 	lib["fire_loop"] = to_stream(_normalize(_fire_loop(3.0), 0.5), true)
 	lib["cave_loop"] = to_stream(_normalize(_cave_loop(6.0), 0.3), true)
 	lib["night_loop"] = to_stream(_normalize(_night_loop(6.0), 0.3), true)
 	return lib
+
+
+## Gruñido: voz grave con aspereza (modulación de amplitud rápida).
+func _growl(seconds: float) -> PackedFloat32Array:
+	var b := _vocal(seconds, 92.0, 78.0, [380.0, 760.0, 1500.0], 0.8)
+	for i in b.size():
+		var t := float(i) / RATE
+		b[i] *= 0.55 + 0.45 * absf(sin(TAU * 27.0 * t + sin(t * 9.0)))
+	return b
+
+
+## Aullido lejano: tono que sube, se sostiene con vibrato y cae.
+func _howl(seconds: float) -> PackedFloat32Array:
+	var b := _buf(seconds)
+	var n := b.size()
+	var ph := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		var f := 430.0
+		if t < 0.6:
+			f = lerpf(430.0, 640.0, smoothstep(0.0, 0.6, t))
+		elif t < seconds - 0.8:
+			f = 625.0 + sin(TAU * 5.0 * t) * 9.0
+		else:
+			f = lerpf(625.0, 410.0, smoothstep(seconds - 0.8, seconds, t))
+		ph += TAU * f / RATE
+		var amp := minf(t / 0.3, 1.0) * clampf((seconds - t) / 0.6, 0.0, 1.0)
+		b[i] = (sin(ph) + 0.3 * sin(ph * 2.0) + 0.12 * sin(ph * 3.0) + _rng.randf_range(-0.05, 0.05)) * amp
+	return b
+
+
+## Mordisco: chasquido seco de dientes con un golpe sordo.
+func _bite() -> PackedFloat32Array:
+	var b := _knock(0.14, [700.0, 1650.0, 2900.0])
+	_mix_into(b, _thump(0.1, 180.0, 90.0, 0.03), 0, 0.6)
+	_fade_edges(b, 0.002)
+	return b
 
 
 func _swing(seconds: float, f0: float, f1: float, f2: float) -> PackedFloat32Array:

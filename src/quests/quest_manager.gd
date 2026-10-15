@@ -101,7 +101,8 @@ static func on_enemy_killed(enemy_type: String) -> void:
 			continue
 		var obj: Dictionary = current_stage(id).get("objective", {})
 		var tgt := str(obj.get("target", ""))
-		if str(obj.get("type", "")) == "kill" and (tgt == enemy_type or tgt == "any" or (tgt == "skeleton" and enemy_type.begins_with("skeleton"))):
+		# Objetivo exacto o familia por prefijo ("skeleton" -> skeleton_archer, "wolf" -> wolf_alpha)
+		if str(obj.get("type", "")) == "kill" and (tgt == enemy_type or tgt == "any" or enemy_type.begins_with(tgt + "_")):
 			var s := state(id)
 			s["progress"] = int(s["progress"]) + 1
 			if int(s["progress"]) >= int(obj["count"]):

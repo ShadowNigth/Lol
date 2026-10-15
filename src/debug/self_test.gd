@@ -20,6 +20,8 @@ var _player_hp_start := 0.0
 var _attacks := 0
 var _shot_index := 0
 var _return_ref := Vector3.ZERO
+var _hits_start := 0
+var _wolf_min_hp := 0.0
 
 
 func _ready() -> void:
@@ -75,7 +77,7 @@ func _shot(label: String) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_total += delta
-	if _total > 240.0:
+	if _total > 330.0:
 		_fail("Tiempo de prueba agotado en la etapa '%s'" % _stage)
 		_finish()
 		return
@@ -135,6 +137,7 @@ func _process(delta: float) -> void:
 				_note("Soltar y recoger pan: %d -> %d (soltados pendientes: %d)" % [bread1, GameState.item_count("bread"), GameState.dropped_in_area().size()])
 				if GameState.item_count("bread") != bread1:
 					_fail("Soltar/recoger duplicó o perdió el objeto")
+				_test_equipment(p)
 				Input.action_press("move_forward")
 				_next("walk")
 		"walk":
@@ -362,9 +365,73 @@ func _process(delta: float) -> void:
 				_note("De vuelta al exterior a %.1f m de la entrada de la cripta" % d)
 				if g2.get("generator") is DungeonGenerator:
 					_fail("Sigue en la mazmorra tras salir")
-				_finish()
+				_next("region")
 			elif _t > 60.0:
 				_fail("No se pudo volver al exterior")
+				_finish()
+		"region":
+			if _t > 0.5:
+				_test_region()
+				# Campo abierto al este de la muralla para el combate con un lobo
+				var w2 := _game().get("world") as VoxelWorld
+				var hh := w2.generator.height_at(44, 0) + 1.0
+				p.teleport(Vector3(44.5, hh + 0.2, 0.5), 90.0)
+				_next("wolf_spawn")
+		"wolf_spawn":
+			if _t > 2.0:
+				var w3 := _game().get("world") as VoxelWorld
+				var wpos := Vector3(37.5, w3.generator.height_at(37, 0) + 1.1, 0.5)
+				if QuestManager.can_offer("lobos_del_camino"):
+					QuestManager.accept("lobos_del_camino")
+				_enemy = (_game().get("spawner") as Node).call("_spawn_enemy", {"type": "enemy", "enemy": "wolf",
+						"id": "selftest/wolf", "pos": wpos, "yaw": -90.0})
+				if _enemy == null:
+					_fail("No se pudo crear el lobo de prueba")
+					_finish()
+					return
+				_player_hp_start = p.stats.health
+				_hits_start = p.stat_hits
+				_attacks = 0
+				_wolf_min_hp = 999.0
+				_next("wolf_fight")
+		"wolf_fight":
+			var wf := _enemy as Enemy
+			if not is_instance_valid(wf):
+				_fail("El lobo desapareció")
+				_finish()
+				return
+			_wolf_min_hp = minf(_wolf_min_hp, wf.stats.health)
+			var tw := wf.global_position - p.global_position
+			tw.y = 0.0
+			p._yaw = atan2(-tw.x, -tw.z)
+			p._pitch = deg_to_rad(-10.0)
+			if tw.length() > 1.9:
+				Input.action_press("move_forward")
+			else:
+				Input.action_release("move_forward")
+			if fmod(_t, 0.7) < delta and tw.length() < 2.4:
+				Input.action_press("attack")
+				_attacks += 1
+			else:
+				Input.action_release("attack")
+			if _t > 1.5 and _t < 1.6:
+				_shot("wolf")
+			if p.stats.health < p.stats.max_health * 0.4:
+				p.stats.heal(40.0)
+			if not wf.is_alive():
+				Input.action_release("move_forward")
+				Input.action_release("attack")
+				_note("Lobo (%s) derrotado tras %d ataques en %.1f s; impactos del jugador: %d; salud del jugador %.0f -> %.0f; ¿huyó? %s" % [
+						wf.data.display_name, _attacks, _t, p.stat_hits - _hits_start, _player_hp_start, p.stats.health, wf._fled])
+				_note("Misión 'Lobos en el camino': %s" % QuestManager.stage_text("lobos_del_camino"))
+				if int(GameState.quests.get("lobos_del_camino", {}).get("progress", 0)) < 1:
+					_fail("La caza del lobo no contó para la misión")
+				var inv0 := GameState.item_count("wolf_pelt") + GameState.item_count("wolf_fang")
+				wf.interact(p)
+				_note("Botín del lobo: pieles/colmillos %d -> %d" % [inv0, GameState.item_count("wolf_pelt") + GameState.item_count("wolf_fang")])
+				_finish()
+			elif _t > 60.0:
+				_fail("Combate con el lobo demasiado largo: vida %.0f/%.0f, impactos %d" % [wf.stats.health, wf.stats.max_health, p.stat_hits - _hits_start])
 				_finish()
 		"reload":
 			if p and _game().has_method("is_world_ready") and bool(_game().call("is_world_ready")) and _t > 1.0:
@@ -378,11 +445,111 @@ func _process(delta: float) -> void:
 				_note("Misión tras cargar: %s, progreso %s" % [QuestManager.stage_text("huesos_inquietos"), GameState.quests.get("huesos_inquietos", {})])
 				if not QuestManager.is_active("huesos_inquietos") or int(GameState.quests["huesos_inquietos"]["progress"]) < 1:
 					_fail("El progreso de la misión no se conservó al guardar/cargar")
+				_note("Equipo tras cargar: %s, armadura %.1f" % [GameState.equipment, p.stats.armor_rating])
+				if str(GameState.equipment.get("head", "")) != "helm_iron" or p.stats.armor_rating <= 0.0:
+					_fail("El equipo no se conservó al guardar/cargar")
 				_shot("reloaded")
 				_next("enter_dungeon")
 			elif _t > 90.0:
 				_fail("La carga no terminó")
 				_finish()
+
+
+## Equipo: kit inicial, equipar/quitar sin duplicar, efectos en armadura,
+## resistencias, magia y escudo.
+func _test_equipment(p: Player) -> void:
+	var eq := GameState.equipment
+	_note("Equipo inicial (%s): %s · armadura %.1f · escudo %s" % [GameState.character_class, eq, p.stats.armor_rating, p.offhand_id])
+	if p.stats.armor_rating <= 0.0:
+		_fail("El equipo inicial no da armadura")
+	var arm0 := p.stats.armor_rating
+	GameState.give_item(p, {"id": "helm_iron", "count": 1})
+	GameState.equip_item(p, "helm_iron")
+	if str(GameState.equipment.get("head", "")) != "helm_iron" or GameState.item_count("helm_iron") != 0:
+		_fail("Equipar el yelmo falló o lo duplicó")
+	_note("Yelmo de hierro: armadura %.1f -> %.1f" % [arm0, p.stats.armor_rating])
+	if p.stats.armor_rating <= arm0:
+		_fail("El yelmo no aumentó la armadura")
+	var slash := p.stats.mitigate(20.0, "slash")
+	var fire := p.stats.mitigate(20.0, "fire")
+	_note("Daño 20 cortante -> %.1f; 20 de fuego -> %.1f (la armadura no frena la magia)" % [slash, fire])
+	if slash >= 20.0 or fire < 19.99:
+		_fail("La mitigación por armadura no funciona como se espera")
+	# Cambiar el torso por la túnica de aprendiz: la pieza anterior vuelve al inventario
+	var chest0 := str(GameState.equipment.get("chest", ""))
+	var mana0 := p.stats.max_mana
+	GameState.give_item(p, {"id": "robe_apprentice", "count": 1})
+	GameState.equip_item(p, "robe_apprentice")
+	_note("Túnica: magia máx. %.0f -> %.0f, resistencia al fuego %.2f, '%s' devuelto al inventario: %d" % [mana0, p.stats.max_mana,
+			float(p.stats.resistances["fire"]), chest0, GameState.item_count(chest0) if chest0 != "" else 0])
+	if p.stats.max_mana < mana0 + 14.9 or float(p.stats.resistances["fire"]) < 0.09:
+		_fail("La túnica no aplicó sus bonificaciones")
+	if chest0 != "" and GameState.item_count(chest0) != 1:
+		_fail("La pieza sustituida no volvió al inventario")
+	if chest0 != "":
+		GameState.equip_item(p, chest0)
+	# Quitar y volver a poner el escudo
+	var off := str(GameState.equipment.get("offhand", ""))
+	if off != "":
+		GameState.unequip_slot(p, "offhand")
+		if p.offhand_id != "" or GameState.item_count(off) != 1:
+			_fail("Quitar el escudo no funcionó")
+		GameState.equip_item(p, off)
+		_note("Escudo quitado y vuelto a equipar: modelo '%s', bloqueo %.2f, visible %s" % [p.offhand_id, p.shield_block, p.viewmodel.has_shield()])
+		if not p.viewmodel.has_shield():
+			_fail("El escudo no aparece en la mano izquierda")
+
+
+## Región: lugares con nombre, PNJ, mazmorras temáticas verificadas y fauna.
+func _test_region() -> void:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	var pl := wg.planner
+	var names: Array[String] = []
+	for site: Dictionary in pl.sites:
+		names.append("%s (%s)" % [site["name"], StructurePlanner.direction_text(Vector2.ZERO, site["pos"])])
+	_note("Lugares de la región: " + "; ".join(names))
+	if pl.sites.size() < 6:
+		_fail("Faltan lugares en la región (%d)" % pl.sites.size())
+	for site2: Dictionary in pl.sites:
+		var sp: Vector2 = site2["pos"]
+		var h := wg.height_at(int(sp.x), int(sp.y))
+		if h < WorldGenerator.SEA_LEVEL + 1:
+			_fail("El lugar '%s' quedó bajo el agua (h=%d)" % [site2["name"], h])
+	for npc_id: String in ["ulrico", "edda", "elena", "bram"]:
+		var found := false
+		for sp2: Dictionary in pl.spawns:
+			if str(sp2.get("npc", "")) == npc_id:
+				found = true
+		if not found or NpcDB.get_npc(npc_id).is_empty():
+			_fail("PNJ de la región ausente: %s" % npc_id)
+	for did: String in ["barrow_grises", "cave_lobos"]:
+		var dg := DungeonGenerator.new(did, GameState.world_seed, 1)
+		var boss := ""
+		for e: Dictionary in dg.entities:
+			if str(e.get("id", "")).ends_with("/boss"):
+				boss = str(e.get("enemy", ""))
+		var key := "key_" + did
+		_note("Mazmorra '%s' (%s): %d salas, verificada %s, jefe '%s', llave '%s'" % [dg.display_name, DungeonDB.get_def(did)["theme"],
+				dg.rooms.size(), dg.verified, boss, ItemDB.display_name(key)])
+		if not dg.verified or boss != str(DungeonDB.get_def(did)["boss"]) or not ItemDB.exists(key):
+			_fail("La mazmorra '%s' no es válida" % did)
+	# Fauna: manadas generadas en los chunks alrededor del cubil
+	var den: Vector2 = Vector2.ZERO
+	for site3: Dictionary in pl.sites:
+		if site3["id"] == "cave_lobos":
+			den = site3["pos"]
+	var wolves := 0
+	var t0 := Time.get_ticks_msec()
+	var dcx := int(floor(den.x / 16.0))
+	var dcz := int(floor(den.y / 16.0))
+	for cz in range(dcz - 4, dcz + 5):
+		for cx in range(dcx - 4, dcx + 5):
+			for e2: Dictionary in wg.generate_chunk(cx, cz).entities:
+				if str(e2.get("enemy", "")).begins_with("wolf"):
+					wolves += 1
+	_note("Lobos en los 81 chunks alrededor del cubil: %d (generados en %d ms)" % [wolves, Time.get_ticks_msec() - t0])
+	if wolves == 0:
+		_fail("No se generó ningún lobo alrededor del cubil")
 
 
 func _next(s: String) -> void:

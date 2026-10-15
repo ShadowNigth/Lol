@@ -21,7 +21,7 @@ cp packaging/vaelmoor.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/vaelmoor
 cat > "$APPDIR/AppRun" <<'RUN'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
-exec "$HERE/usr/bin/vaelmoor.x86_64" --main-pack "$HERE/usr/bin/vaelmoor.pck" "$@"
+exec "$HERE/usr/bin/vaelmoor.x86_64" "$@"
 RUN
 chmod +x "$APPDIR/AppRun"
 mkdir -p dist
