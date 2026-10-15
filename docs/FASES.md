@@ -34,7 +34,8 @@ ejecutarse sin GPU en este entorno. La lógica (física, IA, guardado, etc.) es 
 - Menú principal (con diorama 3D animado), controles documentados, todo sin conexión.
 
 **Pruebas**
-- `tools/dev/check_scripts.tscn`: carga y compila los 83 scripts/escenas/recursos/shaders → 0 errores.
+- `tools/dev/check_scripts.tscn`: carga y compila todos los scripts/escenas/recursos/shaders (91 en la
+  versión actual) → 0 errores.
 - Autoprueba de juego (`--self-test` / `tools/dev/smoke_test.tscn`), superada en el editor **y con el
   binario exportado**: el mundo carga (~2 s), el jugador aparece sobre el suelo, camina y salta, un
   esqueleto lo detecta, combate (el jugador recibe daño, el esqueleto bloquea), el esqueleto muere,
