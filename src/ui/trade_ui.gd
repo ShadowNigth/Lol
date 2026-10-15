@@ -84,6 +84,7 @@ func _refresh() -> void:
 		var def := ItemDB.get_def(id)
 		var price := maxi(1, int(round(float(def.get("value", 1)) * _price_factor_buy())))
 		_stock_list.add_item("%s  x%d  —  %d oro" % [def.get("name", id), int(stock[id]), price])
+		_stock_list.set_item_tooltip(_stock_list.item_count - 1, _tooltip(id))
 		_stock_ids.append(id)
 	for e in GameState.inventory:
 		var id2 := str(e["id"])
@@ -92,9 +93,19 @@ func _refresh() -> void:
 			continue
 		var price2 := maxi(1, int(round(float(def2.get("value", 1)) * _price_factor_sell())))
 		_inv_list.add_item("%s  x%d  —  %d oro" % [def2.get("name", id2), int(e["count"]), price2])
+		_inv_list.set_item_tooltip(_inv_list.item_count - 1, _tooltip(id2))
 		_inv_ids.append(id2)
 	var p := GameState.player as Player
 	_info.text = "Tu oro: %d    Oro del mercader: %d" % [p.gold, int(_shop["gold"])]
+
+
+## Descripción y, si es equipable, ranura, armadura y resistencias.
+func _tooltip(id: String) -> String:
+	var def := ItemDB.get_def(id)
+	var t := "%s\n%s\nPeso: %.2f" % [def.get("name", id), def.get("description", ""), float(def.get("weight", 0.0))]
+	if Equipment.is_equippable(id):
+		t += "\n" + Equipment.describe(id, (GameState.player as Player).stats)
+	return t
 
 
 func _buy() -> void:

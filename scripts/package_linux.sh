@@ -16,6 +16,6 @@ chmod +x "$STAGE/vaelmoor.sh" "$STAGE/install.sh" "$STAGE/vaelmoor.x86_64"
 cp README.md ATTRIBUTIONS.md "$STAGE/"
 cp licenses/* "$STAGE/licenses/"
 tar -C build -cJf "dist/$NAME.tar.xz" "$NAME"
-sha256sum "dist/$NAME.tar.xz" > "dist/$NAME.tar.xz.sha256"
+(cd dist && sha256sum "$NAME.tar.xz" > "$NAME.tar.xz.sha256")   # nombre sin ruta: se verifica junto al archivo
 ls -la dist/
 echo ">> Paquete: dist/$NAME.tar.xz"
