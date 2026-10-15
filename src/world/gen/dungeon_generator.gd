@@ -370,7 +370,7 @@ func _populate_room(i: int) -> void:
 		"secret":
 			entities.append({"type": "chest", "pos": center, "yaw": 0.0, "id": rid + "/chest", "loot": "secret"})
 		"room":
-			var n := _rng.randi_range(0, 1 + difficulty)
+			var n := _rng.randi_range(0, int(def.get("max_per_room", 1 + difficulty)))
 			for k in n:
 				var off := Vector3(_rng.randf_range(-1.5, 1.5), 0, _rng.randf_range(-1.5, 1.5))
 				var kind := str(minions[minions.size() - 1]) if _rng.randf() < float(def.get("ranged_chance", 0.25)) else str(minions[0])

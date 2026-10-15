@@ -429,9 +429,76 @@ func _process(delta: float) -> void:
 				var inv0 := GameState.item_count("wolf_pelt") + GameState.item_count("wolf_fang")
 				wf.interact(p)
 				_note("Botín del lobo: pieles/colmillos %d -> %d" % [inv0, GameState.item_count("wolf_pelt") + GameState.item_count("wolf_fang")])
-				_finish()
+				_goto_site("inn_lobo")
+				_next("visit_inn")
 			elif _t > 60.0:
 				_fail("Combate con el lobo demasiado largo: vida %.0f/%.0f, impactos %d" % [wf.stats.health, wf.stats.max_health, p.stat_hits - _hits_start])
+				_finish()
+		"visit_inn", "visit_hamlet":
+			var w4 := _game().get("world") as VoxelWorld
+			if _t > 3.0 and w4.is_chunk_loaded_at(p.global_position) and w4.pending_task_count() == 0:
+				var want: Array = ["ulrico", "edda"] if _stage == "visit_inn" else ["elena", "bram"]
+				var seen: Array[String] = []
+				for n: Node in get_tree().get_nodes_in_group("npcs"):
+					var npc := n as NPC
+					if npc and str(npc.npc_id) in want and npc.process_mode != Node.PROCESS_MODE_DISABLED:
+						var ground := w4.surface_height(npc.global_position.x, npc.global_position.z)
+						seen.append("%s (y=%.1f, suelo %.1f)" % [npc.npc_id, npc.global_position.y, ground])
+				_note("%s: PNJ presentes %s; lugar: '%s'; jugador en el suelo: %s" % [_stage, seen, _game().call("current_location_name"), p.is_on_floor()])
+				if seen.size() < want.size():
+					_fail("Faltan PNJ en %s (%s)" % [_stage, seen])
+				_shot(_stage)
+				if _stage == "visit_inn":
+					_goto_site("robledal")
+					_next("visit_hamlet")
+				else:
+					_return_ref = p.global_position
+					_game().call("enter_dungeon", "cave_lobos", "selftest_cave")
+					_next("in_cave")
+			elif _t > 40.0:
+				_fail("No terminó de cargar el lugar (%s)" % _stage)
+				_finish()
+		"in_cave":
+			if bool(_game().call("is_world_ready")) and _t > 2.0:
+				var dg2 := _game().get("generator") as DungeonGenerator
+				var kinds := {}
+				var boss := ""
+				for e4: Node in get_tree().get_nodes_in_group("enemies"):
+					var en4 := e4 as Enemy
+					kinds[en4.data.id] = int(kinds.get(en4.data.id, 0)) + 1
+					if en4.data.is_boss:
+						boss = en4.data.display_name
+				_note("Cueva '%s' cargada: enemigos %s, jefe '%s' (verificada %s), jugador en el suelo: %s" % [dg2.display_name if dg2 else "?",
+						kinds, boss, dg2.verified if dg2 else false, p.is_on_floor()])
+				if dg2 == null or not kinds.has("wolf"):
+					_fail("La cueva de los lobos no se cargó con sus lobos")
+				_shot("cave")
+				var brect: Rect2i = dg2.rooms[dg2.boss_index]["rect"]
+				p.teleport(Vector3(brect.get_center().x + 0.5, 20.1, brect.end.y - 1.5), 0.0)
+				_next("cave_boss")
+			elif _t > 60.0:
+				_fail("La cueva no terminó de cargar")
+				_finish()
+		"cave_boss":
+			if _t > 2.0:
+				var alpha := false
+				for e5: Node in get_tree().get_nodes_in_group("enemies"):
+					if (e5 as Enemy).data.id == "wolf_alpha":
+						alpha = true
+				_note("Colmillo Negro presente en su sala: %s" % alpha)
+				if not alpha:
+					_fail("El lobo alfa no apareció en la sala del jefe")
+				_shot("cave_boss")
+				_game().call("exit_dungeon")
+				_next("exit_cave")
+		"exit_cave":
+			if bool(_game().call("is_world_ready")) and _t > 1.5:
+				_note("Fuera de la cueva a %.1f m de la entrada" % p.global_position.distance_to(_return_ref))
+				if _game().get("generator") is DungeonGenerator:
+					_fail("Sigue en la cueva tras salir")
+				_finish()
+			elif _t > 60.0:
+				_fail("No se pudo salir de la cueva")
 				_finish()
 		"reload":
 			if p and _game().has_method("is_world_ready") and bool(_game().call("is_world_ready")) and _t > 1.0:
@@ -533,6 +600,30 @@ func _test_region() -> void:
 				dg.rooms.size(), dg.verified, boss, ItemDB.display_name(key)])
 		if not dg.verified or boss != str(DungeonDB.get_def(did)["boss"]) or not ItemDB.exists(key):
 			_fail("La mazmorra '%s' no es válida" % did)
+	# Puentes: donde un camino cruza agua debe haber tablero de madera
+	var crossings := 0
+	var bridged := 0
+	for road: Dictionary in pl.roads:
+		var a: Vector2 = road["a"]
+		var b: Vector2 = road["b"]
+		var steps := int(a.distance_to(b))
+		var last_chunk := Vector2i(1 << 30, 0)
+		var cd: ChunkData = null
+		for k in steps:
+			var q := a.lerp(b, float(k) / maxf(steps, 1))
+			var qx := int(floor(q.x))
+			var qz := int(floor(q.y))
+			if wg.height_at(qx, qz) < WorldGenerator.SEA_LEVEL and pl.surface_override(qx, qz) > 0:
+				crossings += 1
+				var cc := Vector2i(int(floor(qx / 16.0)), int(floor(qz / 16.0)))
+				if cc != last_chunk:
+					last_chunk = cc
+					cd = wg.generate_chunk(cc.x, cc.y)
+				if cd.get_world(qx, WorldGenerator.SEA_LEVEL + 1, qz) == BlockTypes.PLANKS:
+					bridged += 1
+	_note("Cruces de caminos sobre agua: %d columnas, con tablero de puente: %d" % [crossings, bridged])
+	if bridged < crossings:
+		_fail("Hay tramos de camino sobre el agua sin puente")
 	# Fauna: manadas generadas en los chunks alrededor del cubil
 	var den: Vector2 = Vector2.ZERO
 	for site3: Dictionary in pl.sites:
@@ -550,6 +641,20 @@ func _test_region() -> void:
 	_note("Lobos en los 81 chunks alrededor del cubil: %d (generados en %d ms)" % [wolves, Time.get_ticks_msec() - t0])
 	if wolves == 0:
 		_fail("No se generó ningún lobo alrededor del cubil")
+
+
+## Lleva al jugador a la plaza de un lugar de la región.
+func _goto_site(site_id: String) -> void:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	for site: Dictionary in wg.planner.sites:
+		if site["id"] == site_id:
+			var sp: Vector2 = site["pos"]
+			var pos := Vector3(sp.x + 0.5, wg.height_at(int(sp.x), int(sp.y)) + 1.2, sp.y + 0.5)
+			if site_id == "inn_lobo":
+				pos.x -= 4.0   # junto al pozo, no encima
+			_player().teleport(pos, 0.0)
+			return
+	_fail("Lugar desconocido: " + site_id)
 
 
 func _next(s: String) -> void:

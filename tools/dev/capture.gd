@@ -14,6 +14,9 @@ var _started := false
 var _preview: Node3D
 var _preview_anim: AnimationPlayer
 var _dungeon_wait := false
+var _wolf: Node3D
+var _wolf_anim: AnimationPlayer
+var _wolf_variant := -1
 
 
 func _ready() -> void:
@@ -77,6 +80,28 @@ func _build_queue() -> void:
 		_queue.append({"name": "dungeon_corridor", "dview": "corridor"})
 		_queue.append({"name": "dungeon_boss", "dview": "boss"})
 		_queue.append({"name": "dungeon_treasure", "dview": "treasure"})
+	if "wolf" in _sets:
+		for e2: Array in [["idle", 0.0], ["walk", 0.25], ["walk", 0.75], ["run", 0.12], ["run", 0.42], ["alert", 0.6],
+				["attack_1", 0.16], ["attack_1", 0.32], ["attack_2", 0.42], ["hit", 0.08], ["stun", 0.45], ["death", 0.6], ["death", 1.5]]:
+			_queue.append({"name": "wolf_%s_%03d" % [e2[0], int(float(e2[1]) * 100)], "wolf": e2[0], "t": e2[1], "variant": 0})
+		for v: int in [1, 2, 3]:
+			_queue.append({"name": "wolf_variant_%d" % v, "wolf": "idle", "t": 0.5, "variant": v})
+	if "armor" in _sets:
+		for o: Array in [["cloth", "bare", "shield"], ["leather", "leather_gloves", "shield"], ["chain", "gauntlets", "shield_iron"], ["robe", "bare", ""]]:
+			_queue.append({"name": "armor_%s_%s" % [o[0], o[1]], "armor": o})
+	if "sites" in _sets:
+		var wg := (_game().get("overworld_generator") as WorldGenerator)
+		var site_views := {"inn_lobo": [Vector2(16, 12), 15.0], "robledal": [Vector2(-14, -22), 11.0], "barrow_grises": [Vector2(-9, -20), 17.0],
+				"cave_lobos": [Vector2(6, -17), 9.5]}
+		for site: Dictionary in wg.planner.sites:
+			if not site_views.has(site["id"]):
+				continue
+			var sp: Vector2 = site["pos"]
+			var off: Vector2 = site_views[site["id"]][0]
+			var cam := sp + off
+			var to := sp - cam
+			_queue.append({"name": "site_%s" % site["id"], "pos": Vector3(cam.x + 0.5, -1.0, cam.y + 0.5),
+					"yaw": rad_to_deg(atan2(-to.x, -to.y)), "pitch": 2.0, "time": float(site_views[site["id"]][1])})
 	if "enemy" in _sets:
 		for e: Array in [["idle", 0.0], ["walk", 0.25], ["run", 0.16], ["alert", 0.4], ["attack_1", 0.42], ["attack_1", 0.56],
 				["attack_2", 0.5], ["attack_2", 0.68], ["block", 0.35], ["hit", 0.08], ["stun", 0.5], ["death", 0.5], ["death", 1.5]]:
@@ -193,6 +218,28 @@ func _setup_shot(shot: Dictionary) -> void:
 			vm.set_weapon(kind, wid, "shield" if kind == "sword" else "")
 		vm.debug_pose(anim_name, float(shot["t"]))
 		_wait = 6
+	elif shot.has("wolf"):
+		p.teleport(Vector3(2.5, 37.0, 3.5), -90.0)
+		p._pitch = deg_to_rad(-10.0)
+		p.viewmodel.visible = false
+		GameState.time_of_day = 13.0
+		_ensure_wolf(int(shot["variant"]))
+		_wolf.global_position = p.global_position + Vector3(2.4, 0, 0.2)
+		_wolf.rotation.y = deg_to_rad(-25.0)
+		_wolf_anim.play(str(shot["wolf"]), 0.0)
+		_wolf_anim.seek(float(shot["t"]), true)
+		_wolf_anim.pause()
+		_wait = 6
+	elif shot.has("armor"):
+		p.teleport(Vector3(2.5, 37.0, 3.5), -60.0)
+		p._pitch = deg_to_rad(-12.0)
+		GameState.time_of_day = 14.0
+		var o: Array = shot["armor"]
+		p.viewmodel.visible = true
+		p.viewmodel.set_appearance(str(o[0]), str(o[1]))
+		p.viewmodel.set_weapon("sword", "sword", str(o[2]))
+		p.viewmodel.debug_pose("sword_idle", 0.0)
+		_wait = 6
 	elif shot.has("enemy"):
 		p.teleport(Vector3(2.5, 37.0, 3.5), -90.0)
 		p._pitch = deg_to_rad(-6.0)
@@ -239,6 +286,30 @@ func _ensure_preview() -> void:
 	_preview.add_child(_preview_anim)
 	_preview_anim.root_node = NodePath("..")
 	_preview_anim.add_animation_library("", HumanoidAnims.build_library("warrior"))
+
+
+func _ensure_wolf(variant: int) -> void:
+	if _wolf and _wolf_variant == variant:
+		return
+	if _wolf:
+		_wolf.queue_free()
+	_wolf_variant = variant
+	_wolf = Node3D.new()
+	_game().add_child(_wolf)
+	var rig := Rig.quadruped()
+	var sk := rig.create_skeleton()
+	_wolf.add_child(sk)
+	if variant == 3:
+		sk.scale = Vector3.ONE * 1.35
+	var mi := MeshInstance3D.new()
+	mi.mesh = CharacterModels.wolf(variant).build_skinned_mesh(rig.bone_names(), ModelLibrary.model_material())
+	mi.skin = rig.create_skin()
+	sk.add_child(mi)
+	mi.skeleton = NodePath("..")
+	_wolf_anim = AnimationPlayer.new()
+	_wolf.add_child(_wolf_anim)
+	_wolf_anim.root_node = NodePath("..")
+	_wolf_anim.add_animation_library("", QuadrupedAnims.build_library())
 
 
 func _snap() -> void:

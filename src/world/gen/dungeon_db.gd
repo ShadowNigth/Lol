@@ -25,7 +25,7 @@ const DUNGEONS := {
 		"name": "Cubil de Colmillo Negro", "theme": "cave", "door": "la cueva",
 		"entry_key": "", "entry_hint": "",
 		"boss": "wolf_alpha", "guards": "wolf", "boss_loot": "boss_den",
-		"minions": ["wolf"], "ranged_chance": 0.0, "difficulty": 2,
+		"minions": ["wolf"], "ranged_chance": 0.0, "difficulty": 1, "max_per_room": 1,
 	},
 }
 

@@ -230,6 +230,22 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 				for y in range(h + 1, SEA_LEVEL + 1):
 					blocks[base + y * layer] = BlockTypes.WATER
 				max_y = maxi(max_y, SEA_LEVEL)
+				# Puente: el camino cruza el agua sobre un tablero de madera
+				# (escrito aquí: los Packed*Array se copian al modificarlos dentro de otra función)
+				if road > 0:
+					blocks[base + h * layer] = sub
+					var deck := SEA_LEVEL + 1
+					blocks[base + deck * layer] = BlockTypes.PLANKS
+					if _road_edge(wx, wz):
+						blocks[base + (deck + 1) * layer] = BlockTypes.FENCE
+						if posmod(wx + wz, 4) == 0:
+							for y in range(h + 1, deck):
+								blocks[base + y * layer] = BlockTypes.LOG
+					max_y = maxi(max_y, deck + 1)
+			elif road > 0 and h == SEA_LEVEL:
+				# Rampa de media losa en la orilla para subir al puente sin saltar
+				blocks[base + (h + 1) * layer] = BlockTypes.PLANK_SLAB
+				max_y = maxi(max_y, h + 1)
 			max_y = maxi(max_y, h)
 	# Los Packed*Array se copian al escribir: hay que devolver el array al chunk.
 	data.blocks = blocks
@@ -244,6 +260,14 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 	planner.add_spawns(data, heights)
 	_add_wildlife(data, cx, cz, heights, biomes)
 	return data
+
+
+## ¿Está esta columna de camino en su borde? (barandilla y pilares del puente)
+func _road_edge(wx: int, wz: int) -> bool:
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if planner.surface_override(wx + d.x, wz + d.y) == 0:
+			return true
+	return false
 
 
 # ---------------------------------------------------------------------------
