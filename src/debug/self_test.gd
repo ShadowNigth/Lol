@@ -340,7 +340,8 @@ func _process(delta: float) -> void:
 				var en := get_tree().get_nodes_in_group("enemies").size()
 				_note("Enemigos cargados en la mazmorra: %d" % en)
 				_shot("dungeon_entrance")
-				# Visitar la sala del jefe
+				# Visitar la sala del jefe (con la vida llena: el jefe y su guardia atacan enseguida)
+				p.stats.heal(p.stats.max_health)
 				p.teleport(Vector3(boss_rect.get_center().x + 0.5, 20.1, boss_rect.end.y - 1.5), 0.0)
 				_next("boss_view")
 			elif _t > 60.0:
@@ -391,6 +392,10 @@ func _process(delta: float) -> void:
 					return
 				# Tras la sala del jefe el jugador puede llegar casi sin vida: un mordisco
 				# lo mataría antes de que la prueba pudiera atacar.
+				if p.is_dead:
+					_fail("El jugador ya estaba muerto antes del combate con el lobo")
+					_finish()
+					return
 				p.stats.heal(p.stats.max_health)
 				_player_hp_start = p.stats.health
 				_hits_start = p.stat_hits
@@ -485,6 +490,7 @@ func _process(delta: float) -> void:
 					_fail("La cueva de los lobos no se cargó con sus lobos")
 				_shot("cave")
 				var brect: Rect2i = dg2.rooms[dg2.boss_index]["rect"]
+				p.stats.heal(p.stats.max_health)
 				p.teleport(Vector3(brect.get_center().x + 0.5, 20.1, brect.end.y - 1.5), 0.0)
 				_next("cave_boss")
 			elif _t > 60.0:

@@ -47,6 +47,8 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
   brazos; la armadura reduce el daño físico y las resistencias el mágico.
 - Hablar con los **PNJ** (horarios de trabajo y descanso, rumores, comercio) y completar **misiones**
   que cambian la reputación con las facciones.
+- Leer los **tablones de anuncios** de cada asentamiento: encargos generados (caza, limpieza de no
+  muertos, entregas) que cambian cada pocos días y se cobran en el propio tablón.
 - Viajar por la región: la **Posada del Lobo Gris** al oeste, la **aldea de Robledal** al sur, el
   **Túmulo de los Reyes Grises** y el **Cubil de Colmillo Negro** (posiciones según la semilla; el
   mapa, tecla M, indica dirección y distancia), unidos por caminos.
