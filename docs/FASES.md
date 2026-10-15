@@ -34,7 +34,7 @@ ejecutarse sin GPU en este entorno. La lógica (física, IA, guardado, etc.) es 
 - Menú principal (con diorama 3D animado), controles documentados, todo sin conexión.
 
 **Pruebas**
-- `tools/dev/check_scripts.tscn`: carga y compila todos los scripts/escenas/recursos/shaders (91 en la
+- `tools/dev/check_scripts.tscn`: carga y compila todos los scripts/escenas/recursos/shaders (97 en la
   versión actual) → 0 errores.
 - Autoprueba de juego (`--self-test` / `tools/dev/smoke_test.tscn`), superada en el editor **y con el
   binario exportado**: el mundo carga (~2 s), el jugador aparece sobre el suelo, camina y salta, un
@@ -172,6 +172,20 @@ en la partida; las partidas antiguas siguen cargando), etapas con texto propio d
 (con marcadores como `{dir:lugar}`), efectos al completar una etapa, objetivos «esperar bandera»,
 condiciones `requires_flag` / `requires_not_flag` / `skip_if_flag`, saludos que cambian según la
 historia y entidades que solo aparecen con (o sin) una bandera.
+
+**Pruebas (bandidos y misión de Lina)**, en la autoprueba con la semilla de prueba: combate real
+contra un salteador (modelo humano construido, bloquea con el escudo, muere en 6 golpes y se
+registra su botín); la misión se acepta, preguntar a Ulrico resuelve el texto («a unos 160 m al
+sudeste de aquí») y descubre el campamento en el mapa (antes estaba oculto); al llegar a la puerta
+el lugar se reconoce y la misión avanza; están los cinco bandidos (2 salteadores, matón, arquera en
+la plataforma de la torre a 4,0 m y el jefe), la hoguera encendida, la jaula con Lina dentro y el
+arcón cerrado; 8 intentos de ganzúa contra el arcón (3 % de probabilidad con la habilidad inicial)
+fallan y las ganzúas rotas se descuentan exactamente; con habilidad alta la jaula se fuerza al
+primer intento, se activa la bandera, la habilidad se entrena y la misión pasa a «Habla con Lina»;
+el jefe lleva la llave y la nota, la llave abre el arcón (+156 de oro); el diálogo real con Lina la
+rescata, ella sale del campamento y aparece después en Robledal; hablar con Bram completa la misión
+(+150 de oro, reputación +25) y las banderas viajan en la partida guardada. Superada también con
+el binario exportado (`--self-test`).
 
 **Falta**: guardias que reaccionen a delitos; encargos de escolta.
 

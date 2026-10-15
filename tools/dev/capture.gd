@@ -17,6 +17,7 @@ var _dungeon_wait := false
 var _wolf: Node3D
 var _wolf_anim: AnimationPlayer
 var _wolf_variant := -1
+var _bandits: Array[Node3D] = []
 
 
 func _ready() -> void:
@@ -108,6 +109,30 @@ func _build_queue() -> void:
 		_queue.append({"name": "cave_enter", "dungeon": "cave_lobos"})
 		_queue.append({"name": "cave_entrance", "dview": "entrance"})
 		_queue.append({"name": "cave_boss", "dview": "boss"})
+	if "camp" in _sets:
+		var wg2 := (_game().get("overworld_generator") as WorldGenerator)
+		var st: Dictionary = {}
+		for s0: Dictionary in wg2.planner.structures:
+			if str(s0.get("id", "")) == "bandit_camp/camp":
+				st = s0
+		if not st.is_empty():
+			# [nombre, cámara (local), objetivo (local), hora]
+			var views := [["camp_gate", Vector3(12.5, 0, -7.0), Vector3(12.5, 1.5, 12.5), 16.0],
+					["camp_inside", Vector3(12.5, 0, 7.0), Vector3(12.5, 1.5, 19.0), 15.0],
+					["camp_cage", Vector3(9.8, 0, 7.6), Vector3(6.0, 1.0, 6.0), 14.0],
+					["camp_tower", Vector3(9.5, 0, 11.5), Vector3(16.5, 3.0, 5.5), 13.0],
+					["camp_tents", Vector3(15.5, 0, 12.5), Vector3(5.5, 1.0, 11.0), 17.0],
+					["camp_night", Vector3(12.5, 0, -6.0), Vector3(12.5, 1.0, 12.5), 22.5]]
+			for v: Array in views:
+				var cam := ChunkWriter.local_to_world(st["origin"], int(st["w"]), int(st["d"]), int(st["rot"]), v[1])
+				var tgt := ChunkWriter.local_to_world(st["origin"], int(st["w"]), int(st["d"]), int(st["rot"]), v[2])
+				var to := tgt - cam
+				_queue.append({"name": v[0], "pos": Vector3(cam.x, -1.0, cam.z), "yaw": rad_to_deg(atan2(-to.x, -to.z)),
+						"pitch": rad_to_deg(atan2(to.y - 1.6, Vector2(to.x, to.z).length())), "time": v[3], "camp": true})
+	if "bandits" in _sets:
+		_queue.append({"name": "bandits_idle", "bandits": "idle", "t": 0.6})
+		_queue.append({"name": "bandits_attack", "bandits": "attack_1", "t": 0.42})
+		_queue.append({"name": "bandits_back", "bandits": "idle", "t": 0.6, "back": true})
 	if "enemy" in _sets:
 		for e: Array in [["idle", 0.0], ["walk", 0.25], ["run", 0.16], ["alert", 0.4], ["attack_1", 0.42], ["attack_1", 0.56],
 				["attack_2", 0.5], ["attack_2", 0.68], ["block", 0.35], ["hit", 0.08], ["stun", 0.5], ["death", 0.5], ["death", 1.5]]:
@@ -124,6 +149,10 @@ func _process(_delta: float) -> void:
 			if hud:
 				hud.set_visible_hud("--hud" in OS.get_cmdline_user_args())
 		return
+	# En las vistas del campamento los bandidos no ven a la cámara
+	if "camp" in _sets:
+		for en: Node in get_tree().get_nodes_in_group("enemies"):
+			en.set("target", null)
 	if _dungeon_wait:
 		if g.has_method("is_world_ready") and bool(g.call("is_world_ready")):
 			_dungeon_wait = false
@@ -263,6 +292,22 @@ func _setup_shot(shot: Dictionary) -> void:
 		# Preparación del tajo: brazo levantado (se ven manga, brazal y guante)
 		p.viewmodel.debug_pose("sword_attack_1", 0.16)
 		_wait = 6
+	elif shot.has("bandits"):
+		p.teleport(Vector3(2.5, 37.0, 3.5), -90.0)
+		p._pitch = deg_to_rad(-4.0)
+		p.viewmodel.visible = false
+		GameState.time_of_day = 13.0
+		_ensure_bandits()
+		for i in _bandits.size():
+			var b := _bandits[i]
+			b.visible = true
+			b.global_position = p.global_position + Vector3(3.0, 0, -2.4 + i * 1.2)
+			b.rotation.y = deg_to_rad(90.0 + (180.0 if bool(shot.get("back", false)) else 0.0))
+			var ap := b.get_node("AnimationPlayer") as AnimationPlayer
+			ap.play("captive" if i == 4 else str(shot["bandits"]), 0.0)
+			ap.seek(float(shot["t"]) if i != 4 else 1.0, true)
+			ap.pause()
+		_wait = 6
 	elif shot.has("enemy"):
 		p.teleport(Vector3(2.5, 37.0, 3.5), -90.0)
 		p._pitch = deg_to_rad(-6.0)
@@ -309,6 +354,55 @@ func _ensure_preview() -> void:
 	_preview.add_child(_preview_anim)
 	_preview_anim.root_node = NodePath("..")
 	_preview_anim.add_animation_library("", HumanoidAnims.build_library("warrior"))
+
+
+## Los cuatro bandidos (salteador, matón, arquera y jefe) y Lina, en fila.
+func _ensure_bandits() -> void:
+	if not _bandits.is_empty():
+		return
+	var weapons := [["sword", "shield"], ["axe", ""], ["bow", ""], ["mace", "shield_iron"]]
+	for v in 5:
+		var root := Node3D.new()
+		_game().add_child(root)
+		var rig := Rig.humanoid()
+		var sk := rig.create_skeleton()
+		root.add_child(sk)
+		var model: VoxelModel = CharacterModels.bandit(v, 100 + v * 7) if v < 4 else CharacterModels.human(NpcDB.get_npc("lina")["look"], hash("lina"))
+		var mi := MeshInstance3D.new()
+		mi.mesh = model.build_skinned_mesh(rig.bone_names(), ModelLibrary.model_material())
+		mi.skin = rig.create_skin()
+		sk.add_child(mi)
+		mi.skeleton = NodePath("..")
+		if v < 4:
+			var ranged := v == 2
+			var wa := BoneAttachment3D.new()
+			wa.bone_name = "hand.L" if ranged else "hand.R"
+			sk.add_child(wa)
+			var wm := MeshInstance3D.new()
+			wm.mesh = ModelLibrary.weapon_mesh(str(weapons[v][0]), false)
+			if ranged:
+				wm.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, -0.07, -0.02))
+			else:
+				wm.transform = Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3(-0.01, -0.07, -0.02))
+			wa.add_child(wm)
+			if str(weapons[v][1]) != "":
+				var sa := BoneAttachment3D.new()
+				sa.bone_name = "forearm.L"
+				sk.add_child(sa)
+				var sm := MeshInstance3D.new()
+				sm.mesh = ModelLibrary.weapon_mesh(str(weapons[v][1]), false)
+				sm.transform = Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(-0.09, -0.14, 0.0))
+				sa.add_child(sm)
+			if v == 1:
+				root.scale = Vector3.ONE * 1.06
+			elif v == 3:
+				root.scale = Vector3.ONE * 1.08
+		var ap := AnimationPlayer.new()
+		ap.name = "AnimationPlayer"
+		root.add_child(ap)
+		ap.root_node = NodePath("..")
+		ap.add_animation_library("", HumanoidAnims.build_library("warrior" if v < 4 else "civilian"))
+		_bandits.append(root)
 
 
 func _ensure_wolf(variant: int) -> void:

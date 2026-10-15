@@ -42,15 +42,25 @@ static func _stats_of(player: Node) -> Stats:
 	return null
 
 
-## Texto de la ayuda de interacción para algo cerrado con llave.
+static func _lc_first(text: String) -> String:
+	return text.substr(0, 1).to_lower() + text.substr(1)
+
+
+## «de» + artículo con la contracción del castellano («del cofre», «de la jaula»).
+static func _de(what: String) -> String:
+	return "del " + what.substr(3) if what.begins_with("el ") else "de " + what
+
+
+## Texto de la ayuda de interacción para algo cerrado con llave (`what` con
+## artículo: «el cofre», «la jaula»).
 static func hint(what: String, level: int, key_id: String, player: Node) -> String:
 	if key_id != "" and GameState.item_count(key_id) > 0:
-		return "[E] Abrir %s con %s" % [what, ItemDB.display_name(key_id)]
+		return "[E] Abrir %s con la %s" % [what, _lc_first(ItemDB.display_name(key_id))]
 	var picks := GameState.item_count("lockpick")
 	if picks > 0:
 		var pct := int(round(chance(_stats_of(player), level) * 100.0))
-		return "[E] Forzar la cerradura de %s (%s, %d %%) · ganzúas: %d" % [what, level_name(level), pct, picks]
-	return "%s: cerradura %s (necesitas la llave o una ganzúa)" % [what.capitalize(), level_name(level)]
+		return "[E] Forzar la cerradura %s (%s, %d %%) · ganzúas: %d" % [_de(what), level_name(level), pct, picks]
+	return "%s%s: cerradura %s (necesitas la llave o una ganzúa)" % [what.substr(0, 1).to_upper(), what.substr(1), level_name(level)]
 
 
 ## Intenta abrir. Devuelve "key" o "picked" si se abre; "failed" o "broke"
@@ -61,7 +71,7 @@ static func try_open(player: Node, entity_id: String, level: int, key_id: String
 	if key_id != "" and GameState.item_count(key_id) > 0:
 		GameState.set_opened(lock_key(entity_id), true)
 		Audio.play_3d("lock_open", at, -2.0)
-		Events.notify.emit("Giras %s en la cerradura. Se abre." % ItemDB.display_name(key_id), "info")
+		Events.notify.emit("Giras la %s en la cerradura. Se abre." % _lc_first(ItemDB.display_name(key_id)), "info")
 		return "key"
 	if GameState.item_count("lockpick") <= 0:
 		Audio.play_3d("lever", at, -8.0)
