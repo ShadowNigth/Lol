@@ -34,7 +34,7 @@ ejecutarse sin GPU en este entorno. La lógica (física, IA, guardado, etc.) es 
 - Menú principal (con diorama 3D animado), controles documentados, todo sin conexión.
 
 **Pruebas**
-- `tools/dev/check_scripts.tscn`: carga y compila todos los scripts/escenas/recursos/shaders (97 en la
+- `tools/dev/check_scripts.tscn`: carga y compila todos los scripts/escenas/recursos/shaders, también los de las herramientas (104 en la
   versión actual) → 0 errores.
 - Autoprueba de juego (`--self-test` / `tools/dev/smoke_test.tscn`), superada en el editor **y con el
   binario exportado**: el mundo carga (~2 s), el jugador aparece sobre el suelo, camina y salta, un
@@ -230,6 +230,11 @@ el binario exportado (`--self-test`).
   la **jaula** con Lina y el **arcón del jefe** (cerradura difícil). Lo defienden cinco bandidos que
   se avisan entre sí (solo a los de su especie: un lobo ya no despierta a un bandido), con guardia
   en la puerta, ronda interior, matón junto al fuego, arquera en la torre y el jefe ante su tienda.
+- **Emboscadas en los caminos**: en algunos chunks por los que pasa un camino, lejos de aldeas y
+  lugares con nombre, una pareja de bandidos (salteador con arquera o matón) acecha a un lado del
+  camino, mirando hacia él; deterministas por semilla y chunk, reaparecen a los 5 días. La
+  autoprueba recorre los 56 chunks de la red de caminos y comprueba que todos los emboscados están
+  junto a un camino y fuera de los poblados (semilla de prueba: una pareja).
 - **Lugares ocultos**: el campamento no aparece en el mapa (ni su marcador ni sus construcciones)
   hasta que alguien te habla de él o lo encuentras; los lugares con identificador cuentan para los
   objetivos «llegar a» al entrar en ellos.

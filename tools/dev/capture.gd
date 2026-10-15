@@ -115,6 +115,9 @@ func _build_queue() -> void:
 		for s0: Dictionary in wg2.planner.structures:
 			if str(s0.get("id", "")) == "bandit_camp/camp":
 				st = s0
+		# Mapa antes y después de descubrir el campamento (lugar oculto)
+		_queue.append({"name": "camp_map_hidden", "ui": "menu", "tab": 3})
+		_queue.append({"name": "camp_map_known", "ui": "menu", "tab": 3, "flag": "known_bandit_camp"})
 		if not st.is_empty():
 			# [nombre, cámara (local), objetivo (local), hora]
 			var views := [["camp_gate", Vector3(12.5, 0, -7.0), Vector3(12.5, 1.5, 12.5), 16.0],
@@ -129,6 +132,25 @@ func _build_queue() -> void:
 				var to := tgt - cam
 				_queue.append({"name": v[0], "pos": Vector3(cam.x, -1.0, cam.z), "yaw": rad_to_deg(atan2(-to.x, -to.z)),
 						"pitch": rad_to_deg(atan2(to.y - 1.6, Vector2(to.x, to.z).length())), "time": v[3], "camp": true})
+		# Emboscada junto al camino (la primera que se encuentre en la red de caminos)
+		var found := false
+		for road: Dictionary in wg2.planner.roads:
+			if found:
+				break
+			var ra: Vector2 = road["a"]
+			var rb: Vector2 = road["b"]
+			var n := int(ra.distance_to(rb) / 12.0) + 1
+			for k in n + 1:
+				var q := ra.lerp(rb, float(k) / float(n))
+				for e: Dictionary in wg2.generate_chunk(int(floor(q.x / 16.0)), int(floor(q.y / 16.0))).entities:
+					if not found and str(e.get("id", "")).begins_with("wild/bandit_"):
+						var bp: Vector3 = e["pos"]
+						var rp: Dictionary = wg2.planner.nearest_road_point(Vector2(bp.x, bp.z))
+						var cam2: Vector2 = rp["point"] + (rp["point"] - Vector2(bp.x, bp.z)).normalized() * 2.0
+						var to2 := Vector2(bp.x, bp.z) - cam2
+						_queue.append({"name": "camp_ambush", "pos": Vector3(cam2.x, -1.0, cam2.y), "yaw": rad_to_deg(atan2(-to2.x, -to2.y)),
+								"pitch": -4.0, "time": 15.0, "camp": true})
+						found = true
 	if "bandits" in _sets:
 		_queue.append({"name": "bandits_idle", "bandits": "idle", "t": 0.6})
 		_queue.append({"name": "bandits_attack", "bandits": "attack_1", "t": 0.42})
@@ -193,6 +215,8 @@ func _setup_shot(shot: Dictionary) -> void:
 		var hud0 := _game().get("hud") as HUD
 		if hud0:
 			hud0.set_visible_hud("--hud" in OS.get_cmdline_user_args())
+	if shot.has("flag"):
+		GameState.set_flag(str(shot["flag"]))
 	if shot.has("ui"):
 		var g := _game()
 		var hud := g.get("hud") as HUD

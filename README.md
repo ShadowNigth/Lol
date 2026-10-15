@@ -72,6 +72,8 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
   aparece en el mapa cuando alguien te habla de él, vencer a los **bandidos** (salteadores, matón,
   arquera y su jefe Garra) o colarte por la brecha de la empalizada, y abrir la **jaula** con la llave
   del jefe o con ganzúas. Lina vuelve a casa por su propio pie y desde entonces vive en Robledal.
+- Cuidarte de las **emboscadas**: lejos de las aldeas, algunas parejas de bandidos acechan junto a
+  los caminos (y vuelven pasados unos días).
 - Explorar **mazmorras temáticas** (cripta, túmulo, cueva) con llaves, palancas, salas secretas,
   trampas y jefes.
 - Ciclo de **día y noche** con cielo, nubes voxel, estrellas, luz de antorchas, faroles y aullidos

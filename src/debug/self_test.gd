@@ -591,6 +591,8 @@ func _process(delta: float) -> void:
 				_fail("El campamento no terminó de cargar")
 				_finish()
 		"lina_leaving":
+			if p.stats.health < p.stats.max_health * 0.5:
+				p.stats.heal(60.0)
 			if _t > 3.0:
 				var lina := _find_npc("lina")
 				var moved := 0.0
@@ -771,6 +773,32 @@ func _test_region() -> void:
 	_note("Lobos en los 81 chunks alrededor del cubil: %d (generados en %d ms)" % [wolves, Time.get_ticks_msec() - t0])
 	if wolves == 0:
 		_fail("No se generó ningún lobo alrededor del cubil")
+	# Emboscadas: bandidos junto a los caminos, nunca dentro de poblados
+	var seen_chunks := {}
+	var ambush: Array[Vector3] = []
+	var t1 := Time.get_ticks_msec()
+	for road2: Dictionary in pl.roads:
+		var ra: Vector2 = road2["a"]
+		var rb: Vector2 = road2["b"]
+		var n := int(ra.distance_to(rb) / 12.0) + 1
+		for k2 in n + 1:
+			var q2 := ra.lerp(rb, float(k2) / float(n))
+			var cc2 := Vector2i(int(floor(q2.x / 16.0)), int(floor(q2.y / 16.0)))
+			if seen_chunks.has(cc2):
+				continue
+			seen_chunks[cc2] = true
+			for e3: Dictionary in wg.generate_chunk(cc2.x, cc2.y).entities:
+				if str(e3.get("id", "")).begins_with("wild/bandit_"):
+					ambush.append(e3["pos"])
+	var bad := 0
+	for ap: Vector3 in ambush:
+		var near := pl.nearest_road_point(Vector2(ap.x, ap.z))
+		if near.is_empty() or float(near["dist"]) > 12.0 or pl.near_settlement(int(ap.x), int(ap.z)):
+			bad += 1
+	_note("Emboscadas en los %d chunks de los caminos: %d bandidos (en %d ms), mal colocados: %d" % [seen_chunks.size(), ambush.size(),
+			Time.get_ticks_msec() - t1, bad])
+	if bad > 0:
+		_fail("Hay bandidos emboscados lejos de los caminos o dentro de un poblado")
 
 
 ## Encargo generado del tablón de Robledal: aceptar, cumplir, sobrevivir a un

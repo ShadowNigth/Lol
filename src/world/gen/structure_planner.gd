@@ -367,6 +367,34 @@ func _plan_bandit_camp(inn: Vector3i, ham: Vector3i) -> void:
 					lw.call(Vector3(12.5, 0, -9.0))]}})
 
 
+## Punto más cercano de la red de caminos: {"point", "dir" (unitario), "dist"}.
+func nearest_road_point(pt: Vector2) -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for road: Dictionary in roads:
+		var a: Vector2 = road["a"]
+		var b: Vector2 = road["b"]
+		var ab := b - a
+		if ab.length_squared() < 0.01:
+			continue
+		var t := clampf((pt - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+		var q := a + ab * t
+		var d := q.distance_to(pt)
+		if d < best_d:
+			best_d = d
+			best = {"point": q, "dir": ab.normalized(), "dist": d}
+	return best
+
+
+## ¿Está cerca de una aldea, posada o lugar con nombre? (sin emboscadas ni fauna)
+func near_settlement(x: int, z: int) -> bool:
+	var p := Vector2i(x, z)
+	for r: Rect2i in no_wildlife:
+		if r.has_point(p):
+			return true
+	return false
+
+
 ## ¿Están los lugares ocultos ya descubiertos? (para mapa y leyenda)
 static func site_known(site: Dictionary) -> bool:
 	if not bool(site.get("hidden", false)):

@@ -263,6 +263,7 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 	planner.stamp_structures(data)
 	planner.add_spawns(data, heights)
 	_add_wildlife(data, cx, cz, heights, biomes)
+	_add_ambush(data, cx, cz, heights)
 	return data
 
 
@@ -277,6 +278,10 @@ func _road_edge(wx: int, wz: int) -> bool:
 # ---------------------------------------------------------------------------
 # Fauna salvaje (manadas de lobos) — determinista por semilla y chunk
 # ---------------------------------------------------------------------------
+
+## Probabilidad de emboscada en un chunk junto a un camino (fuera de poblados).
+const AMBUSH_CHANCE := 0.12
+
 
 func _add_wildlife(data: ChunkData, cx: int, cz: int, heights: PackedInt32Array, biomes: PackedByteArray) -> void:
 	var pad := ChunkData.PAD
@@ -317,6 +322,38 @@ func _add_wildlife(data: ChunkData, cx: int, cz: int, heights: PackedInt32Array,
 				patrol.append(Vector3(wx0 + px + 0.5, ph + 1, wz0 + pz + 0.5))
 		data.entities.append({"type": "enemy", "enemy": "wolf", "id": "wild/wolf_%d_%d_%d" % [cx, cz, i], "pos": pos,
 				"yaw": rng.randf() * 360.0, "variant": 2 if cold else -1, "respawn_days": 3, "patrol": patrol})
+
+
+## Emboscadas: una pareja de bandidos acecha a un lado del camino, lejos de
+## aldeas y lugares con nombre. Determinista por semilla y chunk; reaparecen a
+## los 5 días si se les mata.
+func _add_ambush(data: ChunkData, cx: int, cz: int, heights: PackedInt32Array) -> void:
+	if hashf(cx, cz, world_seed % 100000 + 1777) > AMBUSH_CHANCE:
+		return
+	var wx0 := cx * ChunkData.SIZE
+	var wz0 := cz * ChunkData.SIZE
+	var center := Vector2(wx0 + ChunkData.SIZE * 0.5, wz0 + ChunkData.SIZE * 0.5)
+	var road := planner.nearest_road_point(center)
+	if road.is_empty() or float(road["dist"]) > 9.0 or planner.near_settlement(int(center.x), int(center.y)):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("ambush|%d|%d|%d" % [world_seed, cx, cz])
+	var rp: Vector2 = road["point"]
+	var along: Vector2 = road["dir"]
+	var side := along.orthogonal() * (1.0 if rng.randf() < 0.5 else -1.0)
+	var kinds := ["bandit", "bandit_archer" if rng.randf() < 0.5 else "bandit_brute"]
+	for i in kinds.size():
+		var q := rp + side * rng.randf_range(4.5, 7.0) + along * (i * 3.0 - 1.5)
+		var lx := int(floor(q.x)) - wx0
+		var lz := int(floor(q.y)) - wz0
+		if lx < 1 or lz < 1 or lx >= ChunkData.SIZE - 1 or lz >= ChunkData.SIZE - 1:
+			continue
+		var h := heights[(lx + 1) + (lz + 1) * ChunkData.PAD]
+		if h <= SEA_LEVEL + 1 or planner.surface_override(wx0 + lx, wz0 + lz) > 0:
+			continue
+		var look := rp - q
+		data.entities.append({"type": "enemy", "enemy": kinds[i], "id": "wild/bandit_%d_%d_%d" % [cx, cz, i],
+				"pos": Vector3(wx0 + lx + 0.5, h + 1, wz0 + lz + 0.5), "yaw": rad_to_deg(atan2(-look.x, -look.y)), "respawn_days": 5})
 
 
 # ---------------------------------------------------------------------------

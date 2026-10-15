@@ -8,7 +8,7 @@ var _checked := 0
 
 
 func _ready() -> void:
-	for dir_path: String in ["res://src", "res://scenes", "res://data", "res://shaders"]:
+	for dir_path: String in ["res://src", "res://scenes", "res://data", "res://shaders", "res://tools"]:
 		_scan(dir_path)
 	print("Comprobados: %d recursos, errores: %d" % [_checked, _errors])
 	get_tree().quit(1 if _errors > 0 else 0)
