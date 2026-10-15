@@ -1,0 +1,16 @@
+# Godot 4+
+.godot/
+/android/
+*.translation
+export_credentials.cfg
+
+# Artefactos de compilación y distribución (se generan con scripts/)
+/build/
+/dist/
+*.AppImage
+*.pck
+*.x86_64
+
+# Herramientas locales
+/tools/.cache/
+__pycache__/

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "axe"
+display_name = "Hacha de guerra"
+description = "Pesada y brutal; golpes lentos pero devastadores."
+kind = "axe"
+model_id = "axe"
+damage_min = 13.0
+damage_max = 20.0
+reach = 2.25
+stamina_cost = 18.0
+speed = 0.85
+block_reduction = 0.5
+skill = "axe"
+weight = 5.0
+value = 60
+damage_type = "slash"

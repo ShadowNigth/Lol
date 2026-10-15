@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "mace"
+display_name = "Maza de armas"
+description = "Las aletas de acero aplastan armaduras y huesos."
+kind = "mace"
+model_id = "mace"
+damage_min = 11.0
+damage_max = 18.0
+reach = 2.15
+stamina_cost = 16.0
+speed = 0.9
+block_reduction = 0.55
+skill = "blunt"
+weight = 5.5
+value = 55
+damage_type = "blunt"

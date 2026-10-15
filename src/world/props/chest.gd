@@ -1,0 +1,72 @@
+class_name Chest
+extends StaticBody3D
+## Cofre con tapa animada y botín generado por tablas. Solo se puede saquear
+## una vez (persistente).
+
+var entity_id: String = ""
+var loot_table: String = "home"
+var _lid: Node3D
+var _lid_t: float = 0.0
+var _opened: bool = false
+
+
+func setup(id: String, table: String) -> void:
+	entity_id = id
+	loot_table = table
+
+
+func _ready() -> void:
+	collision_layer = 1 | 16
+	var base := MeshInstance3D.new()
+	base.mesh = ModelLibrary.prop_mesh("chest", {}, PackedStringArray(["base"]))
+	add_child(base)
+	var model := PropModels.chest()
+	var lid_part := model.get_part("lid")
+	_lid = Node3D.new()
+	_lid.position = lid_part.origin
+	add_child(_lid)
+	var lid_mesh := MeshInstance3D.new()
+	lid_mesh.mesh = ModelLibrary.prop_mesh("chest", {}, PackedStringArray(["lid"]), -lid_part.origin)
+	_lid.add_child(lid_mesh)
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(0.9, 0.75, 0.62)
+	cs.shape = box
+	cs.position = Vector3(-0.03, 0.37, -0.03)
+	add_child(cs)
+	_opened = GameState.is_looted(entity_id)
+	_lid_t = 1.0 if _opened else 0.0
+	_lid.rotation.x = -_lid_t * deg_to_rad(105.0)
+
+
+func get_interaction_text() -> String:
+	return "Cofre (vacío)" if _opened else "[E] Abrir cofre"
+
+
+func interact(player: Node) -> void:
+	if _opened:
+		return
+	_opened = true
+	GameState.mark_looted(entity_id)
+	Audio.play_3d("chest_open", global_position + Vector3(0, 0.6, 0), -2.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(entity_id)
+	var found: Array[String] = []
+	var gold := LootTables.gold_for(loot_table, rng)
+	if gold > 0 and player and "gold" in player:
+		player.set("gold", int(player.get("gold")) + gold)
+		found.append("%d monedas de oro" % gold)
+		Audio.play_2d("gold", -4.0)
+	for item: Dictionary in LootTables.roll(loot_table, rng):
+		GameState.give_item(player, item)
+		var c := int(item.get("count", 1))
+		found.append(str(item["name"]) + (" x%d" % c if c > 1 else ""))
+	Events.notify.emit("El cofre contiene: " + (", ".join(found) if not found.is_empty() else "nada"), "item")
+
+
+func _process(delta: float) -> void:
+	var target := 1.0 if _opened else 0.0
+	if not is_equal_approx(_lid_t, target):
+		_lid_t = move_toward(_lid_t, target, delta * 2.0)
+		var e := 1.0 - pow(1.0 - _lid_t, 3.0)
+		_lid.rotation.x = -e * deg_to_rad(105.0)

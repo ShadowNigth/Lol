@@ -1,0 +1,242 @@
+class_name EntitySpawner
+extends Node3D
+## Instancia las entidades de cada chunk (mobiliario, puertas, cofres, luces,
+## humo, enemigos...) cuando el chunk se carga y las libera al descargarse.
+
+var world: VoxelWorld
+var player: Player
+var _by_chunk: Dictionary = {}   # Vector2i -> Array[Node]
+var _enemy_data_cache: Dictionary = {}
+
+const STATIC_PROPS := ["barrel", "crate", "table", "chair", "bed", "anvil", "bucket", "goods", "hay_cart", "banner", "sign"]
+
+
+func setup(voxel_world: VoxelWorld, p: Player) -> void:
+	world = voxel_world
+	player = p
+	world.chunk_loaded.connect(_on_chunk_loaded)
+	world.chunk_unloaded.connect(_on_chunk_unloaded)
+
+
+func _on_chunk_loaded(coord: Vector2i, data: ChunkData) -> void:
+	var nodes: Array[Node] = []
+	for e: Dictionary in data.entities:
+		var n := _spawn(e)
+		if n:
+			nodes.append(n)
+	_by_chunk[coord] = nodes
+
+
+func _on_chunk_unloaded(coord: Vector2i) -> void:
+	var nodes: Array = _by_chunk.get(coord, [])
+	for n: Variant in nodes:
+		if is_instance_valid(n):
+			(n as Node).queue_free()
+	_by_chunk.erase(coord)
+
+
+func _spawn(e: Dictionary) -> Node:
+	var type := str(e.get("type", ""))
+	var pos: Vector3 = e.get("pos", Vector3.ZERO)
+	var yaw := deg_to_rad(float(e.get("yaw", 0.0)))
+	var id := str(e.get("id", ""))
+	match type:
+		"enemy":
+			if GameState.is_killed(id):
+				return null
+			return _spawn_enemy(e)
+		"door":
+			var door := Door.new()
+			door.setup(id, rad_to_deg(yaw))
+			add_child(door)
+			# El origen del modelo está en la bisagra: se desplaza medio bloque.
+			door.global_position = pos + Basis(Vector3.UP, yaw) * Vector3(-0.5, 0, 0)
+			return door
+		"chest":
+			var chest := Chest.new()
+			chest.setup(id, str(e.get("loot", "home")))
+			add_child(chest)
+			chest.global_position = pos
+			chest.rotation.y = yaw
+			return chest
+		"weapon_rack":
+			var rack := WeaponRack.new()
+			rack.setup(id)
+			add_child(rack)
+			rack.global_position = pos
+			rack.rotation.y = yaw
+			return rack
+		"dungeon_entrance":
+			var de := DungeonEntrance.new()
+			de.setup(id, str(e.get("dungeon", "")))
+			add_child(de)
+			de.global_position = pos
+			de.rotation.y = yaw
+			return de
+		"lantern", "wall_lantern":
+			var root := Node3D.new()
+			add_child(root)
+			root.global_position = pos
+			root.rotation.y = yaw
+			var mi := MeshInstance3D.new()
+			mi.mesh = ModelLibrary.prop_mesh(type)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(mi)
+			var light := TorchLight.new()
+			light.position = Vector3(0, 0.2, 0)
+			light.omni_range = 6.0
+			light.base_energy = 1.1
+			root.add_child(light)
+			return root
+		"forge_fire":
+			var f := Node3D.new()
+			add_child(f)
+			f.global_position = pos
+			var coals := MeshInstance3D.new()
+			coals.mesh = ModelLibrary.prop_mesh("forge_fire")
+			f.add_child(coals)
+			for k in 3:
+				var flame := MeshInstance3D.new()
+				flame.mesh = world.flame_mesh
+				flame.position = Vector3(-0.2 + k * 0.2, 0.25, 0.0)
+				flame.scale = Vector3.ONE * 1.4
+				f.add_child(flame)
+			var fl := TorchLight.new()
+			fl.position = Vector3(0, 0.6, 0)
+			fl.omni_range = 8.0
+			fl.base_energy = 2.0
+			fl.light_color = Color(1.0, 0.55, 0.25)
+			f.add_child(fl)
+			Audio.make_loop_player_3d("fire_loop", f, -10.0, 12.0)
+			return f
+		"smoke":
+			return _spawn_smoke(pos)
+		_:
+			if type in STATIC_PROPS:
+				return _spawn_static_prop(type, pos, yaw, e)
+	return null
+
+
+func _spawn_static_prop(type: String, pos: Vector3, yaw: float, e: Dictionary) -> Node:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	add_child(body)
+	body.global_position = pos
+	body.rotation.y = yaw
+	var mi := MeshInstance3D.new()
+	mi.mesh = ModelLibrary.prop_mesh(type, e)
+	body.add_child(mi)
+	var bounds := ModelLibrary.prop_bounds(type, e)
+	if type in ["banner", "sign"]:
+		return body
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = bounds.size.max(Vector3(0.05, 0.05, 0.05))
+	cs.shape = box
+	cs.position = bounds.get_center()
+	body.add_child(cs)
+	return body
+
+
+func _spawn_smoke(pos: Vector3) -> Node:
+	var p := CPUParticles3D.new()
+	p.amount = 14
+	p.lifetime = 4.0
+	p.preprocess = 4.0
+	p.local_coords = false
+	p.direction = Vector3.UP
+	p.spread = 12.0
+	p.initial_velocity_min = 0.5
+	p.initial_velocity_max = 0.9
+	p.gravity = Vector3(0.25, 0.15, 0.1)
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 2.2
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 0.4))
+	curve.add_point(Vector2(1.0, 1.6))
+	p.scale_amount_curve = curve
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3.ONE * 0.22
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.55, 0.55, 0.57, 0.45)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mesh.material = mat
+	p.mesh = mesh
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.6, 0.6, 0.62, 0.55))
+	grad.set_color(1, Color(0.7, 0.7, 0.72, 0.0))
+	p.color_ramp = grad
+	add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	return p
+
+
+func _spawn_enemy(e: Dictionary) -> Node:
+	var kind := str(e.get("enemy", "skeleton_warrior"))
+	var data: EnemyData = _enemy_data_cache.get(kind, null)
+	if data == null:
+		data = load("res://data/enemies/%s.tres" % kind) as EnemyData
+		if data == null:
+			push_warning("Datos de enemigo no encontrados: %s" % kind)
+			return null
+		_enemy_data_cache[kind] = data
+	var enemy := Enemy.new()
+	enemy.name = "Enemy_" + str(e.get("id", "x")).replace("/", "_")
+	enemy.setup(data, e, world, player)
+	enemy.add_to_group("enemies")
+	enemy.killed.connect(func(en: Enemy) -> void: GameState.mark_killed(en.entity_id))
+	enemy.process_mode = Node.PROCESS_MODE_DISABLED
+	add_child(enemy)
+	_activate_when_safe.call_deferred(enemy)
+	return enemy
+
+
+## Espera a que la colisión del chunk exista y coloca al actor en un hueco
+## libre sobre el suelo antes de activarlo (evita que aparezca dentro de un
+## bloque y la física lo expulse a través del terreno).
+func _activate_when_safe(actor: CharacterBody3D) -> void:
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	if not is_instance_valid(actor):
+		return
+	var spot := find_free_spot(actor.global_position, 0.34, 1.8)
+	actor.global_position = spot
+	if actor is Enemy:
+		(actor as Enemy).home = spot
+	actor.process_mode = Node.PROCESS_MODE_INHERIT
+	actor.reset_physics_interpolation()
+
+
+## Busca una posición cercana donde una cápsula quepa sin solaparse y apoyada
+## en el suelo. Devuelve la posición original si no encuentra nada mejor.
+func find_free_spot(pos: Vector3, radius: float, height: float) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var shape := CapsuleShape3D.new()
+	shape.radius = radius
+	shape.height = height
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = shape
+	params.collision_mask = 1
+	var offsets: Array[Vector3] = [Vector3.ZERO]
+	for r: float in [0.7, 1.4, 2.1]:
+		for k in 8:
+			var a := TAU * k / 8.0
+			offsets.append(Vector3(cos(a) * r, 0, sin(a) * r))
+	for off in offsets:
+		var probe := pos + off
+		# Suelo bajo el punto (desde un poco más arriba)
+		var q := PhysicsRayQueryParameters3D.create(probe + Vector3(0, 2.5, 0), probe + Vector3(0, -4.0, 0), 1)
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			continue
+		var ground: Vector3 = hit["position"]
+		if (hit["normal"] as Vector3).y < 0.6:
+			continue
+		params.transform = Transform3D(Basis.IDENTITY, ground + Vector3(0, height * 0.5 + 0.05, 0))
+		if space.intersect_shape(params, 1).is_empty():
+			return ground + Vector3(0, 0.02, 0)
+	return pos

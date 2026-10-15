@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "dagger"
+display_name = "Daga"
+description = "Rápida y silenciosa. Ideal para golpes precisos."
+kind = "dagger"
+model_id = "dagger"
+damage_min = 5.0
+damage_max = 9.0
+reach = 1.75
+stamina_cost = 7.0
+speed = 1.35
+block_reduction = 0.35
+skill = "blade"
+weight = 1.0
+value = 30
+damage_type = "pierce"
