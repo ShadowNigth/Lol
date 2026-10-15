@@ -448,6 +448,17 @@ static func exit_stairs() -> VoxelModel:
 	return m
 
 
+static func sack() -> VoxelModel:
+	var m := VoxelModel.new(V, 127)
+	var cloth := m.mat(Color(0.6, 0.5, 0.35), 0.0, 0.95, 0.0, 0.08)
+	var rope := m.mat(Color(0.35, 0.25, 0.15), 0.0, 0.9, 0.0, 0.05)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.ellipsoid(Vector3(-0.5, 3.0, -0.5), Vector3(3.5, 3.2, 3.0), cloth)
+	p.cylinder_y(-0.5, -0.5, 1.5, 6, 7, cloth)
+	p.cylinder_y(-0.5, -0.5, 1.8, 6, 6, rope)
+	return m
+
+
 ## Devuelve el modelo por nombre de entidad.
 static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 	match prop:
@@ -507,4 +518,6 @@ static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 			return pillar()
 		"exit_stairs":
 			return exit_stairs()
+		"sack":
+			return sack()
 	return null

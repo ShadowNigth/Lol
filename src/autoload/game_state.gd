@@ -20,10 +20,13 @@ var character_class: String = "warrior"
 var time_of_day: float = 15.5       # horas (0-24)
 var day: int = 1
 var playtime: float = 0.0
-var world_changes: Dictionary = {"looted": {}, "killed": {}, "opened": {}}
+var world_changes: Dictionary = {"looted": {}, "killed": {}, "opened": {}, "dropped": []}
 var inventory: Array[Dictionary] = []   # {"id": String, "count": int}
 var pending_load: Dictionary = {}       # datos a aplicar al entrar en la escena de juego
 var current_area: Dictionary = {"type": "overworld"}   # exterior o mazmorra (con punto de regreso)
+var quests: Dictionary = {}             # id -> {"stage", "progress", "done"}
+var reputations: Dictionary = {}        # facción -> valor (-100..100)
+var shops: Dictionary = {}              # id de tienda -> {"gold", "stock"}
 var player: Node = null
 var in_game: bool = false
 
@@ -31,6 +34,28 @@ var in_game: bool = false
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+	Events.enemy_killed.connect(func(_e: Node, enemy_id: String) -> void: QuestManager.on_enemy_killed(enemy_id))
+	inventory_changed.connect(func() -> void: QuestManager.check_collect_objectives())
+
+
+func reputation(faction: String) -> int:
+	return int(reputations.get(faction, 0))
+
+
+func add_reputation(faction: String, amount: int) -> void:
+	reputations[faction] = clampi(reputation(faction) + amount, -100, 100)
+	var fname: String = QuestDB.FACTIONS.get(faction, faction)
+	Events.notify.emit("Reputación con %s: %+d (%d)" % [fname, amount, reputation(faction)], "quest")
+
+
+func get_shop(shop_id: String) -> Dictionary:
+	if not shops.has(shop_id):
+		var def: Dictionary = NpcDB.SHOPS.get(shop_id, {"gold": 100, "stock": []})
+		var stock := {}
+		for e: Array in def["stock"]:
+			stock[str(e[0])] = int(e[1])
+		shops[shop_id] = {"gold": int(def["gold"]), "stock": stock}
+	return shops[shop_id]
 
 
 func _process(delta: float) -> void:
@@ -53,8 +78,11 @@ func start_new_game(config: Dictionary) -> void:
 	time_of_day = 15.5
 	day = 1
 	playtime = 0.0
-	world_changes = {"looted": {}, "killed": {}, "opened": {}}
+	world_changes = {"looted": {}, "killed": {}, "opened": {}, "dropped": []}
 	current_area = {"type": "overworld"}
+	quests = {}
+	reputations = {}
+	shops = {}
 	inventory.clear()
 	inventory.append({"id": "potion_health", "count": 2})
 	inventory.append({"id": "bread", "count": 1})
@@ -138,6 +166,32 @@ func give_item(p: Node, item: Dictionary) -> void:
 			return
 	inventory.append({"id": id, "count": count})
 	inventory_changed.emit()
+
+
+## Registra un objeto soltado en el mundo (zona actual) y devuelve su entrada.
+func add_dropped(id: String, pos: Vector3) -> Dictionary:
+	var area := str(current_area.get("type", "overworld")) + ":" + str(current_area.get("id", ""))
+	var e := {"id": id, "pos": [pos.x, pos.y, pos.z], "area": area}
+	if not world_changes.has("dropped"):
+		world_changes["dropped"] = []
+	(world_changes["dropped"] as Array).append(e)
+	return e
+
+
+func dropped_in_area() -> Array:
+	var area := str(current_area.get("type", "overworld")) + ":" + str(current_area.get("id", ""))
+	var out := []
+	for e: Variant in world_changes.get("dropped", []):
+		if e is Dictionary and str((e as Dictionary).get("area", "")) == area:
+			out.append(e)
+	return out
+
+
+func pick_dropped(pickup: Node) -> void:
+	var list: Array = world_changes.get("dropped", [])
+	var entry: Variant = pickup.get_meta("drop_entry") if pickup.has_meta("drop_entry") else null
+	if entry != null:
+		list.erase(entry)
 
 
 func item_count(id: String) -> int:
@@ -225,6 +279,9 @@ func build_save_data() -> Dictionary:
 		"inventory": inventory.duplicate(true),
 		"world_changes": world_changes.duplicate(true),
 		"area": current_area.duplicate(true),
+		"quests": quests.duplicate(true),
+		"reputations": reputations.duplicate(true),
+		"shops": shops.duplicate(true),
 		"location": str(player.call("current_location_name")) if player and player.has_method("current_location_name") else "",
 	}
 
@@ -332,11 +389,18 @@ func load_game(slot: String) -> String:
 		if e is Dictionary and ItemDB.exists(str((e as Dictionary).get("id", ""))):
 			inventory.append({"id": str(e["id"]), "count": maxi(1, int(e.get("count", 1)))})
 	var wc: Dictionary = d["world_changes"]
-	world_changes = {"looted": wc.get("looted", {}), "killed": wc.get("killed", {}), "opened": wc.get("opened", {})}
+	world_changes = {"looted": wc.get("looted", {}), "killed": wc.get("killed", {}), "opened": wc.get("opened", {}),
+			"dropped": wc.get("dropped", []) if wc.get("dropped", []) is Array else []}
 	var area: Variant = d.get("area", {"type": "overworld"})
 	current_area = (area as Dictionary).duplicate(true) if area is Dictionary else {"type": "overworld"}
 	if str(current_area.get("type", "overworld")) not in ["overworld", "dungeon"]:
 		current_area = {"type": "overworld"}
+	quests = (d.get("quests", {}) as Dictionary).duplicate(true) if d.get("quests", {}) is Dictionary else {}
+	for qid: String in quests.keys():
+		if QuestDB.get_quest(qid).is_empty() or not (quests[qid] is Dictionary):
+			quests.erase(qid)
+	reputations = (d.get("reputations", {}) as Dictionary).duplicate(true) if d.get("reputations", {}) is Dictionary else {}
+	shops = (d.get("shops", {}) as Dictionary).duplicate(true) if d.get("shops", {}) is Dictionary else {}
 	pending_load = d["player"]
 	inventory_changed.emit()
 	get_tree().paused = false

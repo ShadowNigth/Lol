@@ -81,6 +81,10 @@ func _ready() -> void:
 	add_child(pause_menu)
 	death_screen = DeathScreen.new()
 	add_child(death_screen)
+	game_menu = GameMenu.new()
+	game_menu.player = player
+	game_menu.game = self
+	add_child(game_menu)
 	player.died.connect(_on_player_died)
 	world.initial_area_ready.connect(_on_world_ready)
 	Settings.settings_changed.connect(_on_settings_changed)
@@ -147,6 +151,7 @@ func enter_dungeon(dungeon_id: String, entrance_entity: String) -> void:
 			"return": [back.x, back.y + 0.1, back.z], "return_yaw": player.get_yaw_degrees() + 180.0, "entrance": entrance_entity}
 	var dg := DungeonGenerator.new(dungeon_id, GameState.world_seed, 1)
 	_switch_area(dg, dg.spawn_point(), dg.spawn_yaw())
+	QuestManager.on_area_entered(dungeon_id)
 	Events.notify.emit("Desciendes a la oscuridad de %s..." % dg.display_name, "info")
 
 
@@ -194,6 +199,41 @@ func _on_area_ready() -> void:
 	_switching = false
 	_current_location = ""
 	hud.fade_to(0.0, 0.8)
+
+
+var _dialogue: DialogueUI
+var game_menu: GameMenu
+
+
+## Suelta un objeto delante del jugador (persistente hasta recogerlo).
+func drop_item(id: String) -> void:
+	var fwd := player.look_direction()
+	fwd.y = 0.0
+	var pos := player.global_position + fwd.normalized() * 0.9
+	var q := PhysicsRayQueryParameters3D.create(pos + Vector3(0, 1.0, 0), pos + Vector3(0, -3.0, 0), 1)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty():
+		pos = hit["position"]
+	var entry := GameState.add_dropped(id, pos)
+	if spawner:
+		spawner.spawn_dropped(entry)
+	Events.notify.emit("Sueltas: %s" % ItemDB.display_name(id), "item")
+
+
+## Abre la conversación con un PNJ.
+func open_dialogue(npc: NPC) -> void:
+	if _dialogue and is_instance_valid(_dialogue):
+		return
+	_dialogue = DialogueUI.new()
+	add_child(_dialogue)
+	player.controls_enabled = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	hud.set_visible_hud(false)
+	_dialogue.closed.connect(func() -> void:
+		player.controls_enabled = true
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		hud.set_visible_hud(true))
+	_dialogue.open(npc)
 
 
 func _build_environment() -> void:
@@ -364,6 +404,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not player.is_dead and not pause_menu.visible:
 			pause_menu.open()
 			get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("inventory") and not game_menu.visible and player.controls_enabled:
+		game_menu.open(0)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("character") and not game_menu.visible and player.controls_enabled:
+		game_menu.open(1)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("journal") and not game_menu.visible and player.controls_enabled:
+		game_menu.open(2)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("map") and not game_menu.visible and player.controls_enabled:
+		game_menu.open(3)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("quick_save"):
 		GameState.save_game("rapida")
 	elif event.is_action_pressed("quick_load"):

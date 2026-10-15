@@ -78,6 +78,17 @@ func _plan_start_village() -> void:
 	_add_structure({"id": "village/east_wall", "type": "wall", "origin": Vector3i(32, fy, -12), "w": 25, "d": 2, "rot": 1,
 			"height": 5, "gate_from": 10, "gate_to": 14})
 
+	# Personajes con nombre (posición de trabajo, casa para la noche, patrulla)
+	spawns.append({"type": "npc", "npc": "berta", "id": "npc/berta", "pos": Vector3(0.5, fy, -17.5), "yaw": 180.0})
+	spawns.append({"type": "npc", "npc": "oswin", "id": "npc/oswin", "pos": Vector3(14.6, fy, -9.5), "yaw": 90.0,
+			"home": Vector3(10.5, fy, 9.5)})
+	spawns.append({"type": "npc", "npc": "mira", "id": "npc/mira", "pos": Vector3(-2.4, fy, 0.5), "yaw": -90.0,
+			"home": Vector3(-9.5, fy, 8.5)})
+	spawns.append({"type": "npc", "npc": "tomas", "id": "npc/tomas", "pos": Vector3(-3.5, fy, -8.0), "yaw": 180.0,
+			"home": Vector3(-10.5, fy, 16.5)})
+	spawns.append({"type": "npc", "npc": "rolf", "id": "npc/rolf", "pos": Vector3(6.5, fy, 6.5), "yaw": 0.0,
+			"patrol": [Vector3(6.5, fy, 6.5), Vector3(-6.5, fy, 6.5), Vector3(-6.5, fy, -6.5), Vector3(6.5, fy, -6.5), Vector3(20.0, fy, 0.5)]})
+
 	# Caminos
 	_add_road(Vector2(-70, 0), Vector2(-8, 0), 3.0)
 	_add_road(Vector2(8, 0), Vector2(110, 0), 3.0)
@@ -175,7 +186,8 @@ func add_spawns(data: ChunkData, _heights: PackedInt32Array) -> void:
 		var p: Vector3 = sp["pos"]
 		if data.contains_world_core(int(floor(p.x)), int(floor(p.z))):
 			var e := sp.duplicate(true)
-			e["type"] = "enemy"
+			if not e.has("type"):
+				e["type"] = "enemy"
 			data.entities.append(e)
 
 

@@ -96,6 +96,45 @@ func _process(delta: float) -> void:
 				else:
 					_note("Jugador en el suelo, y=%.2f" % p.global_position.y)
 				_shot("spawn")
+				_next("npcs")
+		"npcs":
+			if _t > 1.5:
+				var npcs := get_tree().get_nodes_in_group("npcs")
+				_note("PNJ en la aldea: %d" % npcs.size())
+				if npcs.size() < 5:
+					_fail("Faltan PNJ en la aldea (%d de 5)" % npcs.size())
+				# Misión del guardia Rolf
+				if QuestManager.can_offer("huesos_inquietos"):
+					QuestManager.accept("huesos_inquietos")
+				if not QuestManager.is_active("huesos_inquietos"):
+					_fail("No se pudo aceptar la misión 'Huesos inquietos'")
+				# Comercio con la posadera
+				var gold0 := p.gold
+				var shop := GameState.get_shop("posada")
+				var bread0 := GameState.item_count("bread")
+				var price := maxi(1, int(round(float(ItemDB.get_def("bread")["value"]) * 1.3)))
+				if p.gold >= price:
+					p.gold -= price
+					shop["stock"]["bread"] = int(shop["stock"]["bread"]) - 1
+					GameState.give_item(p, {"id": "bread", "count": 1})
+				_note("Compra: oro %d -> %d, pan %d -> %d" % [gold0, p.gold, bread0, GameState.item_count("bread")])
+				# Usar una poción y soltar/recoger un objeto
+				p.stats.health = p.stats.max_health * 0.5
+				var pots := GameState.item_count("potion_health")
+				GameState.use_item(p, "potion_health")
+				_note("Poción usada: %d -> %d, salud %.0f/%.0f" % [pots, GameState.item_count("potion_health"), p.stats.health, p.stats.max_health])
+				if GameState.item_count("potion_health") != pots - 1:
+					_fail("La poción no se consumió correctamente")
+				var bread1 := GameState.item_count("bread")
+				GameState.remove_item("bread", 1)
+				_game().call("drop_item", "bread")
+				for n in (_game().get("spawner") as Node).get_children():
+					if n is ItemPickup:
+						(n as ItemPickup).interact(p)
+						break
+				_note("Soltar y recoger pan: %d -> %d (soltados pendientes: %d)" % [bread1, GameState.item_count("bread"), GameState.dropped_in_area().size()])
+				if GameState.item_count("bread") != bread1:
+					_fail("Soltar/recoger duplicó o perdió el objeto")
 				Input.action_press("move_forward")
 				_next("walk")
 		"walk":
@@ -280,6 +319,9 @@ func _process(delta: float) -> void:
 					_fail("La posición cargada no coincide con la guardada")
 				if GameState.is_killed(str((_enemy as Enemy).entity_id) if is_instance_valid(_enemy) else "ruins/skeleton_0") or true:
 					_note("Enemigos muertos registrados: %s" % str(GameState.world_changes["killed"].keys()))
+				_note("Misión tras cargar: %s, progreso %s" % [QuestManager.stage_text("huesos_inquietos"), GameState.quests.get("huesos_inquietos", {})])
+				if not QuestManager.is_active("huesos_inquietos") or int(GameState.quests["huesos_inquietos"]["progress"]) < 1:
+					_fail("El progreso de la misión no se conservó al guardar/cargar")
 				_shot("reloaded")
 				_next("enter_dungeon")
 			elif _t > 90.0:

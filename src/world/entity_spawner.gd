@@ -24,7 +24,23 @@ func _on_chunk_loaded(coord: Vector2i, data: ChunkData) -> void:
 		var n := _spawn(e)
 		if n:
 			nodes.append(n)
+	# Objetos soltados por el jugador en este chunk
+	for d: Variant in GameState.dropped_in_area():
+		var dp: Array = (d as Dictionary)["pos"]
+		var pos := Vector3(float(dp[0]), float(dp[1]), float(dp[2]))
+		if data.contains_world_core(int(floor(pos.x)), int(floor(pos.z))):
+			nodes.append(spawn_dropped(d as Dictionary))
 	_by_chunk[coord] = nodes
+
+
+func spawn_dropped(entry: Dictionary) -> Node:
+	var dp: Array = entry["pos"]
+	var pk := ItemPickup.new()
+	pk.setup(str(entry["id"]))
+	pk.set_meta("drop_entry", entry)
+	pk.position = Vector3(float(dp[0]), float(dp[1]), float(dp[2]))
+	add_child(pk)
+	return pk
 
 
 func _on_chunk_unloaded(coord: Vector2i) -> void:
@@ -45,6 +61,15 @@ func _spawn(e: Dictionary) -> Node:
 			if GameState.is_killed(id):
 				return null
 			return _spawn_enemy(e)
+		"npc":
+			var npc := NPC.new()
+			npc.setup(str(e.get("npc", "")), e, player)
+			npc.name = "NPC_" + str(e.get("npc", ""))
+			npc.add_to_group("npcs")
+			npc.process_mode = Node.PROCESS_MODE_DISABLED
+			add_child(npc)
+			_activate_when_safe.call_deferred(npc)
+			return npc
 		"door":
 			var door := Door.new()
 			door.setup(id, rad_to_deg(yaw))

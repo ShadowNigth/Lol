@@ -177,6 +177,109 @@ static func skeleton_warrior(variant: int = 0) -> VoxelModel:
 	return m
 
 
+## Persona (aldeanos, guardias...) para el rig humanoide. `look` define colores
+## y detalles: skin, hair, tunic, pants, apron, female, beard, armor, cape.
+static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
+	var m := VoxelModel.new(V, model_seed)
+	var skin_c: Color = look.get("skin", Color(0.75, 0.55, 0.42))
+	var hair_c: Color = look.get("hair", Color(0.3, 0.2, 0.1))
+	var tunic_c: Color = look.get("tunic", Color(0.4, 0.3, 0.2))
+	var pants_c: Color = look.get("pants", Color(0.3, 0.25, 0.2))
+	var female := bool(look.get("female", false))
+	var skin := m.mat(skin_c, 0.0, 0.7, 0.0, 0.03)
+	var skin_dk := m.mat(skin_c.darkened(0.2), 0.0, 0.75, 0.0, 0.03)
+	var hair := m.mat(hair_c, 0.0, 0.9, 0.0, 0.08)
+	var tunic := m.mat(tunic_c, 0.0, 0.9, 0.0, 0.07)
+	var tunic_dk := m.mat(tunic_c.darkened(0.3), 0.0, 0.9, 0.0, 0.05)
+	var pants := m.mat(pants_c, 0.0, 0.9, 0.0, 0.06)
+	var boots := m.mat(Color(0.2, 0.13, 0.08), 0.0, 0.8, 0.0, 0.06)
+	var belt := m.mat(Color(0.25, 0.15, 0.08), 0.0, 0.8, 0.0, 0.05)
+	var buckle := m.mat(Color(0.78, 0.62, 0.3), 0.9, 0.35, 0.0, 0.03)
+	var eye_w := m.mat(Color(0.92, 0.92, 0.9), 0.0, 0.5, 0.0, 0.0)
+	var eye_d := m.mat(Color(0.12, 0.15, 0.22), 0.0, 0.4, 0.0, 0.0)
+	var mouth := m.mat(Color(0.5, 0.25, 0.22), 0.0, 0.7, 0.0, 0.0)
+	var iron := m.mat(Color(0.55, 0.57, 0.62), 0.85, 0.4, 0.0, 0.05)
+
+	# Cabeza
+	var head := m.part("head", "head", Vector3(0, 1.56, 0))
+	head.box(Vector3i(-4, 0, -3), Vector3i(3, 7, 3), skin)
+	head.box(Vector3i(-4, 5, -4), Vector3i(3, 8, 4), hair)          # pelo superior
+	head.box(Vector3i(-5, 2, -2), Vector3i(4, 7, 4), hair)          # laterales y nuca
+	head.erase_box(Vector3i(-4, 0, -4), Vector3i(3, 4, -4))
+	head.box(Vector3i(-4, 0, -3), Vector3i(3, 4, -3), skin)          # cara
+	for ex: int in [-3, 1]:
+		head.put(Vector3i(ex, 3, -4), eye_w)
+		head.put(Vector3i(ex + 1, 3, -4), eye_d)
+		head.put(Vector3i(ex, 4, -4), hair)
+		head.put(Vector3i(ex + 1, 4, -4), hair)
+	head.put(Vector3i(-1, 2, -4), skin_dk)
+	head.put(Vector3i(0, 2, -4), skin_dk)
+	head.box(Vector3i(-2, 1, -4), Vector3i(1, 1, -4), mouth)
+	if female:
+		head.box(Vector3i(-5, -6, 1), Vector3i(4, 6, 4), hair)       # melena
+	if bool(look.get("beard", false)):
+		head.box(Vector3i(-3, -1, -4), Vector3i(2, 1, -4), hair)
+		head.box(Vector3i(-4, -2, -3), Vector3i(3, 0, -2), hair)
+		head.put(Vector3i(-2, 1, -4), hair)
+		head.put(Vector3i(1, 1, -4), hair)
+	var neck := m.part("neck", "neck", Vector3(0, 1.5, 0))
+	neck.box(Vector3i(-2, -1, -2), Vector3i(1, 1, 1), skin)
+
+	# Torso
+	var chest := m.part("torso", "chest", Vector3(0, 1.26, 0))
+	chest.box(Vector3i(-5, -4, -3), Vector3i(4, 5, 2), tunic)
+	chest.box(Vector3i(-2, 4, -4), Vector3i(1, 5, -4), skin)         # escote
+	chest.recolor_box(Vector3i(-5, -4, -3), Vector3i(4, -4, 2), tunic_dk)
+	if bool(look.get("armor", false)):
+		chest.box(Vector3i(-5, -3, -4), Vector3i(4, 4, -4), iron)
+		chest.ellipsoid(Vector3(5.0, 4.5, -0.5), Vector3(2.4, 1.6, 2.6), iron)
+		chest.ellipsoid(Vector3(-6.0, 4.5, -0.5), Vector3(2.4, 1.6, 2.6), iron)
+	if look.has("apron"):
+		var apron := m.mat(look["apron"], 0.0, 0.9, 0.0, 0.05)
+		chest.box(Vector3i(-3, -4, -4), Vector3i(2, 3, -4), apron)
+	if bool(look.get("cape", false)):
+		var cape := m.mat(tunic_c.darkened(0.35), 0.0, 0.9, 0.0, 0.06)
+		for y in range(-20, 5):
+			chest.box(Vector3i(-5, y, 3), Vector3i(4, y, 3), cape)
+		chest.box(Vector3i(-5, 5, -3), Vector3i(4, 5, 3), cape)
+	var spine := m.part("waist", "spine", Vector3(0, 1.08, 0))
+	spine.box(Vector3i(-4, -1, -3), Vector3i(3, 4, 2), tunic)
+	var hips := m.part("hips", "hips", Vector3(0, 0.95, 0))
+	hips.box(Vector3i(-5, -2, -3), Vector3i(4, 1, 2), pants)
+	hips.box(Vector3i(-5, 2, -3), Vector3i(4, 2, 2), belt)
+	hips.put(Vector3i(-1, 2, -4), buckle)
+	hips.put(Vector3i(0, 2, -4), buckle)
+	if female or look.has("apron"):
+		var skirt_c: int = tunic if female else (m.mat(look["apron"], 0.0, 0.9, 0.0, 0.05))
+		for y in range(-9, 2):
+			var w := 5 + int(-y / 4)
+			hips.box(Vector3i(-w, y, -3 - (1 if y < -4 else 0)), Vector3i(w - 1, y, 2 + (1 if y < -4 else 0)), skirt_c)
+	# Brazos
+	for side: Array in [["R", 1.0], ["L", -1.0]]:
+		var n: String = side[0]
+		var sx: float = side[1]
+		var ua := m.part("arm." + n, "upper_arm." + n, Vector3(0.23 * sx, 1.44, 0))
+		ua.box(Vector3i(-2, -7, -2), Vector3i(1, 1, 1), tunic)
+		var fa := m.part("fore." + n, "forearm." + n, Vector3(0.25 * sx, 1.15, 0))
+		fa.box(Vector3i(-2, -5, -2), Vector3i(1, 0, 1), tunic if not bool(look.get("armor", false)) else iron)
+		fa.box(Vector3i(-1, -6, -1), Vector3i(0, -5, 0), skin)
+		var hd := m.part("hand." + n, "hand." + n, Vector3(0.26 * sx, 0.9, 0))
+		hd.box(Vector3i(-1, -3, -2), Vector3i(0, 0, 1), skin)
+		hd.put(Vector3i(int(sx) if sx > 0 else -2, -1, -2), skin_dk)
+	# Piernas
+	for side2: Array in [["R", 1.0], ["L", -1.0]]:
+		var n2: String = side2[0]
+		var sx2: float = side2[1]
+		var th := m.part("thigh." + n2, "thigh." + n2, Vector3(0.11 * sx2, 0.92, 0))
+		th.box(Vector3i(-2, -10, -2), Vector3i(1, 0, 1), pants)
+		var sh := m.part("shin." + n2, "shin." + n2, Vector3(0.11 * sx2, 0.5, 0))
+		sh.box(Vector3i(-2, -9, -2), Vector3i(1, 0, 1), pants)
+		sh.box(Vector3i(-2, -9, -2), Vector3i(1, -5, 1), boots)
+		var ft := m.part("foot." + n2, "foot." + n2, Vector3(0.11 * sx2, 0.09, 0))
+		ft.box(Vector3i(-2, -2, -5), Vector3i(1, 0, 1), boots)
+	return m
+
+
 ## Brazos del jugador en primera persona (1/40 m, más detalle cerca de cámara).
 static func player_arms(sleeve: Color = Color(0.3, 0.22, 0.15), skin: Color = Color(0.6, 0.42, 0.31)) -> VoxelModel:
 	var m := VoxelModel.new(1.0 / 40.0, 777)
