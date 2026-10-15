@@ -164,6 +164,8 @@ func _left_for(anim_name: String) -> String:
 			return "shield_interact"
 		if "_attack" in anim_name:
 			return "shield_attack"
+		if anim_name == "spell_cast":
+			return "spell_cast"
 		return "shield_idle"
 	return anim_name if anim_left.has_animation(anim_name) else ""
 
@@ -258,6 +260,13 @@ func play_action(anim_name: String, speed: float = 1.0, blend: float = 0.08) -> 
 	_action = anim_name
 	anim.play(anim_name, blend, speed)
 	_play_left(anim_name, blend, speed, true)
+
+
+## Gesto de la mano izquierda (hechizos) sin interrumpir el arma.
+func play_left_gesture(anim_name: String) -> void:
+	if anim_left.has_animation(anim_name):
+		_left_action = anim_name
+		anim_left.play(anim_name, 0.06, 1.2)
 
 
 func is_busy() -> bool:

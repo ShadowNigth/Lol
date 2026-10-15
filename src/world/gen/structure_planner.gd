@@ -121,6 +121,7 @@ func _plan_east_ruins() -> void:
 	spawns.append({"id": "ruins/skeleton_0", "enemy": "skeleton_warrior", "pos": Vector3(60.5, fy, 10.5), "yaw": 30.0,
 			"patrol": [Vector3(60.5, fy, 10.5), Vector3(68.5, fy, 10.5), Vector3(68.5, fy, 14.5)]})
 	spawns.append({"id": "ruins/skeleton_1", "enemy": "skeleton_warrior", "pos": Vector3(65.5, fy, 9.5), "yaw": 160.0})
+	spawns.append({"id": "ruins/archer_0", "enemy": "skeleton_archer", "pos": Vector3(70.5, fy, 3.0), "yaw": 135.0})
 	spawns.append({"id": "ruins/skeleton_2", "enemy": "skeleton_warrior", "pos": Vector3(63.5, fy, -10.5), "yaw": 0.0,
 			"patrol": [Vector3(61.5, fy, -10.5), Vector3(66.5, fy, -10.5)]})
 

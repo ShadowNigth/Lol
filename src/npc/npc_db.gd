@@ -63,7 +63,7 @@ const NPCS := {
 
 const SHOPS := {
 	"posada": {"gold": 300, "stock": [["bread", 6], ["apple", 8], ["potion_health", 3], ["potion_stamina", 3], ["torch_item", 4]]},
-	"herreria": {"gold": 500, "stock": [["weapon_sword", 1], ["weapon_axe", 1], ["weapon_mace", 1], ["weapon_dagger", 2], ["lockpick", 5], ["potion_health", 1]]},
+	"herreria": {"gold": 500, "stock": [["weapon_sword", 1], ["weapon_axe", 1], ["weapon_mace", 1], ["weapon_dagger", 2], ["weapon_bow", 1], ["arrow", 60], ["lockpick", 5], ["potion_health", 1]]},
 }
 
 

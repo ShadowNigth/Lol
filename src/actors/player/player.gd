@@ -81,6 +81,15 @@ var _block_time := 0.0
 var _blocking := false
 var _bow_draw := 0.0
 var _drawing := false
+# Magia
+const SPELLS := {
+	"fireball": {"name": "Bola de fuego", "cost": 18.0, "skill": "destruction", "cooldown": 0.9},
+	"frost": {"name": "Rayo de escarcha", "cost": 14.0, "skill": "destruction", "cooldown": 0.8},
+	"heal": {"name": "Curar heridas", "cost": 22.0, "skill": "restoration", "cooldown": 1.2},
+}
+var spells: Array[String] = ["fireball", "frost", "heal"]
+var spell_index := 0
+var _spell_cd := 0.0
 # Estadísticas de depuración/pruebas
 var stat_swings := 0
 var stat_hits := 0
@@ -306,7 +315,10 @@ func _physics_process(delta: float) -> void:
 		speed *= 0.55
 	if _swimming:
 		speed = SWIM_SPEED
-	speed *= stats.move_speed_multiplier()
+	speed *= stats.move_speed_multiplier() * stats.slow_factor()
+	var over := GameState.carry_weight() - (60.0 + stats.attr("strength") * 1.2)
+	if over > 0.0:
+		speed *= clampf(1.0 - over / 40.0, 0.4, 1.0)
 
 	var target := wish * speed
 	var on_floor := is_on_floor()
@@ -375,6 +387,9 @@ func _physics_process(delta: float) -> void:
 			_play_footstep()
 	_combat(delta)
 	_regen(delta)
+	var dot := stats.tick_effects(delta)
+	if dot > 0.0 and not is_dead:
+		stats.apply_damage(dot)
 
 
 var _safe_pos := Vector3.INF
@@ -561,6 +576,15 @@ func _combat(delta: float) -> void:
 	if not controls_enabled:
 		return
 	var kind := weapon.kind if weapon else "unarmed"
+	_spell_cd = maxf(_spell_cd - delta, 0.0)
+	if Input.is_action_just_pressed("spell_next"):
+		spell_index = (spell_index + 1) % spells.size()
+		Events.notify.emit("Hechizo preparado: %s" % SPELLS[spells[spell_index]]["name"], "info")
+	if Input.is_action_just_pressed("cast_spell") and _attack.is_empty() and not _drawing:
+		_cast_spell()
+	if kind == "bow":
+		_bow_combat(delta)
+		return
 
 	# Bloqueo
 	var want_block := Input.is_action_pressed("block") and kind != "bow" and stats.stamina > 2.0 and _attack.is_empty()
@@ -593,6 +617,82 @@ func _combat(delta: float) -> void:
 	if _attack.is_empty() and _queued_attack and not _blocking:
 		_queued_attack = false
 		_start_attack(kind)
+
+
+func _bow_combat(delta: float) -> void:
+	if _blocking:
+		_blocking = false
+		viewmodel.set_blocking(false)
+	if Input.is_action_just_pressed("attack") and not _drawing:
+		if GameState.item_count("arrow") <= 0:
+			Events.notify.emit("No te quedan flechas.", "warning")
+			return
+		_drawing = true
+		_bow_draw = 0.0
+		viewmodel.play_action("bow_draw", 1.0, 0.05)
+		Audio.play_2d("bow_draw", -6.0)
+	if _drawing:
+		_bow_draw += delta
+		if _bow_draw > 0.85 and viewmodel.current_action() != "bow_hold":
+			viewmodel.bow_hold()
+		_fov_kick = lerpf(_fov_kick, -8.0, clampf(delta * 4.0, 0.0, 1.0))
+		if not Input.is_action_pressed("attack"):
+			_drawing = false
+			if _bow_draw < 0.3:
+				viewmodel.bow_release()
+				return
+			_fire_arrow(clampf(_bow_draw / 0.85, 0.3, 1.0))
+
+
+func _fire_arrow(power: float) -> void:
+	if not GameState.remove_item("arrow", 1):
+		return
+	viewmodel.bow_release()
+	var dir := -camera.global_basis.z
+	var from := camera.global_position + dir * 0.4 + camera.global_basis.y * -0.05
+	var dmg := (weapon.roll_damage(_rng) if weapon else 8.0) * (0.75 + stats.skill("archery") / 120.0) * (0.45 + 0.55 * power)
+	var p := Projectile.spawn(get_tree().current_scene, "arrow", from, dir * lerpf(20.0, 48.0, power), dmg, self)
+	p.set_meta("player_arrow", true)
+	Audio.play_2d("bow_release", -3.0, 1.0, 0.05)
+	stats.train("archery", 0.8)
+	stats.use_stamina(weapon.stamina_cost if weapon else 4.0)
+
+
+func _cast_spell() -> void:
+	if _spell_cd > 0.0:
+		return
+	var sid := spells[spell_index]
+	var sp: Dictionary = SPELLS[sid]
+	if not stats.use_mana(float(sp["cost"])):
+		Events.notify.emit("No tienes suficiente magia.", "warning")
+		return
+	_spell_cd = float(sp["cooldown"])
+	if weapon == null or weapon.kind == "unarmed":
+		viewmodel.play_action("spell_cast", 1.2, 0.05)
+	else:
+		viewmodel.play_left_gesture("spell_cast")
+	Audio.play_2d("spell_cast", -3.0, 1.0, 0.08)
+	var skill_v := stats.skill(str(sp["skill"]))
+	var power := (1.0 + (stats.attr("intelligence") - 40) / 100.0) * (0.7 + skill_v / 100.0)
+	var dir := -camera.global_basis.z
+	var from := camera.global_position + dir * 0.6 + camera.global_basis.x * -0.15
+	match sid:
+		"fireball":
+			Projectile.spawn(get_tree().current_scene, "fireball", from, dir * 22.0, 22.0 * power, self)
+			Audio.play_2d("fireball", -6.0)
+		"frost":
+			Projectile.spawn(get_tree().current_scene, "frost", from, dir * 30.0, 14.0 * power, self)
+		"heal":
+			stats.heal(30.0 * power)
+			stats.effects.erase("poison")
+			stats.effects.erase("burn")
+			Audio.play_2d("heal", -3.0)
+			HitFX.spawn(get_tree().current_scene, "heal", global_position + Vector3(0, 1.0, 0), Vector3.UP)
+	stats.train(str(sp["skill"]), 1.0)
+
+
+func current_spell_name() -> String:
+	return str(SPELLS[spells[spell_index]]["name"])
 
 
 func _start_attack(kind: String) -> void:

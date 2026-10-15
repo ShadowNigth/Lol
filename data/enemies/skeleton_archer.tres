@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/enemy_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "skeleton_archer"
+display_name = "Arquero esqueleto"
+model = "skeleton_warrior"
+weapon_model = "bow"
+has_shield = false
+max_health = 40.0
+armor = 10.0
+damage_min = 6.0
+damage_max = 10.0
+damage_type = "pierce"
+attack_range = 16.0
+attack_cooldown = 2.0
+walk_speed = 1.6
+run_speed = 4.2
+detection_range = 20.0
+fov_degrees = 130.0
+hearing_range = 6.0
+block_chance = 0.0
+stagger_threshold = 8.0
+xp_reward = 30
+gold_min = 2
+gold_max = 12
+loot_table = "skeleton"
+hit_effect = "bone"
+resist_slash = 0.15
+resist_blunt = -0.35
+resist_pierce = 0.4
+level = 1
+ranged = true

@@ -16,7 +16,7 @@ const QUESTS := {
 		"type": "matar",
 		"description": "El guardia Rolf dice que los muertos del cementerio olvidado han vuelto a levantarse. Quiere que alguien acabe con ellos antes de que lleguen a la aldea.",
 		"stages": [
-			{"text": "Destruye a los esqueletos del cementerio y la capilla (0/3).", "objective": {"type": "kill", "target": "skeleton_warrior", "count": 3}},
+			{"text": "Destruye a los esqueletos del cementerio y la capilla (0/3).", "objective": {"type": "kill", "target": "skeleton", "count": 3}},
 			{"text": "Vuelve a hablar con el guardia Rolf.", "objective": {"type": "talk", "target": "rolf"}},
 		],
 		"rewards": {"gold": 60, "items": [{"id": "potion_health", "count": 2}], "reputation": {"guardia": 10, "hojarrubia": 5}},

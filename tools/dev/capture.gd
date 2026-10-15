@@ -64,6 +64,13 @@ func _build_queue() -> void:
 				["dagger_idle", 0.0], ["dagger_attack_1", 0.16], ["sword_run", 0.2], ["interact", 0.25]]:
 			_queue.append({"name": "vm_%s_%03d" % [a[0], int(float(a[1]) * 100)], "vm": a[0], "t": a[1]})
 		_queue.append({"name": "vm_sword_block_shield", "vm": "sword_block", "t": 0.25})
+	if "ui" in _sets:
+		_queue.append({"name": "npcs_plaza", "pos": Vector3(4.5, 37.0, 5.5), "yaw": 35.0, "pitch": -3.0, "time": 11.0})
+		_queue.append({"name": "ui_dialogue", "ui": "dialogue"})
+		_queue.append({"name": "ui_inventory", "ui": "menu", "tab": 0})
+		_queue.append({"name": "ui_character", "ui": "menu", "tab": 1})
+		_queue.append({"name": "ui_journal", "ui": "menu", "tab": 2})
+		_queue.append({"name": "ui_map", "ui": "menu", "tab": 3})
 	if "dungeon" in _sets:
 		_queue.append({"name": "dungeon_enter", "dungeon": true})
 		_queue.append({"name": "dungeon_entrance", "dview": "entrance"})
@@ -110,6 +117,33 @@ func _process(_delta: float) -> void:
 func _setup_shot(shot: Dictionary) -> void:
 	var p := _player()
 	var w := _game().get("world") as VoxelWorld
+	if shot.has("ui"):
+		var g := _game()
+		var hud := g.get("hud") as HUD
+		if hud:
+			hud.set_visible_hud(true)
+		var menu := g.get("game_menu") as GameMenu
+		if menu.visible:
+			menu.close()
+		if str(shot["ui"]) == "dialogue":
+			var target: NPC = null
+			for n in get_tree().get_nodes_in_group("npcs"):
+				if (n as NPC).npc_id == "mira":
+					target = n
+			if target:
+				p.teleport(target.global_position + Vector3(0, 0, 0) - target.global_basis.z * -1.6, 0.0)
+				var to := target.global_position - p.global_position
+				p._yaw = atan2(-to.x, -to.z)
+				p._pitch = deg_to_rad(-6.0)
+				g.call("open_dialogue", target)
+		else:
+			if g.get("_dialogue") and is_instance_valid(g.get("_dialogue")):
+				(g.get("_dialogue") as DialogueUI).close()
+			GameState.quests["huesos_inquietos"] = {"stage": 0, "progress": 1, "done": false}
+			GameState.give_item(p, {"id": "book_velmar", "count": 1})
+			menu.open(int(shot["tab"]))
+		_wait = 8
+		return
 	if shot.has("dungeon"):
 		_game().call("enter_dungeon", "crypt_velmar", "capture")
 		_wait = 0

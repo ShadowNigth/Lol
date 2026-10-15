@@ -42,3 +42,6 @@ extends Resource
 ## Variante visual del modelo (0-3; 3 = corona de señor).
 @export var model_variant: int = -1
 @export var is_boss: bool = false
+## Ataca a distancia con arco (mantiene la distancia y dispara flechas).
+@export var ranged: bool = false
+@export var projectile_speed: float = 30.0

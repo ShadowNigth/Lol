@@ -37,6 +37,8 @@ var max_mana: float = 50.0
 var armor_rating: float = 0.0
 var resistances: Dictionary = {"fire": 0.0, "frost": 0.0, "poison": 0.0, "shock": 0.0}
 var dead: bool = false
+var effects: Dictionary = {}          # efecto -> {"time": s, "power": p}
+const EFFECT_NAMES := {"burn": "Ardiendo", "frost": "Congelado", "poison": "Envenenado"}
 
 
 func _init() -> void:
@@ -196,6 +198,47 @@ func _level_up(last_skill: String) -> void:
 	recalc()
 	health = max_health
 	level_up.emit(level)
+
+
+## Estados alterados: quemadura y veneno hacen daño por segundo; la escarcha ralentiza.
+func add_effect(effect: String, duration: float, power: float) -> void:
+	var res_key := {"burn": "fire", "frost": "frost", "poison": "poison"}.get(effect, "") as String
+	var resist := clampf(float(resistances.get(res_key, 0.0)), -1.0, 0.9) if res_key != "" else 0.0
+	var dur := duration * (1.0 - resist)
+	if dur <= 0.05:
+		return
+	var cur: Dictionary = effects.get(effect, {"time": 0.0, "power": 0.0})
+	effects[effect] = {"time": maxf(float(cur["time"]), dur), "power": maxf(float(cur["power"]), power)}
+	changed.emit()
+
+
+## Avanza los efectos y devuelve el daño de este paso.
+func tick_effects(delta: float) -> float:
+	if effects.is_empty() or dead:
+		return 0.0
+	var dmg := 0.0
+	for k: String in effects.keys():
+		var e: Dictionary = effects[k]
+		if k in ["burn", "poison"]:
+			dmg += float(e["power"]) * delta
+		e["time"] = float(e["time"]) - delta
+		if float(e["time"]) <= 0.0:
+			effects.erase(k)
+			changed.emit()
+	return dmg
+
+
+func slow_factor() -> float:
+	if effects.has("frost"):
+		return 1.0 - clampf(float((effects["frost"] as Dictionary)["power"]), 0.0, 0.8)
+	return 1.0
+
+
+func active_effect_names() -> PackedStringArray:
+	var out := PackedStringArray()
+	for k: String in effects:
+		out.append(str(EFFECT_NAMES.get(k, k)))
+	return out
 
 
 func to_dict() -> Dictionary:

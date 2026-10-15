@@ -42,6 +42,7 @@ const DEFAULT_BINDINGS := {
 	"attack": [["mouse", MOUSE_BUTTON_LEFT], ["joy_axis", [JOY_AXIS_TRIGGER_RIGHT, 1.0]]],
 	"block": [["mouse", MOUSE_BUTTON_RIGHT], ["joy_axis", [JOY_AXIS_TRIGGER_LEFT, 1.0]]],
 	"cast_spell": [["key", KEY_Q], ["joy_button", JOY_BUTTON_LEFT_SHOULDER]],
+	"spell_next": [["key", KEY_Z], ["joy_button", JOY_BUTTON_DPAD_RIGHT]],
 	"interact": [["key", KEY_E], ["joy_button", JOY_BUTTON_X]],
 	"weapon_next": [["mouse", MOUSE_BUTTON_WHEEL_DOWN], ["joy_button", JOY_BUTTON_RIGHT_SHOULDER]],
 	"weapon_prev": [["mouse", MOUSE_BUTTON_WHEEL_UP]],

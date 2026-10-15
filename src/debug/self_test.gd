@@ -224,10 +224,66 @@ func _process(delta: float) -> void:
 				_note("Esqueleto derrotado tras %d ataques en %.1f s. Salud del jugador: %.0f/%.0f (empezó con %.0f)" % [_attacks, _t, p.stats.health, p.stats.max_health, _player_hp_start])
 				if p.stats.health >= _player_hp_start and p.stats.max_health == _player_hp_start:
 					_note("Aviso: el jugador no recibió daño (puede ser correcto si bloqueó o mató rápido)")
-				_next("loot")
+				_next("ranged")
 			elif _t > 60.0:
 				_fail("Combate demasiado largo: vida del esqueleto %.0f/%.0f" % [e2.stats.health, e2.stats.max_health])
 				_note("Golpes: %d, impactos: %d, contra pared: %d, bloqueos del esqueleto: %d" % [p.stat_swings, p.stat_hits, p.stat_world_hits, e2.stat_blocks])
+				_next("loot")
+		"ranged":
+			var archer: Enemy = null
+			for e in get_tree().get_nodes_in_group("enemies"):
+				if (e as Enemy).entity_id == "ruins/archer_0" and (e as Enemy).is_alive():
+					archer = e
+			if archer == null:
+				if _t > 3.0:
+					_fail("No se encontró al arquero esqueleto")
+					_next("loot")
+				return
+			if not has_meta("ranged_init"):
+				set_meta("ranged_init", true)
+				p.teleport(archer.global_position + Vector3(-9.0, 0.3, 0.0), -90.0)
+				set_meta("archer_hp", archer.stats.health)
+				set_meta("player_hp", p.stats.health)
+				p.stats.mana = p.stats.max_mana
+				return
+			var to := archer.global_position - p.global_position
+			p._yaw = atan2(-to.x, -to.z)
+			var aim_dy := (archer.global_position.y + 1.1) - p.camera.global_position.y
+			p._pitch = atan2(aim_dy, Vector2(to.x, to.z).length() + 0.001)
+			if _t > 0.8 and not has_meta("fired_spell"):
+				set_meta("fired_spell", true)
+				var mana0 := p.stats.mana
+				p._cast_spell()
+				var proj := 0
+				for n in get_tree().current_scene.get_children():
+					if n is Projectile:
+						proj += 1
+				_note("Bola de fuego: magia %.0f -> %.0f, proyectiles en escena: %d" % [mana0, p.stats.mana, proj])
+				if p.stats.mana >= mana0 or proj == 0:
+					_fail("El hechizo no consumió magia o no creó el proyectil")
+			if _t > 2.5 and not has_meta("bow_ready"):
+				set_meta("bow_ready", true)
+				var bow := load("res://data/weapons/bow.tres") as WeaponData
+				p.add_weapon(bow)
+				GameState.give_item(p, {"id": "arrow", "count": 10})
+				p._equip_index(p.weapons.size() - 1)
+				set_meta("arrows0", GameState.item_count("arrow"))
+				Input.action_press("attack")
+			if _t > 3.6 and has_meta("bow_ready") and not has_meta("bow_released"):
+				set_meta("bow_released", true)
+				Input.action_release("attack")
+			if _t > 4.2 and not has_meta("bow_checked"):
+				set_meta("bow_checked", true)
+				_note("Arco: flechas %d -> %d" % [int(get_meta("arrows0")), GameState.item_count("arrow")])
+				if GameState.item_count("arrow") != int(get_meta("arrows0")) - 1:
+					_fail("El arco no disparó una flecha")
+			if _t > 9.0:
+				var hp0 := float(get_meta("archer_hp"))
+				_note("Arquero: salud %.0f -> %.0f (vivo: %s). Salud del jugador %.0f -> %.0f, efectos: %s" % [hp0, archer.stats.health if is_instance_valid(archer) else 0.0,
+						archer.is_alive() if is_instance_valid(archer) else false, float(get_meta("player_hp")), p.stats.health, p.stats.active_effect_names()])
+				if is_instance_valid(archer) and archer.stats.health >= hp0 and archer.is_alive():
+					_fail("Ni el hechizo ni la flecha dañaron al arquero")
+				p._equip_index(0)
 				_next("loot")
 		"loot":
 			if _t > 2.0:

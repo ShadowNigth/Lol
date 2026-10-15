@@ -159,6 +159,18 @@ static func build_library(style: String = "warrior") -> AnimationLibrary:
 		"shin.L": [[0.0, Vector3(-14, 0, 0)], [0.5, Vector3(-55, 0, 0)], [1.3, Vector3(-14, 0, 0)]],
 	}, {"hips": [[0.0, _p(HIPS_Y - 0.05)], [0.5, _p(HIPS_Y - 0.2)], [1.0, _p(HIPS_Y - 0.18)], [1.3, _p(HIPS_Y - 0.05)]]}))
 
+	# --- Disparo con arco (suelta la flecha a 0.85 s) ---
+	lib.add_animation("shoot", AnimBuilder.make(1.3, false, {
+		"upper_arm.L": [[0.0, Vector3(20, 0, -10)], [0.35, Vector3(88, -10, -4)], [0.85, Vector3(88, -10, -4)], [1.3, Vector3(20, 0, -10)]],
+		"forearm.L": [[0.0, Vector3(30, 0, 0)], [0.35, Vector3(6, 0, 0)], [0.85, Vector3(6, 0, 0)], [1.3, Vector3(30, 0, 0)]],
+		"upper_arm.R": [[0.0, Vector3(20, 0, 10)], [0.35, Vector3(80, 0, 20)], [0.8, Vector3(85, 0, 35)], [0.88, Vector3(70, 0, 50)], [1.3, Vector3(20, 0, 10)]],
+		"forearm.R": [[0.0, Vector3(30, 0, 0)], [0.35, Vector3(70, 0, 0)], [0.8, Vector3(140, 0, 0)], [0.88, Vector3(60, 0, 0)], [1.3, Vector3(30, 0, 0)]],
+		"chest": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(0, 35, 0)], [0.85, Vector3(0, 38, 0)], [1.3, Vector3(0, 0, 0)]],
+		"head": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(0, -32, 0)], [0.85, Vector3(0, -35, 0)], [1.3, Vector3(0, 0, 0)]],
+		"thigh.R": [[0.0, Vector3(4, 0, 2)], [0.35, Vector3(-10, 0, 10)], [1.3, Vector3(4, 0, 2)]],
+		"thigh.L": [[0.0, Vector3(-3, 0, -2)], [0.35, Vector3(15, 0, -10)], [1.3, Vector3(-3, 0, -2)]],
+	}, {"hips": [[0.0, _p(HIPS_Y - 0.02)], [0.35, _p(HIPS_Y - 0.06)], [1.3, _p(HIPS_Y - 0.02)]]}))
+
 	# --- Gestos de conversación ---
 	lib.add_animation("talk", AnimBuilder.make(3.0, true, {
 		"upper_arm.R": [[0.0, Vector3(15, 0, 10)], [0.6, Vector3(45, 0, 20)], [1.2, Vector3(25, 0, 12)], [2.0, Vector3(50, -20, 15)], [3.0, Vector3(15, 0, 10)]],

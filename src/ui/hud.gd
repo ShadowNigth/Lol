@@ -154,7 +154,7 @@ func _ready() -> void:
 	_info.anchor_bottom = 1.0
 	_info.offset_left = -360
 	_info.offset_right = -24
-	_info.offset_top = -86
+	_info.offset_top = -110
 	_info.offset_bottom = -20
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_info.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -214,7 +214,11 @@ func _process(delta: float) -> void:
 		_location_t -= delta
 		_location.modulate.a = clampf(minf(_location_t, 4.0 - _location_t) * 1.5, 0.0, 1.0) if _location_t < 4.0 else 1.0
 	var weapon_name := player.weapon.display_name if player.weapon else "Sin arma"
-	_info.text = "%s\nOro: %d    Pociones [H]: %d" % [weapon_name, player.gold, GameState.item_count("potion_health")]
+	if player.weapon and player.weapon.kind == "bow":
+		weapon_name += "  (flechas: %d)" % GameState.item_count("arrow")
+	var fx := player.stats.active_effect_names()
+	var fx_text := ("  [%s]" % ", ".join(fx)) if not fx.is_empty() else ""
+	_info.text = "%s\nHechizo [Q/Z]: %s\nOro: %d    Pociones [H]: %d%s" % [weapon_name, player.current_spell_name(), player.gold, GameState.item_count("potion_health"), fx_text]
 	if _debug.visible and Engine.get_process_frames() % 10 == 0:
 		var p := player.global_position
 		var biome := world.generator.biome_name(int(p.x), int(p.z)) if world and world.generator else ""

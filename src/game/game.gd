@@ -227,10 +227,12 @@ func open_dialogue(npc: NPC) -> void:
 	_dialogue = DialogueUI.new()
 	add_child(_dialogue)
 	player.controls_enabled = false
+	player.viewmodel.visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	hud.set_visible_hud(false)
 	_dialogue.closed.connect(func() -> void:
 		player.controls_enabled = true
+		player.viewmodel.visible = true
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		hud.set_visible_hud(true))
 	_dialogue.open(npc)
@@ -349,6 +351,10 @@ func _apply_new_or_loaded_player() -> void:
 				player.weapons.append(w)
 		player._equip_index(0)
 		player.gold = 25
+		if GameState.character_class == "rogue":
+			GameState.give_item(player, {"id": "arrow", "count": 30})
+		elif GameState.character_class == "mage":
+			GameState.give_item(player, {"id": "potion_mana", "count": 2})
 		return
 	player.stats.from_dict(data.get("stats", {}))
 	player.gold = int(data.get("gold", 0))

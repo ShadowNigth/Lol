@@ -97,7 +97,7 @@ static func class_template(cls: String) -> Dictionary:
 	match cls:
 		"rogue":
 			return {"name": "Explorador", "attributes": {"strength": 38, "agility": 55, "endurance": 40, "intelligence": 40, "willpower": 35, "personality": 45, "luck": 50},
-					"skills": {"blade": 18, "archery": 25, "sneak": 25, "acrobatics": 20, "lockpick": 20}, "weapons": ["dagger", "sword"]}
+					"skills": {"blade": 18, "archery": 25, "sneak": 25, "acrobatics": 20, "lockpick": 20}, "weapons": ["dagger", "sword", "bow"]}
 		"mage":
 			return {"name": "Mago de batalla", "attributes": {"strength": 32, "agility": 40, "endurance": 36, "intelligence": 60, "willpower": 55, "personality": 42, "luck": 40},
 					"skills": {"destruction": 28, "restoration": 22, "alteration": 18, "blade": 12, "blunt": 15}, "weapons": ["mace"]}

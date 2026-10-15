@@ -122,11 +122,14 @@ func _build_model() -> void:
 	mi.skeleton = NodePath("..")
 	# Arma en la mano derecha y escudo en el antebrazo izquierdo
 	var wa := BoneAttachment3D.new()
-	wa.bone_name = "hand.R"
+	wa.bone_name = "hand.L" if data.ranged else "hand.R"
 	skeleton.add_child(wa)
 	var wmesh := MeshInstance3D.new()
 	wmesh.mesh = ModelLibrary.weapon_mesh(data.weapon_model, false)
-	wmesh.transform = Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3(-0.01, -0.07, -0.02))
+	if data.ranged:
+		wmesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, -0.07, -0.02))
+	else:
+		wmesh.transform = Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3(-0.01, -0.07, -0.02))
 	wa.add_child(wmesh)
 	if data.has_shield:
 		var sa := BoneAttachment3D.new()
@@ -142,7 +145,7 @@ func _build_model() -> void:
 	_model_root.add_child(anim_tree)
 	anim_tree.root_node = NodePath("..")
 	anim_tree.add_animation_library("", lib)
-	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["alert", "attack_1", "attack_2", "block", "hit", "stun", "death"]))
+	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["alert", "attack_1", "attack_2", "shoot", "block", "hit", "stun", "death"]))
 	anim_tree.active = true
 	playback = anim_tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
 
@@ -174,6 +177,12 @@ func _physics_process(delta: float) -> void:
 	if _poise_regen_delay <= 0.0:
 		poise = minf(max_poise, poise + 12.0 * delta)
 	_update_flash(delta)
+	if state != State.DEAD:
+		var dot := stats.tick_effects(delta)
+		if dot > 0.0:
+			stats.apply_damage(dot)
+			if stats.dead:
+				_die({})
 	if state == State.DEAD:
 		velocity.x = move_toward(velocity.x, 0.0, delta * 8.0)
 		velocity.z = move_toward(velocity.z, 0.0, delta * 8.0)
@@ -232,7 +241,7 @@ func _set_state(s: State) -> void:
 
 
 func _apply_movement(dir: Vector3, delta: float) -> void:
-	var target_vel := dir * _desired_speed
+	var target_vel := dir * _desired_speed * stats.slow_factor()
 	var accel := 8.0 if is_on_floor() else 1.5
 	velocity.x = lerpf(velocity.x, target_vel.x, clampf(accel * delta, 0.0, 1.0))
 	velocity.z = lerpf(velocity.z, target_vel.z, clampf(accel * delta, 0.0, 1.0))
@@ -434,6 +443,8 @@ func _chase_step(delta: float) -> Vector3:
 	var flat := Vector3(d.x, 0, d.z)
 	var dist := flat.length()
 	_face_target(delta, 7.0)
+	if data.ranged:
+		return _ranged_step(dist, flat)
 	# ¿Atacar?
 	var fwd := -global_basis.z
 	var facing := fwd.dot(flat.normalized()) > 0.85
@@ -447,9 +458,51 @@ func _chase_step(delta: float) -> Vector3:
 	if dist < data.attack_range * 0.8:
 		return Vector3.ZERO
 	var goal := target.global_position if _lost_t <= 0.0 else _last_seen
-	var dir := _steer(goal - global_position)
+	var to_goal := goal - global_position
+	if world and world.generator.is_interior() and (not _line_of_sight() or _blocked_ahead(to_goal, 1.0)):
+		var path := world.generator.find_path(global_position, goal)
+		if path.size() > 2:
+			to_goal = path[2] - global_position
+	var dir := _steer(to_goal)
 	_desired_speed = data.run_speed if dist > 3.5 else data.walk_speed * 1.4
 	return dir
+
+
+## Arquero: mantiene la distancia y dispara cuando tiene línea de visión.
+func _ranged_step(dist: float, flat: Vector3) -> Vector3:
+	if dist < 5.0:
+		_desired_speed = data.walk_speed * 1.6
+		return _steer(-flat)
+	if dist < data.attack_range and _attack_cd <= 0.0 and _line_of_sight():
+		_set_state(State.ATTACK)
+		_attack_done = false
+		_attack_name = "shoot"
+		_attack_hit_time = 0.85
+		_attack_len = 1.3
+		playback.travel("shoot")
+		Audio.play_3d("bow_draw", global_position + Vector3(0, 1.4, 0), -4.0)
+		return Vector3.ZERO
+	if dist > data.attack_range * 0.8 or not _line_of_sight():
+		_desired_speed = data.run_speed
+		var path := world.generator.find_path(global_position, target.global_position) if world else PackedVector3Array()
+		if path.size() > 2:
+			return _steer(path[2] - global_position)
+		return _steer(flat)
+	return Vector3.ZERO
+
+
+func _shoot_arrow() -> void:
+	if target == null:
+		return
+	var from := global_position + Vector3(0, 1.45, 0) + (-global_basis.z) * 0.6
+	var aim := target.global_position + Vector3(0, 1.2, 0)
+	var t := from.distance_to(aim) / data.projectile_speed
+	aim += target.velocity * t * 0.8
+	aim.y += 0.5 * 9.8 * t * t
+	var dir := (aim - from).normalized()
+	var dmg := _rng.randf_range(data.damage_min, data.damage_max)
+	Projectile.spawn(get_tree().current_scene, "arrow", from, dir * data.projectile_speed, dmg, self)
+	Audio.play_3d("bow_release", from, -2.0)
 
 
 func _begin_attack() -> void:
@@ -475,7 +528,10 @@ func _attack_step(delta: float) -> void:
 		_face_target(delta, 5.0)
 	if not _attack_done and _state_t >= _attack_hit_time:
 		_attack_done = true
-		_resolve_attack_hit()
+		if data.ranged:
+			_shoot_arrow()
+		else:
+			_resolve_attack_hit()
 	if _state_t >= _attack_len:
 		_attack_cd = data.attack_cooldown * _rng.randf_range(0.8, 1.4)
 		_set_state(State.CHASE)

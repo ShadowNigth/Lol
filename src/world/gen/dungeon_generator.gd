@@ -365,7 +365,8 @@ func _populate_room(i: int) -> void:
 			var n := _rng.randi_range(0, 1 + difficulty)
 			for k in n:
 				var off := Vector3(_rng.randf_range(-1.5, 1.5), 0, _rng.randf_range(-1.5, 1.5))
-				entities.append({"type": "enemy", "enemy": "skeleton_warrior", "pos": center + off, "yaw": _rng.randf() * 360.0, "id": rid + "/e%d" % k})
+				var kind := "skeleton_archer" if _rng.randf() < 0.25 else "skeleton_warrior"
+				entities.append({"type": "enemy", "enemy": kind, "pos": center + off, "yaw": _rng.randf() * 360.0, "id": rid + "/e%d" % k})
 			if _rng.randf() < 0.5:
 				entities.append({"type": "sarcophagus", "pos": center + Vector3(0, 0, -1.0), "yaw": 90.0 * (_rng.randi() % 2), "id": rid + "/sarc"})
 			if _rng.randf() < 0.6:

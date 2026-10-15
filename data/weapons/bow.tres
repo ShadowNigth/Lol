@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "bow"
+display_name = "Arco de caza"
+description = "Arco de tejo. Tensa (mantén el clic) y suelta para disparar."
+kind = "bow"
+model_id = "bow"
+damage_min = 9.0
+damage_max = 17.0
+reach = 0.0
+stamina_cost = 4.0
+speed = 1.0
+block_reduction = 0.0
+skill = "archery"
+weight = 2.0
+value = 50
+damage_type = "pierce"
+two_handed = true
