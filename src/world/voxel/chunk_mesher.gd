@@ -247,6 +247,8 @@ static func build(data: ChunkData) -> Dictionary:
 							_emit_fence(surf2, col_ref, blocks, opq, shp_tbl, i, p2, tex_s)
 						BlockTypes.Shape.BARS:
 							_emit_bars(surf2, col_ref, blocks, opq, shp_tbl, i, p2, tex_s)
+						BlockTypes.Shape.FLAT:
+							_emit_flat(surf_cutout, p2, tex_t, int(BlockTypes.facing[id]))
 						_:
 							pass
 
@@ -290,6 +292,23 @@ static func _emit_cross(surf: SurfaceBuilder, p: Vector3, tex: int, col: Color, 
 		surf.add_vertex(q[2], up, Vector2(1, 1), tex, dark)
 		surf.add_vertex(q[3], up, Vector2(0, 1), tex, dark)
 		surf.add_quad_indices(base, false)
+
+
+## Plano horizontal a ras de suelo (raíles): una cara superior con la textura
+## girada 90° si va de este a oeste.
+static func _emit_flat(surf: SurfaceBuilder, p: Vector3, tex: int, dir: int) -> void:
+	var y := 0.03
+	var up := Vector3(0, 1, 0)
+	var col := Color(1, 1, 1)
+	var uvs: Array[Vector2] = [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]
+	if dir == 1:
+		uvs = [Vector2(0, 1), Vector2(0, 0), Vector2(1, 0), Vector2(1, 1)]
+	var base := surf.verts.size()
+	surf.add_vertex(p + Vector3(0, y, 0), up, uvs[0], tex, col)
+	surf.add_vertex(p + Vector3(1, y, 0), up, uvs[1], tex, col)
+	surf.add_vertex(p + Vector3(1, y, 1), up, uvs[2], tex, col)
+	surf.add_vertex(p + Vector3(0, y, 1), up, uvs[3], tex, col)
+	surf.add_quad_indices(base, false)
 
 
 static func _emit_liquid(surf: SurfaceBuilder, blocks: PackedByteArray, opq: PackedByteArray, i: int, id: int,

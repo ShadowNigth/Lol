@@ -740,3 +740,143 @@ static func wolf(variant: int = 0) -> VoxelModel:
 		bp.put(Vector3i(-1, -2, -4), claw)
 		bp.put(Vector3i(1, -2, -4), claw)
 	return m
+
+
+## Araña gigante en micro-vóxeles para el rig de arácnido. Variantes:
+## 0 araña de las cuevas (parda con anillos anaranjados), 1 escupidora (gris
+## verdosa con franjas amarillas), 2 reina (negra violácea con marcas rojas,
+## púas y ojos violeta), 3 cría (parda clara, sin dibujo).
+static func spider(variant: int = 0) -> VoxelModel:
+	var m := VoxelModel.new(V, 9300 + variant)
+	var palette: Array = [
+		# quitina, quitina oscura, anillos, dibujo, vientre, ojos
+		[Color(0.27, 0.19, 0.13), Color(0.14, 0.1, 0.08), Color(0.78, 0.45, 0.16), Color(0.62, 0.4, 0.2), Color(0.36, 0.27, 0.2), Color(1.0, 0.25, 0.12)],
+		[Color(0.43, 0.46, 0.39), Color(0.24, 0.27, 0.22), Color(0.84, 0.76, 0.3), Color(0.9, 0.82, 0.28), Color(0.55, 0.57, 0.48), Color(0.75, 1.0, 0.3)],
+		[Color(0.12, 0.09, 0.14), Color(0.06, 0.05, 0.08), Color(0.55, 0.12, 0.14), Color(0.78, 0.1, 0.1), Color(0.2, 0.14, 0.2), Color(0.85, 0.35, 1.0)],
+		[Color(0.46, 0.34, 0.22), Color(0.3, 0.22, 0.15), Color(0.62, 0.48, 0.3), Color(0.52, 0.4, 0.26), Color(0.55, 0.44, 0.32), Color(1.0, 0.4, 0.2)],
+	]
+	var v := clampi(variant, 0, 3)
+	var pal: Array = palette[v]
+	var queen := v == 2
+	var shiny := 0.35 if queen else 0.0
+	var chitin := m.mat(pal[0], shiny * 0.5, 0.75 - shiny, 0.0, 0.12)
+	var chitin_dk := m.mat(pal[1], shiny * 0.5, 0.7 - shiny, 0.0, 0.1)
+	var band := m.mat(pal[2], 0.0, 0.8, 0.0, 0.1)
+	var mark := m.mat(pal[3], 0.0, 0.8, 0.1 if queen else 0.0, 0.08)
+	var belly := m.mat(pal[4], 0.0, 0.9, 0.0, 0.08)
+	var eye := m.mat(pal[5], 0.0, 0.3, 0.9, 0.0)
+	var fang := m.mat(Color(0.05, 0.04, 0.04), 0.2, 0.3, 0.0, 0.02)
+	var fang_tip := m.mat(Color(0.5, 0.12, 0.1) if v != 1 else Color(0.5, 0.55, 0.15), 0.1, 0.3, 0.15, 0.02)
+	var hair := m.mat((pal[1] as Color).lightened(0.15), 0.0, 1.0, 0.0, 0.15)
+
+	# --- Cefalotórax: caparazón con la cabeza elevada delante y ocho ojos ---
+	var body := m.part("body", "body", Vector3(0, 0.40, -0.05))
+	body.ellipsoid(Vector3(0, 0.2, -0.5), Vector3(4.2, 2.8, 5.2), chitin)
+	body.ellipsoid(Vector3(0, 1.4, -3.4), Vector3(2.8, 2.0, 2.6), chitin)       # región cefálica
+	body.recolor_box(Vector3i(-4, -3, -6), Vector3i(4, -1, 5), belly)
+	# Surco central y estrías radiales del caparazón
+	for z in range(-4, 4):
+		body.recolor_box(Vector3i(0, 2, z), Vector3i(0, 3, z), chitin_dk)
+	for k in 6:
+		var a := TAU * k / 6.0 + 0.5
+		for r in range(2, 4):
+			body.recolor_box(Vector3i(roundi(cos(a) * r), 2, roundi(sin(a) * r)), Vector3i(roundi(cos(a) * r), 3, roundi(sin(a) * r)),
+					mark if not queen else chitin_dk)
+	# Ojos: dos grandes al frente y seis pequeños alrededor
+	for ex: int in [-1, 1]:
+		body.put(Vector3i(ex, 2, -6), eye)
+		body.put(Vector3i(ex, 3, -5), eye)
+		body.put(Vector3i(ex * 2, 2, -5), eye)
+		body.put(Vector3i(ex * 3, 1, -4), eye)
+	if queen:
+		# Corona de púas sobre la cabeza
+		for cx: int in [-2, 0, 2]:
+			body.put(Vector3i(cx, 4, -3), chitin_dk)
+			body.put(Vector3i(cx, 5, -3), mark)
+	# Pedicelo (cintura) hacia el abdomen
+	body.box(Vector3i(-1, 0, 4), Vector3i(1, 1, 5), chitin_dk)
+
+	# --- Abdomen: grande, con dibujo dorsal de galones y las hileras al final ---
+	var ab_r := Vector3(7.5, 6.2, 9.0) if queen else Vector3(6.0, 5.0, 7.5)
+	var ab_c := Vector3(0, 1.2 + (0.8 if queen else 0.0), ab_r.z - 0.5)
+	var abd := m.part("abdomen", "abdomen", Vector3(0, 0.43, 0.13))
+	abd.ellipsoid(ab_c, ab_r, chitin)
+	abd.recolor_box(Vector3i(-8, -6, 0), Vector3i(8, int(ab_c.y - ab_r.y * 0.45), 20), belly)
+	# Galones (chevrons) en el dorso
+	var top_y := int(ab_c.y + ab_r.y)
+	for g in 4:
+		var gz := int(ab_c.z - ab_r.z * 0.55 + g * ab_r.z * 0.38)
+		for wx in range(-3 + g / 2, 4 - g / 2):
+			var gy := top_y
+			while gy > 0 and not abd.voxels.has(Vector3i(wx, gy, gz + absi(wx) / 2)):
+				gy -= 1
+			abd.put(Vector3i(wx, gy, gz + absi(wx) / 2), mark)
+			if abd.voxels.has(Vector3i(wx, gy - 1, gz + absi(wx) / 2 + 1)):
+				abd.put(Vector3i(wx, gy - 1, gz + absi(wx) / 2 + 1), band if v != 2 else mark)
+	if v == 1:
+		# Escupidora: franjas laterales amarillas
+		for z2 in range(1, int(ab_c.z + ab_r.z) - 1, 2):
+			for sx2: int in [-1, 1]:
+				var x2 := int(ab_r.x * 0.85) * sx2
+				for y2 in range(0, 3):
+					if abd.voxels.has(Vector3i(x2, y2, z2)):
+						abd.put(Vector3i(x2, y2, z2), mark)
+	if queen:
+		# Púas dorsales y marca roja en forma de reloj de arena
+		for s in 5:
+			var sz := int(ab_c.z - 5 + s * 2.5)
+			var sy := top_y
+			while sy > 0 and not abd.voxels.has(Vector3i(0, sy, sz)):
+				sy -= 1
+			abd.put(Vector3i(0, sy + 1, sz), chitin_dk)
+			abd.put(Vector3i(0, sy + 2, sz), mark)
+		for hy in range(-2, 3):
+			var hw := absi(hy)
+			abd.recolor_box(Vector3i(-hw, int(ab_c.y - ab_r.y), int(ab_c.z) + hy), Vector3i(hw, int(ab_c.y - ab_r.y) + 1, int(ab_c.z) + hy), mark)
+	# Hileras (espineretes)
+	var back_z := int(ab_c.z + ab_r.z)
+	abd.box(Vector3i(-1, int(ab_c.y) - 2, back_z - 1), Vector3i(1, int(ab_c.y) - 1, back_z + (1 if v == 1 else 0)), chitin_dk)
+	abd.put(Vector3i(0, int(ab_c.y) - 2, back_z + 1), band)
+
+	# --- Quelíceros con colmillos curvos y pedipalpos ---
+	for s2: Array in [["R", 1.0], ["L", -1.0]]:
+		var n: String = s2[0]
+		var sx: float = s2[1]
+		var fg := m.part("fang." + n, "fang." + n, Vector3(0.05 * sx, 0.36, -0.25))
+		fg.box(Vector3i(-1, -1, -1), Vector3i(1, 1, 1), chitin_dk)
+		fg.put(Vector3i(0, 1, -2), hair)
+		fg.box(Vector3i(0, -3, -2), Vector3i(0, -2, -1), fang)
+		fg.put(Vector3i(0, -4, -1), fang)
+		fg.put(Vector3i(0, -4, 0), fang_tip)
+		var pp := m.part("palp." + n, "palp." + n, Vector3(0.085 * sx, 0.38, -0.23))
+		pp.thick_line(Vector3.ZERO, Vector3(0.6 * sx, -2.0, -2.5), 0.8, chitin)
+		pp.thick_line(Vector3(0.6 * sx, -2.0, -2.5), Vector3(0.9 * sx, -3.4, -3.6), 0.9, band)
+		# --- Patas: fémur, tibia y tarso con anillos claros y pelos ---
+		for i in range(1, 5):
+			var leg := Rig.spider_leg(i, n)
+			var hip: Vector3 = leg["hip"]
+			var knee: Vector3 = leg["knee"]
+			var ankle: Vector3 = leg["ankle"]
+			var tip: Vector3 = leg["tip"]
+			var base := "leg%d.%s" % [i, n]
+			var pa := m.part(base + ".a", base + ".a", hip)
+			var ka := (knee - hip) / V
+			pa.thick_line(Vector3.ZERO, ka * 0.8, 1.45, chitin)
+			pa.thick_line(ka * 0.8, ka, 1.55, band)
+			pa.ellipsoid(ka, Vector3.ONE * 1.6, chitin_dk)                     # rodilla
+			for k in 3:
+				var hp := ka * (0.25 + k * 0.22)
+				pa.put(Vector3i(roundi(hp.x), roundi(hp.y) + 2, roundi(hp.z)), hair)
+			var pb := m.part(base + ".b", base + ".b", knee)
+			var kb := (ankle - knee) / V
+			pb.thick_line(Vector3.ZERO, kb * 0.82, 1.15, chitin)
+			pb.thick_line(kb * 0.82, kb, 1.2, band)
+			for k2 in 3:
+				var hp2 := kb * (0.2 + k2 * 0.25)
+				var outward := Vector3((leg["dir"] as Vector3).x, 0, (leg["dir"] as Vector3).z) * 1.8
+				pb.put(Vector3i(roundi(hp2.x + outward.x), roundi(hp2.y), roundi(hp2.z + outward.z)), hair)
+			var pc := m.part(base + ".c", base + ".c", ankle)
+			var kc := (tip - ankle) / V
+			pc.thick_line(Vector3.ZERO, kc, 0.85, chitin_dk)
+			pc.put(Vector3i(roundi(kc.x), roundi(kc.y), roundi(kc.z)), fang)    # uña
+	return m

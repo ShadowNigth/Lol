@@ -261,6 +261,14 @@ func build_library() -> Dictionary:
 	lib["lock_pick"] = to_stream(_normalize(_lock_pick(), 0.6))
 	lib["lock_open"] = to_stream(_normalize(_lock_open(), 0.75))
 	lib["lock_break"] = to_stream(_normalize(_lock_break(), 0.75))
+	# Arañas: siseo, castañeteo de quelíceros, chillidos y la seda
+	lib["spider_alert"] = to_stream(_normalize(_hiss(0.85), 0.8))
+	lib["spider_hurt"] = to_stream(_normalize(_spider_screech(0.32, 1500.0, 950.0), 0.8))
+	lib["spider_death"] = to_stream(_normalize(_spider_death(), 0.85))
+	lib["spider_idle"] = to_stream(_normalize(_chitter(0.45, 9, 0.6), 0.45))
+	lib["step_spider"] = to_stream(_normalize(_chitter(0.07, 2, 0.4), 0.3))
+	lib["web_spit"] = to_stream(_normalize(_web_spit(), 0.75))
+	lib["web_hit"] = to_stream(_normalize(_filtered_noise(0.22, 1100.0, 600.0, 300.0, 0.9, 0, 0.005, 0.08), 0.7))
 	lib["wind_loop"] = to_stream(_normalize(_wind_loop(6.0), 0.35), true)
 	lib["fire_loop"] = to_stream(_normalize(_fire_loop(3.0), 0.5), true)
 	lib["cave_loop"] = to_stream(_normalize(_cave_loop(6.0), 0.3), true)
@@ -357,6 +365,60 @@ func _howl(seconds: float) -> PackedFloat32Array:
 func _bite() -> PackedFloat32Array:
 	var b := _knock(0.14, [700.0, 1650.0, 2900.0])
 	_mix_into(b, _thump(0.1, 180.0, 90.0, 0.03), 0, 0.6)
+	_fade_edges(b, 0.002)
+	return b
+
+
+## Siseo de araña: ruido agudo con pulsos rápidos y castañeteo de quelíceros.
+func _hiss(seconds: float) -> PackedFloat32Array:
+	var b := _filtered_noise(seconds, 2600.0, 4400.0, 3200.0, 1.3, 1, 0.06, seconds * 0.45)
+	for i in b.size():
+		var t := float(i) / RATE
+		b[i] *= 0.6 + 0.4 * absf(sin(TAU * 13.0 * t))
+	_mix_into(b, _chitter(seconds * 0.6, 8, 0.8), 0, 0.5)
+	_fade_edges(b)
+	return b
+
+
+## Castañeteo seco y rápido (patas y quelíceros).
+func _chitter(seconds: float, clicks: int, brightness: float) -> PackedFloat32Array:
+	var b := _buf(seconds)
+	for k in clicks:
+		var f0 := (1800.0 + _rng.randf() * 1400.0) * (0.6 + brightness * 0.5)
+		var click := _partials(0.035, [f0, f0 * 1.7], [0.006, 0.004], [0.6, 0.35])
+		var at := (float(k) + _rng.randf_range(0.0, 0.6)) / float(maxi(clicks, 1)) * (seconds - 0.035)
+		_mix_into(b, click, int(at * RATE), _rng.randf_range(0.5, 1.0))
+	_fade_edges(b)
+	return b
+
+
+## Chillido agudo y áspero (araña herida).
+func _spider_screech(seconds: float, f0: float, f1: float) -> PackedFloat32Array:
+	var b := _vocal(seconds, f0, f1, [2400.0, 4100.0], 0.55)
+	_mix_into(b, _chitter(seconds, 5, 1.0), 0, 0.45)
+	_fade_edges(b)
+	return b
+
+
+## Muerte: chillido que se apaga y un crujido de quitina.
+func _spider_death() -> PackedFloat32Array:
+	var b := _spider_screech(1.0, 1300.0, 380.0)
+	for i in b.size():
+		b[i] *= clampf(1.0 - float(i) / b.size(), 0.0, 1.0)
+	var crunch := _buf(0.5)
+	for k in 14:
+		var click := _partials(0.05, [700.0 + _rng.randf() * 1600.0, 1900.0 + _rng.randf() * 1500.0], [0.012, 0.008], [0.6, 0.4])
+		_mix_into(crunch, click, int(_rng.randf() * 0.4 * RATE), _rng.randf_range(0.4, 1.0))
+	_mix_into(b, crunch, int(0.45 * RATE), 0.8)
+	_mix_into(b, _thump(0.25, 120.0, 60.0, 0.08), int(0.5 * RATE), 0.7)
+	_fade_edges(b)
+	return b
+
+
+## Escupitajo de seda: un chasquido húmedo con un soplido que se aleja.
+func _web_spit() -> PackedFloat32Array:
+	var b := _filtered_noise(0.3, 2200.0, 900.0, 500.0, 1.0, 0, 0.005, 0.12)
+	_mix_into(b, _thump(0.08, 420.0, 180.0, 0.02), 0, 0.7)
 	_fade_edges(b, 0.002)
 	return b
 

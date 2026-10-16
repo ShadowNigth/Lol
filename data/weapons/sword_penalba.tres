@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "sword_penalba"
+display_name = "Espada de Hierronegro"
+description = "Forjada por Garin con el primer hierro negro que salió de la mina tras la muerte de la Reina Tejedora. Más ligera y afilada que una espada de la guardia."
+kind = "sword"
+model_id = "sword_penalba"
+damage_min = 12.0
+damage_max = 19.0
+reach = 2.4
+stamina_cost = 11.0
+speed = 1.05
+block_reduction = 0.7
+skill = "blade"
+weight = 2.8
+value = 160
+damage_type = "slash"

@@ -18,6 +18,9 @@ var _wolf: Node3D
 var _wolf_anim: AnimationPlayer
 var _wolf_variant := -1
 var _bandits: Array[Node3D] = []
+var _spider: Node3D
+var _spider_anim: AnimationPlayer
+var _spider_variant := -1
 var _only: PackedStringArray = []      # --only=a,b: solo esas capturas
 
 
@@ -90,6 +93,31 @@ func _build_queue() -> void:
 			_queue.append({"name": "wolf_%s_%03d" % [e2[0], int(float(e2[1]) * 100)], "wolf": e2[0], "t": e2[1], "variant": 0})
 		for v: int in [1, 2, 3]:
 			_queue.append({"name": "wolf_variant_%d" % v, "wolf": "idle", "t": 0.5, "variant": v})
+	if "spider" in _sets:
+		for e3: Array in [["idle", 1.3], ["walk", 0.2], ["walk", 0.6], ["run", 0.1], ["alert", 0.6], ["attack_1", 0.22], ["attack_1", 0.38],
+				["attack_2", 0.42], ["shoot", 0.4], ["hit", 0.08], ["stun", 0.4], ["death", 0.7], ["death", 1.6]]:
+			_queue.append({"name": "spider_%s_%03d" % [e3[0], int(float(e3[1]) * 100)], "spider": e3[0], "t": e3[1], "variant": 0})
+		for v2: int in [1, 2, 3]:
+			_queue.append({"name": "spider_variant_%d" % v2, "spider": "idle" if v2 != 2 else "alert", "t": 0.6, "variant": v2})
+	if "mine" in _sets:
+		var wg4 := (_game().get("overworld_generator") as WorldGenerator)
+		# [nombre, cámara (local de la bocamina; y < 0 = sobre el terreno), objetivo (local), hora]
+		var mviews := [["mine_front", Vector3(12.5, -1.0, -9.0), Vector3(12.5, 3.0, 10.0), 16.5],
+				["mine_side", Vector3(-6.0, -1.0, -3.0), Vector3(13.0, 2.0, 9.0), 15.0],
+				["mine_camp", Vector3(13.0, 0.05, -1.0), Vector3(7.5, 0.8, 3.5), 17.5],
+				["mine_portal", Vector3(12.5, 0.05, 4.0), Vector3(12.5, 1.5, 15.0), 21.5]]
+		for v3: Array in mviews:
+			var lp3: Vector3 = v3[1]
+			var cam3 := wg4.planner.mine_local(Vector3(lp3.x, maxf(lp3.y, 0.0), lp3.z))
+			var tgt3 := wg4.planner.mine_local(v3[2])
+			var to3 := tgt3 - cam3
+			_queue.append({"name": v3[0], "pos": Vector3(cam3.x, -1.0 if lp3.y < 0.0 else cam3.y, cam3.z), "yaw": rad_to_deg(atan2(-to3.x, -to3.z)),
+					"pitch": rad_to_deg(atan2(to3.y - 1.6, Vector2(to3.x, to3.z).length())), "time": v3[3]})
+		_queue.append({"name": "mine_enter", "dungeon": "mina_hierronegro"})
+		_queue.append({"name": "mine_entrance_room", "dview": "entrance"})
+		_queue.append({"name": "mine_gallery", "dview": "corridor"})
+		_queue.append({"name": "mine_room", "dview": "room"})
+		_queue.append({"name": "mine_nest", "dview": "boss"})
 	if "armor" in _sets:
 		for o: Array in [["cloth", "bare", "shield"], ["leather", "leather_gloves", "shield"], ["chain", "gauntlets", "shield_iron"], ["robe", "bare", ""]]:
 			_queue.append({"name": "armor_%s_%s" % [o[0], o[1]], "armor": o})
@@ -206,8 +234,8 @@ func _process(_delta: float) -> void:
 			if hud:
 				hud.set_visible_hud("--hud" in OS.get_cmdline_user_args())
 		return
-	# En las vistas del campamento los bandidos no ven a la cámara
-	if "camp" in _sets:
+	# En las vistas del campamento y de la mina los enemigos no ven a la cámara
+	if "camp" in _sets or "mine" in _sets:
 		for en: Node in get_tree().get_nodes_in_group("enemies"):
 			en.set("target", null)
 	if _dungeon_wait:
@@ -237,6 +265,8 @@ func _setup_shot(shot: Dictionary) -> void:
 	# Modelos de vista previa solo en sus propias capturas
 	if _wolf:
 		_wolf.visible = shot.has("wolf")
+	if _spider:
+		_spider.visible = shot.has("spider")
 	if _preview:
 		_preview.visible = shot.has("enemy")
 	if not shot.has("ui"):
@@ -316,13 +346,34 @@ func _setup_shot(shot: Dictionary) -> void:
 				for i in dg.rooms.size():
 					if dg.rooms[i]["role"] == "treasure":
 						room_i = i
+			"room":
+				# La sala normal más grande (en la mina, con su entibado y su vagoneta)
+				var best_a := 0
+				for i2 in dg.rooms.size():
+					var rr: Rect2i = dg.rooms[i2]["rect"]
+					if dg.rooms[i2]["role"] == "room" and rr.get_area() > best_a:
+						best_a = rr.get_area()
+						room_i = i2
 		var rect: Rect2i = dg.rooms[room_i]["rect"]
 		var pos := Vector3(rect.get_center().x + 0.5, 20.05, rect.end.y - 1.0)
 		var yaw := 0.0
 		if str(shot["dview"]) == "corridor" and not dg.corridor_tiles.is_empty():
+			# Un tramo largo de galería, mirando a lo largo de ella
 			var t: Vector2i = dg.corridor_tiles[dg.corridor_tiles.size() / 2]
+			var best_run := 0
+			for c0: Vector2i in dg.corridor_tiles:
+				var run := 0
+				while dg.floor_tiles.has(c0 + Vector2i(-run - 1, 0)) and run < 12:
+					run += 1
+				var run_z := 0
+				while dg.floor_tiles.has(c0 + Vector2i(0, -run_z - 1)) and run_z < 12:
+					run_z += 1
+				if maxi(run, run_z) > best_run:
+					best_run = maxi(run, run_z)
+					t = c0
+			var along_x := dg.floor_tiles.has(t + Vector2i(-1, 0)) and dg.floor_tiles.has(t + Vector2i(1, 0))
 			pos = Vector3(t.x + 0.5, 20.05, t.y + 0.5)
-			yaw = 90.0
+			yaw = 90.0 if along_x else 0.0
 		p.teleport(pos, yaw)
 		p._pitch = deg_to_rad(4.0)
 		_wait = 12
@@ -368,6 +419,20 @@ func _setup_shot(shot: Dictionary) -> void:
 		_wolf_anim.play(str(shot["wolf"]), 0.0)
 		_wolf_anim.seek(float(shot["t"]), true)
 		_wolf_anim.pause()
+		_wait = 6
+	elif shot.has("spider"):
+		p.teleport(Vector3(2.5, 37.0, 3.5), -90.0)
+		p._pitch = deg_to_rad(-12.0)
+		p.viewmodel.visible = false
+		GameState.time_of_day = 13.0
+		var sv := int(shot["variant"])
+		_ensure_spider(sv)
+		var dist := 2.3 if sv != 2 else 4.6
+		_spider.global_position = p.global_position + Vector3(dist, 0, 0.2)
+		_spider.rotation.y = deg_to_rad(-70.0)
+		_spider_anim.play(str(shot["spider"]), 0.0)
+		_spider_anim.seek(float(shot["t"]), true)
+		_spider_anim.pause()
 		_wait = 6
 	elif shot.has("armor"):
 		p.teleport(Vector3(2.5, 37.0, 3.5), -60.0)
@@ -515,6 +580,30 @@ func _ensure_wolf(variant: int) -> void:
 	_wolf.add_child(_wolf_anim)
 	_wolf_anim.root_node = NodePath("..")
 	_wolf_anim.add_animation_library("", QuadrupedAnims.build_library())
+
+
+func _ensure_spider(variant: int) -> void:
+	if _spider and _spider_variant == variant:
+		return
+	if _spider:
+		_spider.queue_free()
+	_spider_variant = variant
+	_spider = Node3D.new()
+	_game().add_child(_spider)
+	var rig := Rig.arachnid()
+	var sk := rig.create_skeleton()
+	_spider.add_child(sk)
+	var sc: float = [1.0, 0.9, 2.1, 0.5][variant]
+	sk.scale = Vector3.ONE * sc
+	var mi := MeshInstance3D.new()
+	mi.mesh = CharacterModels.spider(variant).build_skinned_mesh(rig.bone_names(), ModelLibrary.model_material())
+	mi.skin = rig.create_skin()
+	sk.add_child(mi)
+	mi.skeleton = NodePath("..")
+	_spider_anim = AnimationPlayer.new()
+	_spider.add_child(_spider_anim)
+	_spider_anim.root_node = NodePath("..")
+	_spider_anim.add_animation_library("", ArachnidAnims.library())
 
 
 func _snap() -> void:

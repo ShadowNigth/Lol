@@ -27,16 +27,28 @@ const DUNGEONS := {
 		"boss": "wolf_alpha", "guards": "wolf", "boss_loot": "boss_den",
 		"minions": ["wolf"], "ranged_chance": 0.0, "difficulty": 1, "max_per_room": 1,
 	},
+	"mina_hierronegro": {
+		"name": "Mina de Hierronegro", "theme": "mine", "door": "la mina de Hierronegro",
+		"entry_key": "", "entry_hint": "",
+		"boss": "spider_queen", "guards": "spider", "boss_loot": "boss_mine", "room_loot": "mine",
+		"minions": ["spider", "spider_spitter"], "ranged_chance": 0.3, "difficulty": 2, "max_per_room": 2,
+	},
 }
 
-## Bloques por ambientación: muros (base, alternativo), suelos (base, alternativo), telarañas.
+## Bloques por ambientación: muros (base, alternativo), suelos (base,
+## alternativo), telarañas, sarcófagos y, en la mina: techo de roca
+## irregular, vetas de mineral, entibado de madera, raíles en las galerías,
+## lámparas de poste en vez de braseros y el nido de seda de la sala del jefe.
 const THEMES := {
 	"crypt": {"wall": B.DUNGEON_BRICK, "wall_alt": B.STONE, "floor": B.DUNGEON_FLOOR, "floor_alt": B.MOSS_STONE,
 			"cobwebs": true, "sarcophagi": true},
 	"barrow": {"wall": B.MOSSY_BRICK, "wall_alt": B.DIRT, "floor": B.COBBLE, "floor_alt": B.GRAVEL,
 			"cobwebs": true, "sarcophagi": true},
 	"cave": {"wall": B.STONE, "wall_alt": B.GRAVEL, "floor": B.GRAVEL, "floor_alt": B.DIRT,
-			"cobwebs": false, "sarcophagi": false},
+			"cobwebs": false, "sarcophagi": false, "rough_ceiling": true},
+	"mine": {"wall": B.STONE, "wall_alt": B.GRAVEL, "floor": B.GRAVEL, "floor_alt": B.DIRT,
+			"cobwebs": true, "sarcophagi": false, "rough_ceiling": true, "ore": true, "timber": true,
+			"rails": true, "lights": "mine_lamp", "nest": true},
 }
 
 

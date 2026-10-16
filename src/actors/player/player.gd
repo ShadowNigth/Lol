@@ -331,7 +331,7 @@ func _physics_process(delta: float) -> void:
 		speed *= 0.55
 	if _swimming:
 		speed = SWIM_SPEED
-	speed *= stats.move_speed_multiplier() * stats.slow_factor()
+	speed *= stats.move_speed_multiplier() * stats.slow_factor() * _cobweb_factor()
 	var over := GameState.carry_weight() - (60.0 + stats.attr("strength") * 1.2)
 	if over > 0.0:
 		speed *= clampf(1.0 - over / 40.0, 0.4, 1.0)
@@ -831,6 +831,16 @@ func _deliver_hit(target: Node, pos: Vector3, normal: Vector3, dir: Vector3) -> 
 	get_tree().create_timer(0.06, true, false, true).timeout.connect(func() -> void:
 		if is_instance_valid(viewmodel):
 			viewmodel.anim.speed_scale = 1.0)
+
+
+## Las telarañas (bloques) a la altura de las piernas o del pecho frenan el paso.
+func _cobweb_factor() -> float:
+	if world == null:
+		return 1.0
+	for h: float in [0.3, 1.1]:
+		if world.block_at(global_position + Vector3(0, h, 0)) == BlockTypes.COBWEB:
+			return 0.4
+	return 1.0
 
 
 ## Daño recibido de un ataque (con posibilidad de bloqueo o esquiva).

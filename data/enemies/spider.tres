@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/enemy_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "spider"
+display_name = "Araña de las minas"
+model = "spider"
+weapon_model = ""
+has_shield = false
+max_health = 40.0
+armor = 4.0
+damage_min = 5.0
+damage_max = 8.0
+damage_type = "pierce"
+attack_range = 1.5
+attack_cooldown = 1.15
+walk_speed = 1.7
+run_speed = 5.4
+detection_range = 14.0
+fov_degrees = 360.0
+hearing_range = 9.0
+block_chance = 0.0
+stagger_threshold = 6.0
+xp_reward = 22
+gold_min = 0
+gold_max = 0
+loot_table = "spider"
+hit_effect = "ichor"
+sound_alert = "spider_alert"
+sound_hurt = "spider_hurt"
+sound_death = "spider_death"
+sound_idle = "spider_idle"
+resist_slash = 0.05
+resist_blunt = -0.2
+resist_pierce = 0.1
+level = 2
+model_variant = 0
+body = "arachnid"
+eye_height = 0.5
+collision_radius = 0.42
+collision_height = 0.9
+attack1_hit = 0.38
+attack1_len = 0.8
+attack2_hit = 0.55
+attack2_len = 1.0
+attack1_chance = 0.7
+lunge_speed = 6.0
+pack_call = true
+flee_health = 0.0
+step_sound = "step_spider"
+respawn_days = 0
+attack_effect = "poison"
+effect_duration = 6.0
+effect_power = 2.0

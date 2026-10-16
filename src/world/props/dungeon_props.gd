@@ -306,7 +306,8 @@ class KeyPickup extends Area3D:
 		collision_mask = 0
 		monitoring = false
 		_mesh = MeshInstance3D.new()
-		_mesh.mesh = ModelLibrary.prop_mesh("key")
+		var is_book := str(ItemDB.get_def(item_id).get("category", "")) == "book"
+		_mesh.mesh = ModelLibrary.prop_mesh("book" if is_book else "key")
 		add_child(_mesh)
 		var cs := CollisionShape3D.new()
 		var sph := SphereShape3D.new()
@@ -362,3 +363,56 @@ class Exit extends StaticBody3D:
 		var game := player.get_tree().current_scene
 		if game and game.has_method("exit_dungeon"):
 			game.call("exit_dungeon")
+
+
+## Capullo de seda del nido de arañas: dentro queda lo que llevaba la víctima.
+## Se raja con [E] una sola vez (queda abierto también al volver).
+class Cocoon extends StaticBody3D:
+	var entity_id := ""
+	var loot := "cocoon"
+	var _mesh: MeshInstance3D
+
+	func setup(id: String, loot_table: String) -> void:
+		entity_id = id
+		loot = loot_table
+
+	func _ready() -> void:
+		collision_layer = 1 | 16
+		collision_mask = 0
+		_mesh = MeshInstance3D.new()
+		_mesh.mesh = ModelLibrary.prop_mesh("cocoon_torn" if GameState.is_looted(entity_id) else "cocoon")
+		add_child(_mesh)
+		var cs := CollisionShape3D.new()
+		var cap := CapsuleShape3D.new()
+		cap.radius = 0.32
+		cap.height = 1.75
+		cs.shape = cap
+		cs.position = Vector3(0, 0.88, 0)
+		add_child(cs)
+
+	func get_interaction_text() -> String:
+		if GameState.is_looted(entity_id):
+			return "Capullo de seda (rajado)"
+		return "[E] Rajar el capullo de seda"
+
+	func interact(player: Node) -> void:
+		if GameState.is_looted(entity_id):
+			return
+		GameState.mark_looted(entity_id)
+		_mesh.mesh = ModelLibrary.prop_mesh("cocoon_torn")
+		var at := global_position + Vector3(0, 1.0, 0)
+		Audio.play_3d("web_hit", at, 0.0)
+		HitFX.spawn(get_tree().current_scene, "web", at, -global_basis.z, 1.3)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(entity_id)
+		var found: Array[String] = []
+		var gold := LootTables.gold_for(loot, rng)
+		if gold > 0 and player and "gold" in player:
+			player.set("gold", int(player.get("gold")) + gold)
+			found.append("%d monedas de oro" % gold)
+			Audio.play_2d("gold", -4.0)
+		for item: Dictionary in LootTables.roll(loot, rng):
+			GameState.give_item(player, item)
+			var c := int(item.get("count", 1))
+			found.append(str(item["name"]) + (" x%d" % c if c > 1 else ""))
+		Events.notify.emit("Dentro del capullo: " + (", ".join(found) if not found.is_empty() else "solo huesos"), "item")

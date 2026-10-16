@@ -67,6 +67,8 @@ var look: Dictionary = {}          # aspecto humano (modelo "guard")
 var gear: Dictionary = {}          # equipo visible: arma y escudo
 var custom_name := ""
 var _guard_check := 0.0
+var _spit_cd := 2.0
+var _summons_done := 0
 
 
 func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, player: Player) -> void:
@@ -125,6 +127,9 @@ func _build_model() -> void:
 	add_child(_model_root)
 	if data.body == "quadruped":
 		_build_quadruped()
+		return
+	if data.body == "arachnid":
+		_build_arachnid()
 		return
 	var rig := Rig.humanoid()
 	skeleton = rig.create_skeleton()
@@ -203,6 +208,43 @@ func _build_quadruped() -> void:
 	anim_tree.root_node = NodePath("..")
 	anim_tree.add_animation_library("", lib)
 	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["alert", "attack_1", "attack_2", "hit", "stun", "death"]))
+	anim_tree.active = true
+	playback = anim_tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
+
+
+## Cuerpo de arácnido (arañas): ocho patas animadas por el esqueleto; la malla
+## se comparte entre las arañas de la misma variante (el material, propio de
+## cada una, permite el destello al recibir golpes).
+static var _arachnid_meshes: Dictionary = {}
+
+
+func _build_arachnid() -> void:
+	var rig := Rig.arachnid()
+	skeleton = rig.create_skeleton()
+	_model_root.add_child(skeleton)
+	_model_root.scale = Vector3.ONE * data.model_scale
+	var variant := data.model_variant
+	if variant < 0:
+		variant = _variant if _variant >= 0 else 0
+	var mesh: ArrayMesh = _arachnid_meshes.get(variant, null)
+	if mesh == null:
+		mesh = CharacterModels.spider(variant).build_skinned_mesh(rig.bone_names(), ModelLibrary.model_material())
+		_arachnid_meshes[variant] = mesh
+	_material = ModelLibrary.unique_model_material()
+	var mi := MeshInstance3D.new()
+	mi.name = "Body"
+	mi.mesh = mesh
+	mi.material_override = _material
+	mi.skin = rig.create_skin()
+	skeleton.add_child(mi)
+	mi.skeleton = NodePath("..")
+	var lib := ArachnidAnims.library()
+	anim_tree = AnimationTree.new()
+	anim_tree.name = "AnimationTree"
+	_model_root.add_child(anim_tree)
+	anim_tree.root_node = NodePath("..")
+	anim_tree.add_animation_library("", lib)
+	anim_tree.tree_root = HumanoidAnims.build_tree(lib, PackedStringArray(["alert", "attack_1", "attack_2", "shoot", "hit", "stun", "death"]))
 	anim_tree.active = true
 	playback = anim_tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
 
@@ -552,9 +594,16 @@ func _chase_step(delta: float) -> Vector3:
 	_face_target(delta, 7.0)
 	if data.ranged:
 		return _ranged_step(dist, flat)
-	# ¿Atacar?
+	# ¿Escupir seda desde lejos? (la reina de las arañas)
 	var fwd := -global_basis.z
 	var facing := fwd.dot(flat.normalized()) > 0.85
+	_spit_cd = maxf(_spit_cd - delta, 0.0)
+	if data.spit_range > 0.0 and _spit_cd <= 0.0 and _attack_cd <= 0.0 and facing and dist > data.attack_range + 1.5 \
+			and dist < data.spit_range and _line_of_sight():
+		_spit_cd = data.spit_cooldown * _rng.randf_range(0.8, 1.3)
+		_begin_shot()
+		return Vector3.ZERO
+	# ¿Atacar?
 	if dist < data.attack_range and facing and _attack_cd <= 0.0 and absf(d.y) < 1.6:
 		_begin_attack()
 		return Vector3.ZERO
@@ -581,13 +630,7 @@ func _ranged_step(dist: float, flat: Vector3) -> Vector3:
 		_desired_speed = data.walk_speed * 1.6
 		return _steer(-flat)
 	if dist < data.attack_range and _attack_cd <= 0.0 and _line_of_sight():
-		_set_state(State.ATTACK)
-		_attack_done = false
-		_attack_name = "shoot"
-		_attack_hit_time = 0.85
-		_attack_len = 1.3
-		playback.travel("shoot")
-		Audio.play_3d("bow_draw", global_position + Vector3(0, 1.4, 0), -4.0)
+		_begin_shot()
 		return Vector3.ZERO
 	if (dist > data.attack_range * 0.8 or not _line_of_sight()) and not hold_position:
 		_desired_speed = data.run_speed
@@ -598,18 +641,40 @@ func _ranged_step(dist: float, flat: Vector3) -> Vector3:
 	return Vector3.ZERO
 
 
-func _shoot_arrow() -> void:
+## Ataque a distancia: tensa el arco o se encabrita para escupir seda.
+func _begin_shot() -> void:
+	_set_state(State.ATTACK)
+	_attack_done = false
+	_attack_name = "shoot"
+	_attack_hit_time = data.shoot_hit
+	_attack_len = data.shoot_len
+	playback.travel("shoot")
+	if data.projectile_kind == "arrow":
+		Audio.play_3d("bow_draw", global_position + Vector3(0, 1.4, 0), -4.0)
+	else:
+		Audio.play_3d(data.sound_alert, _voice_pos(), -6.0)
+
+
+func _shoot_projectile() -> void:
 	if target == null:
 		return
+	var web := data.projectile_kind == "web"
 	var from := global_position + Vector3(0, 1.45, 0) + (-global_basis.z) * 0.6
+	if web:
+		# La seda sale de los quelíceros, delante del cefalotórax
+		from = global_position + Vector3(0, data.eye_height * data.model_scale, 0) + (-global_basis.z) * 0.45 * data.model_scale
+	var speed := data.projectile_speed
+	var grav := Projectile.gravity_for(data.projectile_kind)
 	var aim := target.global_position + Vector3(0, 1.2, 0)
-	var t := from.distance_to(aim) / data.projectile_speed
+	var t := from.distance_to(aim) / speed
 	aim += target.velocity * t * 0.8
-	aim.y += 0.5 * 9.8 * t * t
+	aim.y += 0.5 * grav * t * t
 	var dir := (aim - from).normalized()
 	var dmg := _rng.randf_range(data.damage_min, data.damage_max)
-	Projectile.spawn(get_tree().current_scene, "arrow", from, dir * data.projectile_speed, dmg, self)
-	Audio.play_3d("bow_release", from, -2.0)
+	if not data.ranged:
+		dmg = data.spit_damage
+	Projectile.spawn(get_tree().current_scene, data.projectile_kind, from, dir * speed, dmg, self)
+	Audio.play_3d("bow_release" if not web else "web_spit", from, -2.0)
 
 
 func _begin_attack() -> void:
@@ -624,7 +689,7 @@ func _begin_attack() -> void:
 		_attack_hit_time = data.attack2_hit
 		_attack_len = data.attack2_len
 	playback.travel(_attack_name)
-	var quad := data.body == "quadruped"
+	var quad := data.body != "humanoid"
 	get_tree().create_timer(_attack_hit_time * 0.7).timeout.connect(func() -> void:
 		if state == State.ATTACK and is_instance_valid(self):
 			if quad:
@@ -646,8 +711,8 @@ func _attack_step(delta: float) -> Vector3:
 		_desired_speed = data.lunge_speed
 	if not _attack_done and _state_t >= _attack_hit_time:
 		_attack_done = true
-		if data.ranged:
-			_shoot_arrow()
+		if data.ranged or _attack_name == "shoot":
+			_shoot_projectile()
 		else:
 			_resolve_attack_hit()
 	if _state_t >= _attack_len:
@@ -679,7 +744,7 @@ func _resolve_attack_hit() -> void:
 	if dist > data.attack_range + 0.45 or angle > 55.0 or absf(d.y) > 1.7 or not _line_of_sight():
 		return
 	var dmg := _rng.randf_range(data.damage_min, data.damage_max) * (1.0 + (data.level - 1) * 0.15)
-	if data.body == "quadruped":
+	if data.body != "humanoid":
 		Audio.play_3d("bite", _voice_pos(), 0.0)
 	var info := {"attacker": self, "damage_type": data.damage_type, "position": global_position + Vector3(0, 1.3, 0)}
 	var result := target.take_hit(dmg, info)
@@ -692,6 +757,12 @@ func _resolve_attack_hit() -> void:
 		"hit":
 			Audio.play_3d("hit_flesh", target.global_position + Vector3(0, 1.3, 0), 0.0)
 			HitFX.spawn(get_tree().current_scene, "blood", target.global_position + Vector3(0, 1.3, 0) - flat.normalized() * 0.3, -flat.normalized(), 0.7)
+			# Mordedura venenosa (arañas): el estado alterado solo entra si el golpe acierta
+			if data.attack_effect != "" and data.effect_duration > 0.0:
+				var had := target.stats.effects.has(data.attack_effect)
+				target.stats.add_effect(data.attack_effect, data.effect_duration, data.effect_power)
+				if not had and target.stats.effects.has(data.attack_effect):
+					Events.notify.emit("¡%s!" % str(Stats.EFFECT_NAMES.get(data.attack_effect, data.attack_effect)), "combat")
 
 
 func _begin_block(duration: float) -> void:
@@ -757,6 +828,10 @@ func take_hit(amount: float, info: Dictionary) -> String:
 		_die(info)
 		return "killed"
 	Audio.play_3d(data.sound_hurt, _voice_pos(), -4.0)
+	if data.summon != "" and _summons_done < data.summon_thresholds.size() and health_ratio() < data.summon_thresholds[_summons_done]:
+		_summons_done += 1
+		_summon_brood()
+		return "hit"
 	if data.flee_health > 0.0 and not _fled and health_ratio() < data.flee_health and state != State.ATTACK:
 		_fled = true
 		_set_state(State.FLEE)
@@ -777,6 +852,25 @@ func take_hit(amount: float, info: Dictionary) -> String:
 		if _rng.randf() < 0.6:
 			_attack_cd = 0.0
 	return "hit"
+
+
+## Llama a sus crías (la reina de las arañas): chilla, se encabrita y unas
+## cuantas salen de los rincones a su alrededor. Son enemigos normales que se
+## liberan con el chunk (no se guardan en la partida).
+func _summon_brood() -> void:
+	_set_state(State.ALERT)
+	playback.travel("alert")
+	Audio.play_3d(data.sound_alert, _voice_pos(), 3.0)
+	var spawner := get_parent() as EntitySpawner
+	if spawner == null:
+		return
+	for k in data.summon_count:
+		var a := TAU * k / maxf(data.summon_count, 1) + _rng.randf_range(-0.4, 0.4)
+		var pos := global_position + Vector3(cos(a), 0, sin(a)) * 2.6 * data.model_scale * 0.6
+		var e := spawner.spawn_summon(data.summon, pos, rad_to_deg(a), "%s/brood_%d_%d" % [entity_id, _summons_done, k])
+		if e:
+			e.make_aware()
+	Events.notify.emit("¡%s llama a sus crías!" % display_name(), "combat")
 
 
 ## El guardia vuelve a ser PNJ: ya no hay deudas ni resistencia, o ha

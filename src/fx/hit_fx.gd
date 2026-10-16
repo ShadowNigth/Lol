@@ -90,6 +90,25 @@ static func spawn(parent: Node, kind: String, pos: Vector3, normal: Vector3 = Ve
 			p.gravity = Vector3(0, 2.0, 0)
 			life = 0.6
 			p.color = Color(1, 0.5, 0.15)
+		"ichor":
+			# Icor de araña: verde amarillento y espeso
+			p.mesh = _cube_mesh(Color(0.55, 0.62, 0.12), false, 0.035)
+			p.amount = 16
+			p.spread = 60.0
+			p.initial_velocity_min = 1.0
+			p.initial_velocity_max = 3.2
+			life = 0.75
+			p.color = Color(0.6, 0.68, 0.15)
+		"web":
+			# Hebras de seda que se esparcen y caen despacio
+			p.mesh = _cube_mesh(Color(0.9, 0.9, 0.88), false, 0.04)
+			p.amount = 18
+			p.spread = 90.0
+			p.initial_velocity_min = 0.6
+			p.initial_velocity_max = 2.2
+			p.gravity = Vector3(0, -2.0, 0)
+			life = 0.9
+			p.color = Color(0.92, 0.92, 0.9)
 		"heal":
 			p.mesh = _cube_mesh(Color(0.5, 1.0, 0.5), true, 0.03)
 			p.amount = 18

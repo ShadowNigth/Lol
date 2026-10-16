@@ -22,12 +22,15 @@ var _shot_index := 0
 var _return_ref := Vector3.ZERO
 var _hits_start := 0
 var _wolf_min_hp := 0.0
+var _from := ""          # --from=mine: salta directamente a las pruebas de la mina (desarrollo)
 
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args() + OS.get_cmdline_args():
 		if a.begins_with("--shots="):
 			_shots_dir = a.substr(8)
+		elif a.begins_with("--from="):
+			_from = a.substr(7)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	call_deferred("_reparent_and_start")
 
@@ -98,6 +101,11 @@ func _process(delta: float) -> void:
 				else:
 					_note("Jugador en el suelo, y=%.2f" % p.global_position.y)
 				_shot("spawn")
+				if _from == "mine":
+					_test_spider_assets()
+					_go_mine()
+					_next("mine_arrive")
+					return
 				_next("npcs")
 		"npcs":
 			if _t > 1.5:
@@ -330,7 +338,7 @@ func _process(delta: float) -> void:
 				_note("Mazmorra '%s' generada: %d salas, verificada: %s, entrada %d, jefe %d" % [dg.display_name, dg.rooms.size(), dg.verified, dg.entrance_index, dg.boss_index])
 				if not dg.verified:
 					_fail("La mazmorra no superó la verificación de conectividad")
-				if not p.is_on_floor():
+				if not p.is_on_floor() or absf(p.global_position.y - DungeonGenerator.FLOOR_Y) > 0.6:
 					_fail("El jugador no está sobre el suelo de la mazmorra (y=%.2f)" % p.global_position.y)
 				var boss_rect: Rect2i = dg.rooms[dg.boss_index]["rect"]
 				var path := dg.find_path(p.global_position, Vector3(boss_rect.get_center().x + 0.5, 20, boss_rect.get_center().y + 0.5))
@@ -679,6 +687,36 @@ func _process(delta: float) -> void:
 				_test_escort_arrival(p)
 			elif _t > 45.0:
 				_fail("Robledal no terminó de cargar (escolta)")
+				_finish()
+		"mine_arrive":
+			var wm := _game().get("world") as VoxelWorld
+			if p.stats.health < p.stats.max_health * 0.5:
+				p.stats.heal(60.0)
+			if _t > 3.0 and wm.is_chunk_loaded_at(p.global_position) and wm.pending_task_count() == 0:
+				_test_mine_outside(p)
+			elif _t > 45.0:
+				_fail("La bocamina no terminó de cargar")
+				_finish()
+		"mine_poison":
+			_mine_poison_step(p)
+		"mine_fight":
+			_mine_fight_step(p, delta)
+		"in_mine":
+			if bool(_game().call("is_world_ready")) and _t > 2.5:
+				_test_mine_inside(p)
+			elif _t > 60.0:
+				_fail("La mina no terminó de cargar")
+				_finish()
+		"mine_web":
+			_mine_web_step(p)
+		"mine_boss":
+			if _t > 2.5:
+				_test_mine_boss(p)
+		"mine_exit":
+			if bool(_game().call("is_world_ready")) and _t > 1.5:
+				_test_mine_reward(p)
+			elif _t > 60.0:
+				_fail("No se pudo salir de la mina")
 				_finish()
 		"reload":
 			if p and _game().has_method("is_world_ready") and bool(_game().call("is_world_ready")) and _t > 1.0:
@@ -1376,6 +1414,308 @@ func _test_escort_arrival(p: Player) -> void:
 	var flags: Dictionary = (data["world_changes"] as Dictionary).get("flags", {})
 	if not flags.has("anselmo_escolta") or not flags.has("anselmo_llego"):
 		_fail("Las banderas de la escolta no se guardan")
+	_test_spider_assets()
+	_go_mine()
+	_next("mine_arrive")
+
+
+# ---------------------------------------------------------------------------
+# Mina de Hierronegro: arañas, veneno, seda, la reina y la misión de Garin
+# ---------------------------------------------------------------------------
+
+## Modelo, esqueleto y animaciones de las arañas (sin escena).
+func _test_spider_assets() -> void:
+	var rig := Rig.arachnid()
+	var names := rig.bone_names()
+	var verts := 0
+	for v in 4:
+		var mesh := CharacterModels.spider(v).build_skinned_mesh(names, ModelLibrary.model_material())
+		if mesh.get_surface_count() > 0:
+			verts += (mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+	var lib := ArachnidAnims.library()
+	var missing: Array[String] = []
+	for an: StringName in lib.get_animation_list():
+		var a := lib.get_animation(an)
+		for ti in a.get_track_count():
+			var bone := str(a.track_get_path(ti)).get_slice(":", 1)
+			if not names.has(bone) and not missing.has(bone):
+				missing.append(bone)
+	var want := ["idle", "walk", "run", "alert", "attack_1", "attack_2", "shoot", "hit", "stun", "death"]
+	var have := 0
+	for w: String in want:
+		if lib.has_animation(w):
+			have += 1
+	_note("Arañas: esqueleto de %d huesos, 4 variantes con %d vértices, animaciones %d/%d, pistas sin hueso: %s" % [names.size(), verts, have, want.size(), missing])
+	if names.size() != 31 or verts < 4000 or have != want.size() or not missing.is_empty():
+		_fail("El modelo o las animaciones de las arañas están incompletos")
+
+
+func _mine_planner() -> StructurePlanner:
+	return (_game().get("overworld_generator") as WorldGenerator).planner
+
+
+func _go_mine() -> void:
+	var pl := _mine_planner()
+	var at := pl.mine_local(Vector3(12.5, 0.2, 1.5))
+	var look := pl.mine_local(Vector3(12.5, 0.0, 9.0)) - at
+	_player().teleport(at, rad_to_deg(atan2(-look.x, -look.z)))
+
+
+func _test_mine_outside(p: Player) -> void:
+	var pl := _mine_planner()
+	var site := {}
+	for st: Dictionary in pl.sites:
+		if st["id"] == "mina_hierronegro":
+			site = st
+	var w := _game().get("world") as VoxelWorld
+	var rail := w.block_at(pl.mine_local(Vector3(12.5, 0.1, 4.5)))
+	var ore := 0
+	for k in 40:
+		var b := w.block_at(pl.mine_local(Vector3(4.5 + k % 16, 1.5 + k / 16, 13.5)))
+		if b == BlockTypes.IRON_ORE:
+			ore += 1
+	var entrance: DungeonEntrance = null
+	var props := {}
+	for n in (_game().get("spawner") as Node).get_children():
+		if n is DungeonEntrance and (n as DungeonEntrance).dungeon_id == "mina_hierronegro":
+			entrance = n
+	var spiders: Array[Enemy] = []
+	for e: Node in get_tree().get_nodes_in_group("enemies"):
+		if (e as Enemy).data.id == "spider":
+			spiders.append(e)
+	var tob := _find_npc("tobias")
+	var pos := pl.mine_local(Vector3(12.5, 0, 12.5))
+	_note("Mina de Hierronegro en %s (%.0f m del castillo), raíles en la bocamina: %s, entrada: %s, Tobías: %s, arañas fuera: %d" % [
+			site.get("pos", Vector2.ZERO), (site.get("pos", Vector2.ZERO) as Vector2).distance_to(Vector2(pl.castle_origin.x, pl.castle_origin.z)),
+			rail == BlockTypes.RAIL or rail == BlockTypes.RAIL + 1, entrance != null, tob != null, spiders.size()])
+	if site.is_empty() or entrance == null or tob == null or not (rail == BlockTypes.RAIL or rail == BlockTypes.RAIL + 1):
+		_fail("La bocamina de Hierronegro está incompleta")
+	var _u := [ore, props, pos]
+	_shot("mine_entrance")
+	# Misión de Garin: aceptar y hablar con Tobías
+	if QuestManager.can_offer("hierro_penalba"):
+		QuestManager.accept("hierro_penalba")
+	var res := QuestManager.on_talk("tobias")
+	_note("Hierro para Peñalba: aceptada %s, Tobías: «%s» · etapa: %s" % [QuestManager.is_active("hierro_penalba"),
+			str(res[0].get("say", "")).substr(0, 40) + "..." if not res.is_empty() else "(nada)", QuestManager.stage_text("hierro_penalba")])
+	if not QuestManager.is_active("hierro_penalba") or int(GameState.quests["hierro_penalba"]["stage"]) != 1:
+		_fail("La misión de la mina no avanzó al hablar con Tobías")
+	# Una araña de la bocamina muerde al jugador (sin bloquear): veneno
+	p.stats.heal(p.stats.max_health)
+	_enemy = null
+	if not spiders.is_empty():
+		_enemy = spiders[0]
+		for sp2 in spiders:
+			sp2.make_aware()
+	_next("mine_poison")
+
+
+func _mine_poison_step(p: Player) -> void:
+	var sp := _enemy as Enemy
+	if p.stats.health < p.stats.max_health * 0.4:
+		p.stats.heal(60.0)
+	if sp == null or not is_instance_valid(sp):
+		_fail("No hay arañas en la bocamina para probar el veneno")
+		_enter_mine(p)
+		return
+	var to := sp.global_position - p.global_position
+	to.y = 0.0
+	p._yaw = atan2(-to.x, -to.z)
+	if p.stats.effects.has("poison"):
+		var hp := p.stats.health
+		_note("Mordedura de araña tras %.1f s: estado «%s» (potencia %.1f/s), salud %.0f; la araña %s" % [_t,
+				Stats.EFFECT_NAMES["poison"], float(p.stats.effects["poison"]["power"]), hp, sp.data.display_name])
+		GameState.give_item(p, {"id": "potion_cure", "count": 1})
+		GameState.use_item(p, "potion_cure")
+		_note("Antídoto: veneno curado %s" % (not p.stats.effects.has("poison")))
+		if p.stats.effects.has("poison"):
+			_fail("El antídoto no cura el veneno")
+		_shot("spider_bite")
+		# Ahora a espadazos: impactos reales contra un cuerpo bajo y ancho
+		_hits_start = p.stat_hits
+		_attacks = 0
+		_next("mine_fight")
+	elif _t > 25.0:
+		_fail("Ninguna araña envenenó al jugador en 25 s")
+		_enter_mine(p)
+
+
+func _mine_fight_step(p: Player, delta: float) -> void:
+	var sp := _enemy as Enemy
+	if p.stats.health < p.stats.max_health * 0.4:
+		p.stats.heal(60.0)
+	p.stats.clear_effect("poison")
+	if sp == null or not is_instance_valid(sp):
+		_fail("La araña desapareció durante el combate")
+		_enter_mine(p)
+		return
+	var tb := sp.global_position - p.global_position
+	tb.y = 0.0
+	p._yaw = atan2(-tb.x, -tb.z)
+	p._pitch = deg_to_rad(-14.0)
+	if tb.length() > 1.6:
+		Input.action_press("move_forward")
+	else:
+		Input.action_release("move_forward")
+	if fmod(_t, 0.7) < delta and tb.length() < 2.4:
+		Input.action_press("attack")
+		_attacks += 1
+	else:
+		Input.action_release("attack")
+	if not sp.is_alive():
+		Input.action_release("move_forward")
+		Input.action_release("attack")
+		var silk0 := GameState.item_count("spider_silk") + GameState.item_count("spider_venom")
+		sp.interact(p)
+		_note("Araña abatida a espadazos: %d ataques, %d impactos en %.1f s; despojos %d -> %d" % [_attacks, p.stat_hits - _hits_start, _t,
+				silk0, GameState.item_count("spider_silk") + GameState.item_count("spider_venom")])
+		for e: Node in get_tree().get_nodes_in_group("enemies"):
+			var en := e as Enemy
+			if en.is_alive():
+				en.take_hit(9999.0, {"attacker": p, "damage_type": "blunt"})
+		_enter_mine(p)
+	elif _t > 40.0:
+		Input.action_release("move_forward")
+		Input.action_release("attack")
+		_fail("Combate con la araña demasiado largo: vida %.0f/%.0f, impactos %d" % [sp.stats.health, sp.stats.max_health, p.stat_hits - _hits_start])
+		_enter_mine(p)
+
+
+func _enter_mine(p: Player) -> void:
+	p.stats.heal(p.stats.max_health)
+	_return_ref = p.global_position
+	_game().call("enter_dungeon", "mina_hierronegro", "selftest_mine")
+	_next("in_mine")
+
+
+func _test_mine_inside(p: Player) -> void:
+	var dg := _game().get("generator") as DungeonGenerator
+	var kinds := {}
+	for e: Node in get_tree().get_nodes_in_group("enemies"):
+		var en := e as Enemy
+		kinds[en.data.id] = int(kinds.get(en.data.id, 0)) + 1
+	var types := {}
+	for e2: Dictionary in dg.entities:
+		types[str(e2["type"])] = int(types.get(str(e2["type"]), 0)) + 1
+	var w := _game().get("world") as VoxelWorld
+	var rails := 0
+	for t: Vector2i in dg.rail_tiles:
+		var b := w.block_at(Vector3(t.x + 0.5, DungeonGenerator.FLOOR_Y + 0.1, t.y + 0.5))
+		if b == BlockTypes.RAIL or b == BlockTypes.RAIL + 1:
+			rails += 1
+	var boss := false
+	for e3: Dictionary in dg.entities:
+		if str(e3.get("enemy", "")) == "spider_queen":
+			boss = true
+	_note("Mina '%s' (verificada %s): enemigos %s, jefa en el plano %s, raíles %d/%d, vigas %d, postes %d, entidades %s; misión: %s" % [
+			dg.display_name, dg.verified, kinds, boss, rails, dg.rail_tiles.size(), dg.timber_beams.size(), dg.timber_posts.size(),
+			types, QuestManager.stage_text("hierro_penalba")])
+	if not dg.verified or not boss or dg.rail_tiles.is_empty() or dg.timber_beams.is_empty() or not types.has("mine_lamp"):
+		_fail("La mina no se generó con sus galerías, raíles, entibado o la reina")
+	if absf(p.global_position.y - DungeonGenerator.FLOOR_Y) > 0.6:
+		_fail("El jugador no aparece sobre el suelo de la mina (y=%.2f)" % p.global_position.y)
+	if int(GameState.quests["hierro_penalba"]["stage"]) != 2:
+		_fail("Entrar en la mina no avanzó la misión")
+	_shot("mine_inside")
+	# Una escupidora a unos metros: la seda enreda (ralentiza)
+	var sp := _game().get("spawner") as EntitySpawner
+	var er: Rect2i = dg.rooms[dg.entrance_index]["rect"]
+	_enemy = sp.spawn_summon("spider_spitter", Vector3(er.position.x + er.size.x * 0.5 + 1.0, DungeonGenerator.FLOOR_Y, er.position.y + 1.0), 180.0,
+			"selftest/spitter")
+	if _enemy:
+		(_enemy as Enemy).hold_position = true
+		(_enemy as Enemy).make_aware()
+	_next("mine_web")
+
+
+func _mine_web_step(p: Player) -> void:
+	var sp := _enemy as Enemy
+	if p.stats.health < p.stats.max_health * 0.4:
+		p.stats.heal(60.0)
+	if sp == null or not is_instance_valid(sp):
+		_fail("No se pudo crear la araña escupidora")
+		_go_mine_boss(p)
+		return
+	var to := sp.global_position - p.global_position
+	to.y = 0.0
+	p._yaw = atan2(-to.x, -to.z)
+	if fmod(_t, 4.0) < get_process_delta_time():
+		_note("  (escupidora: estado %d, alerta %s, visión %s, a %.1f m, pos %s, jugador %s)" % [sp.state, sp.is_aware(), sp._line_of_sight(),
+				to.length(), sp.global_position, p.global_position])
+	if p.stats.effects.has("web"):
+		_note("Escupitajo de seda tras %.1f s: «%s», velocidad x%.2f" % [_t, Stats.EFFECT_NAMES["web"], p.stats.slow_factor()])
+		if p.stats.slow_factor() >= 0.99:
+			_fail("La seda no ralentiza al jugador")
+		sp.take_hit(9999.0, {"attacker": p, "damage_type": "blunt"})
+		_go_mine_boss(p)
+	elif _t > 25.0:
+		_fail("La araña escupidora no alcanzó al jugador con su seda en 25 s (estado %d)" % sp.state)
+		_go_mine_boss(p)
+
+
+func _go_mine_boss(p: Player) -> void:
+	var dg := _game().get("generator") as DungeonGenerator
+	var brect: Rect2i = dg.rooms[dg.boss_index]["rect"]
+	p.stats.heal(p.stats.max_health)
+	p.teleport(Vector3(brect.get_center().x + 0.5, DungeonGenerator.FLOOR_Y + 0.1, brect.end.y - 1.5), 0.0)
+	_next("mine_boss")
+
+
+func _test_mine_boss(p: Player) -> void:
+	var queen: Enemy = null
+	for e: Node in get_tree().get_nodes_in_group("enemies"):
+		if (e as Enemy).data.id == "spider_queen":
+			queen = e
+	if queen == null:
+		_fail("La Reina Tejedora no apareció en su nido")
+		_game().call("exit_dungeon")
+		_next("mine_exit")
+		return
+	_shot("mine_nest")
+	var brood := func() -> int:
+		var n := 0
+		for e2: Node in get_tree().get_nodes_in_group("enemies"):
+			if (e2 as Enemy).data.id == "spiderling" and (e2 as Enemy).is_alive():
+				n += 1
+		return n
+	var b0: int = brood.call()
+	queen.take_hit(queen.stats.max_health * 0.4, {"attacker": p, "damage_type": "blunt", "stagger": 0.0})
+	var b1: int = brood.call()
+	queen.take_hit(queen.stats.max_health * 0.35, {"attacker": p, "damage_type": "blunt", "stagger": 0.0})
+	var b2: int = brood.call()
+	var res := ""
+	var guard := 0
+	while queen.is_alive() and guard < 20:
+		res = queen.take_hit(9999.0, {"attacker": p, "damage_type": "blunt"})
+		guard += 1
+	queen.interact(p)
+	_note("Reina Tejedora (escala %.1f): crías %d -> %d -> %d al bajar del 66%% y del 33%%; muerta: %s; colmillo: %d; bandera mina_limpia: %s; misión: %s" % [
+			queen.data.model_scale, b0, b1, b2, not queen.is_alive(), GameState.item_count("queen_fang"), GameState.has_flag("mina_limpia"),
+			QuestManager.stage_text("hierro_penalba")])
+	if b1 <= b0 or b2 <= b1:
+		_fail("La reina no llamó a sus crías al ser herida")
+	if queen.is_alive() or GameState.item_count("queen_fang") < 1 or not GameState.has_flag("mina_limpia"):
+		_fail("La muerte de la reina no se registró (botín o bandera)")
+	_game().call("exit_dungeon")
+	_next("mine_exit")
+
+
+func _test_mine_reward(p: Player) -> void:
+	var gold0 := p.gold
+	var rep0 := GameState.reputation("penalba")
+	var res := QuestManager.on_talk("garin")
+	var arms: Array[String] = []
+	for w0: WeaponData in p.weapons:
+		arms.append(w0.id)
+	_note("Garin: «%s» · misión completada %s · oro %d -> %d · armas %s · reputación Peñalba %d -> %d" % [
+			str(res[0].get("say", "")).substr(0, 40) + "..." if not res.is_empty() else "(nada)", QuestManager.is_done("hierro_penalba"),
+			gold0, p.gold, arms, rep0, GameState.reputation("penalba")])
+	var sword := false
+	for w: WeaponData in p.weapons:
+		if w.id == "sword_penalba":
+			sword = true
+	if not QuestManager.is_done("hierro_penalba") or not sword or p.gold < gold0 + 180:
+		_fail("La misión de la mina no terminó con su recompensa")
 	_finish()
 
 

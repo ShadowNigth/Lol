@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/enemy_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "spider_spitter"
+display_name = "Araña escupidora"
+model = "spider"
+weapon_model = ""
+has_shield = false
+max_health = 30.0
+armor = 2.0
+damage_min = 3.0
+damage_max = 5.0
+damage_type = "pierce"
+attack_range = 13.0
+attack_cooldown = 2.4
+walk_speed = 1.5
+run_speed = 4.6
+detection_range = 15.0
+fov_degrees = 360.0
+hearing_range = 9.0
+block_chance = 0.0
+stagger_threshold = 5.0
+xp_reward = 24
+gold_min = 0
+gold_max = 0
+loot_table = "spider_spitter"
+hit_effect = "ichor"
+sound_alert = "spider_alert"
+sound_hurt = "spider_hurt"
+sound_death = "spider_death"
+sound_idle = "spider_idle"
+resist_slash = 0.0
+resist_blunt = -0.2
+resist_pierce = 0.0
+level = 2
+model_scale = 0.9
+model_variant = 1
+ranged = true
+projectile_speed = 15.0
+body = "arachnid"
+eye_height = 0.5
+collision_radius = 0.42
+collision_height = 0.9
+attack1_hit = 0.38
+attack1_len = 0.8
+attack2_hit = 0.55
+attack2_len = 1.0
+attack1_chance = 1.0
+pack_call = true
+step_sound = "step_spider"
+respawn_days = 0
+projectile_kind = "web"
+shoot_hit = 0.55
+shoot_len = 1.0

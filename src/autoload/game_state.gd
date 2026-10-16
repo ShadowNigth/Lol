@@ -324,6 +324,8 @@ func use_item(p: Node, id: String) -> bool:
 		stats.restore_stamina(float(fx["stamina"]))
 	if fx.has("mana"):
 		stats.restore_mana(float(fx["mana"]))
+	if fx.has("cure") and stats.clear_effect(str(fx["cure"])):
+		Events.notify.emit("El veneno deja de arderte en las venas.", "info")
 	remove_item(id, 1)
 	Audio.play_2d("drink" if str(def.get("category", "")) == "potion" else "eat", -3.0)
 	Events.notify.emit("Usas: %s" % def["name"], "item")

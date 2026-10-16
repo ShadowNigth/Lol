@@ -9,9 +9,9 @@ var _by_chunk: Dictionary = {}   # Vector2i -> Array[Node]
 var _enemy_data_cache: Dictionary = {}
 
 const STATIC_PROPS := ["barrel", "crate", "table", "chair", "bed", "anvil", "bucket", "goods", "hay_cart", "banner", "sign",
-		"bedroll", "log_seat", "sack", "throne", "training_dummy"]
+		"bedroll", "log_seat", "sack", "throne", "training_dummy", "minecart", "ore_pile", "pickaxe"]
 ## Props decorativos que no bloquean el paso.
-const NO_COLLISION_PROPS := ["banner", "sign", "bones", "bedroll"]
+const NO_COLLISION_PROPS := ["banner", "sign", "bones", "bedroll", "pickaxe"]
 
 
 func setup(voxel_world: VoxelWorld, p: Player) -> void:
@@ -243,6 +243,33 @@ func _spawn(e: Dictionary) -> Node:
 			return br
 		"pillar", "sarcophagus", "bones":
 			return _spawn_static_prop(type, pos, yaw, e)
+		"mine_lamp":
+			# Poste de mina con farol colgante (luz cálida y algo temblorosa)
+			var ml := _spawn_static_prop("mine_lamp", pos, yaw, e)
+			var mll := TorchLight.new()
+			mll.position = Vector3(0.37, 1.4, -0.06)
+			mll.omni_range = 6.5
+			mll.base_energy = 1.2
+			ml.add_child(mll)
+			return ml
+		"egg_sac":
+			# Huevos de araña: un resplandor verdoso muy tenue en el nido
+			var eg := _spawn_static_prop("egg_sac", pos, yaw, e)
+			var egl := OmniLight3D.new()
+			egl.light_color = Color(0.7, 1.0, 0.45)
+			egl.omni_range = 3.2
+			egl.light_energy = 0.55
+			egl.position = Vector3(0, 0.45, 0)
+			egl.shadow_enabled = false
+			eg.add_child(egl)
+			return eg
+		"cocoon":
+			var cc := DungeonProps.Cocoon.new()
+			cc.setup(id, str(e.get("loot", "cocoon")))
+			add_child(cc)
+			cc.global_position = pos
+			cc.rotation.y = yaw
+			return cc
 		"castle_portcullis":
 			# Rastrillo alzado en la boca de la torre-puerta: decorativo, sin colisión
 			var pc := MeshInstance3D.new()
@@ -343,6 +370,15 @@ func _spawn_enemy(e: Dictionary) -> Node:
 	return enemy
 
 
+## Enemigo invocado en plena pelea (las crías de la reina de las arañas): se
+## libera con el chunk donde aparece y no se guarda en la partida.
+func spawn_summon(kind: String, pos: Vector3, yaw_deg: float, id: String) -> Enemy:
+	var e := _spawn_enemy({"enemy": kind, "pos": pos, "yaw": yaw_deg, "id": id}) as Enemy
+	if e:
+		track_node(e)
+	return e
+
+
 ## Espera a que la colisión del chunk exista y coloca al actor en un hueco
 ## libre sobre el suelo antes de activarlo (evita que aparezca dentro de un
 ## bloque y la física lo expulse a través del terreno).
@@ -351,7 +387,14 @@ func _activate_when_safe(actor: CharacterBody3D) -> void:
 	await get_tree().physics_frame
 	if not is_instance_valid(actor):
 		return
-	var spot := find_free_spot(actor.global_position, 0.34, 1.8)
+	var radius := 0.34
+	var height := 1.8
+	if actor is Enemy:
+		# Criaturas anchas (arañas, la reina) necesitan un hueco a su medida
+		var d := (actor as Enemy).data
+		radius = maxf(0.3, d.collision_radius * d.model_scale)
+		height = maxf(radius * 2.0, d.collision_height * d.model_scale)
+	var spot := find_free_spot(actor.global_position, radius, height)
 	actor.global_position = spot
 	if actor is Enemy:
 		(actor as Enemy).home = spot

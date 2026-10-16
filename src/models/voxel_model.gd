@@ -102,6 +102,20 @@ class Part:
 			var p := a.lerp(b, float(i) / float(steps))
 			voxels[Vector3i(roundi(p.x), roundi(p.y), roundi(p.z))] = mat
 
+	## Segmento grueso (cápsula) entre dos puntos en unidades de vóxel.
+	func thick_line(a: Vector3, b: Vector3, r: float, mat: int) -> void:
+		var lo := Vector3i(floor(a.min(b) - Vector3.ONE * r))
+		var hi := Vector3i(ceil(a.max(b) + Vector3.ONE * r))
+		var ab := b - a
+		var len2 := maxf(ab.length_squared(), 0.0001)
+		for z in range(lo.z, hi.z + 1):
+			for y in range(lo.y, hi.y + 1):
+				for x in range(lo.x, hi.x + 1):
+					var p := Vector3(x, y, z)
+					var t := clampf((p - a).dot(ab) / len2, 0.0, 1.0)
+					if p.distance_to(a + ab * t) <= r:
+						voxels[Vector3i(x, y, z)] = mat
+
 	func mirror_x(center_x: float) -> void:
 		var copy := voxels.duplicate()
 		for p: Vector3i in copy:

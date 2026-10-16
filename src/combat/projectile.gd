@@ -1,10 +1,11 @@
 class_name Projectile
 extends Node3D
-## Proyectil físico (flecha, bola de fuego, rayo de escarcha). Avanza con su
-## velocidad (y gravedad en las flechas) y comprueba impactos con un rayo entre
-## la posición anterior y la nueva; las flechas se clavan en el escenario.
+## Proyectil físico (flecha, bola de fuego, rayo de escarcha, escupitajo de
+## seda). Avanza con su velocidad (y gravedad en flechas y seda) y comprueba
+## impactos con un rayo entre la posición anterior y la nueva; las flechas se
+## clavan en el escenario. La seda enreda (ralentiza) a quien alcanza.
 
-var kind := "arrow"            # arrow, fireball, frost
+var kind := "arrow"            # arrow, fireball, frost, web
 var velocity := Vector3.ZERO
 var damage := 10.0
 var shooter: Node = null
@@ -28,6 +29,16 @@ static func spawn(parent: Node, k: String, from: Vector3, vel: Vector3, dmg: flo
 	return p
 
 
+## Gravedad de cada tipo de proyectil (los enemigos la usan para apuntar).
+static func gravity_for(k: String) -> float:
+	match k:
+		"arrow":
+			return 9.8
+		"web":
+			return 6.0
+	return 0.0
+
+
 func _ready() -> void:
 	match kind:
 		"arrow":
@@ -35,6 +46,37 @@ func _ready() -> void:
 			mi.mesh = ModelLibrary.arrow_mesh()
 			_mesh = mi
 			add_child(mi)
+		"web":
+			# Pegote de seda: un núcleo blanquecino con hebras que se deshilachan
+			var glob := MeshInstance3D.new()
+			var gm := SphereMesh.new()
+			gm.radius = 0.11
+			gm.height = 0.2
+			gm.radial_segments = 6
+			gm.rings = 3
+			var wm := StandardMaterial3D.new()
+			wm.albedo_color = Color(0.86, 0.88, 0.84)
+			wm.roughness = 1.0
+			wm.emission_enabled = true
+			wm.emission = Color(0.3, 0.32, 0.28)
+			gm.material = wm
+			glob.mesh = gm
+			_mesh = glob
+			add_child(glob)
+			var strands := CPUParticles3D.new()
+			strands.amount = 16
+			strands.lifetime = 0.35
+			strands.local_coords = false
+			var sm2 := BoxMesh.new()
+			sm2.size = Vector3(0.02, 0.02, 0.09)
+			var sm2m := StandardMaterial3D.new()
+			sm2m.albedo_color = Color(0.9, 0.9, 0.88)
+			sm2.material = sm2m
+			strands.mesh = sm2
+			strands.gravity = Vector3(0, -2.0, 0)
+			strands.initial_velocity_max = 0.3
+			strands.spread = 180.0
+			add_child(strands)
 		_:
 			var col := Color(1.0, 0.5, 0.15) if kind == "fireball" else Color(0.5, 0.8, 1.0)
 			var sph := MeshInstance3D.new()
@@ -87,8 +129,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if _stuck:
 		return
-	if kind == "arrow":
-		velocity.y -= 9.8 * delta
+	velocity.y -= gravity_for(kind) * delta
 	var from := global_position
 	var to := from + velocity * delta
 	var exclude: Array[RID] = []
@@ -110,15 +151,30 @@ func _on_hit(hit: Dictionary) -> void:
 	var col := hit["collider"] as Node
 	var pos: Vector3 = hit["position"]
 	var normal: Vector3 = hit["normal"]
+	var dtype := "pierce"
+	match kind:
+		"fireball":
+			dtype = "fire"
+		"frost":
+			dtype = "frost"
+		"web":
+			dtype = "poison"
 	var info := {"attacker": shooter, "position": pos, "normal": normal, "direction": velocity.normalized(),
-			"damage_type": "pierce" if kind == "arrow" else ("fire" if kind == "fireball" else "frost"), "stagger": 0.8,
-			"blockable": kind == "arrow", "ranged": true}
+			"damage_type": dtype, "stagger": 0.8, "blockable": kind == "arrow" or kind == "web", "ranged": true}
 	if col is Player:
-		(col as Player).take_hit(damage, info)
-		_apply_status(col)
-	elif col and col.has_method("take_hit"):
+		var res := (col as Player).take_hit(damage, info)
+		# La seda solo enreda si no se detiene con el escudo o se esquiva
+		if kind != "web" or res == "hit":
+			_apply_status(col)
+	elif col and col.has_method("take_hit") and not (shooter is Enemy and col is Enemy):
+		# (los proyectiles de los enemigos no hieren a otros enemigos)
 		col.call("take_hit", damage, info)
 		_apply_status(col)
+	if kind == "web":
+		Audio.play_3d("web_hit", pos, -2.0)
+		HitFX.spawn(get_tree().current_scene, "web", pos, normal, 1.0)
+		queue_free()
+		return
 	if kind == "arrow":
 		Audio.play_3d("arrow_hit", pos, -2.0)
 		if col == null or not col.has_method("take_hit"):
@@ -150,3 +206,5 @@ func _apply_status(target: Node) -> void:
 			stats.add_effect("burn", 4.0, 4.0)
 		"frost":
 			stats.add_effect("frost", 4.0, 0.5)
+		"web":
+			stats.add_effect("web", 3.0, 0.55)

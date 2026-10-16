@@ -188,9 +188,21 @@ func _switch_area(source: WorldSource, spawn: Vector3, yaw: float) -> void:
 	world.initial_area_ready.connect(_on_area_ready, CONNECT_ONE_SHOT)
 
 
+## Altura del suelo caminable para colocar al jugador. En el exterior es la
+## superficie de la columna; en las mazmorras hay roca encima, así que es el
+## primer bloque sólido bajo el punto (si no, el jugador acabaría sobre la roca).
+func _ground_for(p: Vector3) -> float:
+	if not generator.is_interior():
+		return world.surface_height(p.x, p.z)
+	for k in range(int(floor(p.y + 0.5)) - 1, maxi(int(floor(p.y)) - 6, 0), -1):
+		if BlockTypes.is_solid(world.block_at(Vector3(p.x, k + 0.5, p.z))):
+			return k + 1.0
+	return p.y
+
+
 func _on_area_ready() -> void:
 	var p := _pending_spawn
-	var ground := world.surface_height(p.x, p.z)
+	var ground := _ground_for(p)
 	if p.y < ground - 0.5 or p.y > ground + 3.0:
 		p.y = ground
 	player.teleport(p + Vector3(0, 0.05, 0), _pending_yaw)
@@ -397,7 +409,7 @@ func _on_world_ready() -> void:
 	_ready_done = true
 	# Asegurar que el jugador no aparece dentro de un bloque
 	var p := player.global_position
-	var ground := world.surface_height(p.x, p.z)
+	var ground := _ground_for(p)
 	if GameState.pending_load.is_empty() or p.y < ground - 0.5:
 		p.y = maxf(p.y, ground) + 0.05
 	player.teleport(p, player.get_yaw_degrees())

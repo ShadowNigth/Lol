@@ -5,7 +5,7 @@ extends RefCounted
 ## Las propiedades se guardan en tablas empaquetadas indexadas por id para que
 ## el generador de mallas (que corre en hilos) pueda consultarlas rápido.
 
-enum Shape { NONE, CUBE, CROSS, SLAB, STAIRS, TORCH, FENCE, LIQUID, SLAB_TOP, BARS }
+enum Shape { NONE, CUBE, CROSS, SLAB, STAIRS, TORCH, FENCE, LIQUID, SLAB_TOP, BARS, FLAT }
 enum Layer { OPAQUE, CUTOUT, WATER }
 enum Sound { NONE, GRASS, DIRT, STONE, WOOD, SAND, SNOW, LEAVES }
 
@@ -65,6 +65,11 @@ const COBWEB := 51
 const CANVAS := 52
 const CANVAS_SLAB := 53
 const IRON_BARS := 54
+const IRON_ORE := 55
+const COAL_ORE := 56
+# Raíles de vagoneta (plano sobre el suelo): 57 = norte-sur, 58 = este-oeste
+const RAIL := 57
+const SILK := 59
 const COBBLE_SLAB := 60
 const PLANK_SLAB := 61
 const ROOF_SLAB := 62
@@ -98,7 +103,7 @@ const TEXTURES := [
 	["dead_bush", 1], ["mushroom", 1], ["bookshelf", 1], ["wool_red", 1],
 	["dungeon_brick", 3], ["dungeon_floor", 2], ["crop", 1], ["reeds", 1],
 	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1], ["canvas", 4],
-	["wrought_iron", 1],
+	["wrought_iron", 1], ["iron_ore", 2], ["coal_ore", 1], ["rail", 1], ["silk", 2],
 ]
 
 # --- Tablas (rellenadas en _static_init) ------------------------------------
@@ -199,6 +204,12 @@ static func _static_init() -> void:
 	_cube(CANVAS, "Lona", "canvas", "canvas", "canvas", Sound.GRASS)
 	_define(FENCE, "Valla", Shape.FENCE, Layer.OPAQUE, false, true, "planks", "planks", "planks", Sound.WOOD)
 	_define(IRON_BARS, "Barrotes de hierro", Shape.BARS, Layer.OPAQUE, false, true, "wrought_iron", "wrought_iron", "wrought_iron", Sound.STONE)
+	_cube(IRON_ORE, "Mena de hierro", "iron_ore", "iron_ore", "iron_ore", Sound.STONE)
+	_cube(COAL_ORE, "Veta de carbón", "coal_ore", "coal_ore", "coal_ore", Sound.STONE)
+	_cube(SILK, "Seda espesa", "silk", "silk", "silk", Sound.GRASS)
+	for f in 2:
+		_define(RAIL + f, "Raíles", Shape.FLAT, Layer.CUTOUT, false, false, "rail", "rail", "rail", Sound.WOOD)
+		facing[RAIL + f] = f
 
 	_slab(COBBLE_SLAB, "Losa de adoquín", "cobble", Sound.STONE, false)
 	_slab(PLANK_SLAB, "Losa de madera", "planks", Sound.WOOD, false)
@@ -262,6 +273,9 @@ static func rotate_block(id: int, quarter_turns: int) -> int:
 	if id < MAX_ID and shape[id] == Shape.STAIRS:
 		var base := id - int(facing[id])
 		return base + (int(facing[id]) + quarter_turns) % 4
+	if id < MAX_ID and shape[id] == Shape.FLAT:
+		var base2 := id - int(facing[id])
+		return base2 + (int(facing[id]) + quarter_turns) % 2
 	return id
 
 

@@ -105,3 +105,48 @@ static func quadruped(scale: float = 1.0) -> Rig:
 		r.add("b_low." + n, "b_up." + n, Vector3(0.13 * sx, 0.36, 0.44) * s)
 		r.add("b_paw." + n, "b_low." + n, Vector3(0.13 * sx, 0.07, 0.4) * s)
 	return r
+
+
+## Esqueleto de arácnido (araña gigante, ~1,5 m de envergadura), mirando a -Z.
+## Cefalotórax (`body`), abdomen, quelíceros (`fang.*`), pedipalpos (`palp.*`)
+## y ocho patas de tres segmentos: `legN.S.a` (fémur, de la cadera a la
+## rodilla alta), `.b` (tibia, de la rodilla al tobillo) y `.c` (tarso, hasta
+## el suelo). N = 1 (delanteras) … 4 (traseras); S = R/L.
+## La geometría de las patas la comparten el modelo (CharacterModels.spider) y
+## las animaciones (ArachnidAnims) a través de `spider_leg()`.
+static func arachnid(scale: float = 1.0) -> Rig:
+	var r := Rig.new()
+	var s := scale
+	r.add("root", "", Vector3.ZERO)
+	r.add("body", "root", Vector3(0, 0.40, -0.05) * s)
+	r.add("abdomen", "body", Vector3(0, 0.43, 0.13) * s)
+	for side: Array in [["R", 1.0], ["L", -1.0]]:
+		var n: String = side[0]
+		var sx: float = side[1]
+		r.add("fang." + n, "body", Vector3(0.05 * sx, 0.36, -0.25) * s)
+		r.add("palp." + n, "body", Vector3(0.085 * sx, 0.38, -0.23) * s)
+		for i in range(1, 5):
+			var leg := spider_leg(i, n)
+			var base := "leg%d.%s" % [i, n]
+			r.add(base + ".a", "body", (leg["hip"] as Vector3) * s)
+			r.add(base + ".b", base + ".a", (leg["knee"] as Vector3) * s)
+			r.add(base + ".c", base + ".b", (leg["ankle"] as Vector3) * s)
+	return r
+
+
+## Geometría de reposo de una pata de araña: cadera, rodilla, tobillo y punta
+## (posiciones del modelo a escala 1) y la dirección horizontal hacia fuera.
+static func spider_leg(i: int, side: String) -> Dictionary:
+	var sx := 1.0 if side == "R" else -1.0
+	# Ángulo hacia delante desde el lateral (las delanteras apuntan adelante, las traseras atrás)
+	var ang: float = [55.0, 20.0, -20.0, -52.0][i - 1]
+	var length: float = [1.15, 0.95, 0.95, 1.05][i - 1]
+	var hip_z: float = [-0.16, -0.085, -0.01, 0.06][i - 1]
+	var hip_x: float = [0.12, 0.145, 0.145, 0.125][i - 1]
+	var a := deg_to_rad(ang)
+	var d := Vector3(cos(a) * sx, 0.0, -sin(a))
+	var hip := Vector3(hip_x * sx, 0.38, hip_z)
+	var knee := hip + d * 0.22 * length + Vector3(0, 0.24, 0)
+	var ankle := knee + d * 0.30 * length + Vector3(0, -0.42, 0)
+	var tip := Vector3(ankle.x, 0.0, ankle.z) + d * 0.10 * length
+	return {"hip": hip, "knee": knee, "ankle": ankle, "tip": tip, "dir": d}

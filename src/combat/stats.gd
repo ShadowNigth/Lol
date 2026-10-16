@@ -39,7 +39,7 @@ var resistances: Dictionary = {"fire": 0.0, "frost": 0.0, "poison": 0.0, "shock"
 var gear_bonus: Dictionary = {}       # bonificaciones del equipo (max_health, max_stamina, max_mana)
 var dead: bool = false
 var effects: Dictionary = {}          # efecto -> {"time": s, "power": p}
-const EFFECT_NAMES := {"burn": "Ardiendo", "frost": "Congelado", "poison": "Envenenado"}
+const EFFECT_NAMES := {"burn": "Ardiendo", "frost": "Congelado", "poison": "Envenenado", "web": "Enredado"}
 const MAGIC_DAMAGE := ["fire", "frost", "poison", "shock"]   # la armadura no las reduce
 
 
@@ -246,10 +246,22 @@ func tick_effects(delta: float) -> float:
 	return dmg
 
 
+## Ralentización por escarcha o por seda de araña (se aplica la mayor).
 func slow_factor() -> float:
-	if effects.has("frost"):
-		return 1.0 - clampf(float((effects["frost"] as Dictionary)["power"]), 0.0, 0.8)
-	return 1.0
+	var f := 1.0
+	for k: String in ["frost", "web"]:
+		if effects.has(k):
+			f = minf(f, 1.0 - clampf(float((effects[k] as Dictionary)["power"]), 0.0, 0.8))
+	return f
+
+
+## Quita un estado alterado (antídotos). Devuelve si estaba activo.
+func clear_effect(effect: String) -> bool:
+	if not effects.has(effect):
+		return false
+	effects.erase(effect)
+	changed.emit()
+	return true
 
 
 func active_effect_names() -> PackedStringArray:

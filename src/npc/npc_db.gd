@@ -169,13 +169,31 @@ const NPCS := {
 		"name": "Garin", "role": "Armero del castillo", "faction": "penalba",
 		"look": {"skin": Color(0.66, 0.46, 0.34), "hair": Color(0.2, 0.15, 0.12), "tunic": Color(0.3, 0.28, 0.3), "pants": Color(0.22, 0.2, 0.18),
 				"apron": Color(0.3, 0.2, 0.12), "beard": true, "gloves": Color(0.28, 0.18, 0.1)},
-		"quests": [], "trade": "armeria", "held": "mace", "held_scale": 0.55,
+		"quests": ["hierro_penalba"], "trade": "armeria", "held": "mace", "held_scale": 0.55,
 		"greet": ["Cota, yelmo, escudo... Aquí se viste a la guardia de Peñalba. Y a quien pague.", "Si el acero de la guardia se oxida, la culpa es mía."],
 		"greet_friend": ["Te he guardado lo mejor del taller. No se lo digas al capitán."],
+		"greet_flags": {"mina_limpia": ["¡Vuelve a llegar hierro negro de Hierronegro! La forja no ha parado desde que mataste a esa bestia."]},
 		"rumors": ["Una cota de malla para un tajo; una maza la atraviesa como si nada. Lleva escudo.",
 				"Los guardias llevan escudo de hierro. Si les atacas de frente, buena suerte.",
-				"El hierro de las minas del norte ya no llega desde que los lobos bajaron."],
+				"El hierro de la mina de Hierronegro, al norte, ya no llega. Los carreteros hablan de arañas grandes como perros. ¿Arañas? Bah.",
+				"Contra bichos de caparazón duro, una maza hace más que una espada. Créeme."],
 		"work": "castle_forge", "work_anim": "work",
+	},
+	# Mina de Hierronegro (al norte): el capataz, que se negó a abandonarla
+	"tobias": {
+		"name": "Tobías", "role": "Capataz de la mina", "faction": "penalba",
+		"look": {"skin": Color(0.7, 0.52, 0.4), "hair": Color(0.32, 0.3, 0.28), "tunic": Color(0.36, 0.3, 0.22), "pants": Color(0.25, 0.22, 0.18),
+				"vest": Color(0.3, 0.2, 0.12), "beard": true, "cap": true, "gloves": Color(0.3, 0.2, 0.12)},
+		"quests": [], "trade": "", "held": "",
+		"greet": ["No bajes a la mina, forastero. Ahí abajo ya no mandan los hombres.", "Treinta años picando roca y nunca vi nada igual. Nunca."],
+		"greet_flags": {"mina_limpia": ["¡Se oyen otra vez los picos en la galería honda! Garin tendrá su hierro antes de la luna nueva.",
+				"Mira la veta, forastero: hierro negro, casi sin escoria. Y todo gracias a ti."]},
+		"rumors": ["Al picar la veta honda abrimos una cueva vieja llena de seda. Esa misma noche salieron.",
+				"Si te muerden, bebe un antídoto cuanto antes. En el castillo y en las posadas los venden.",
+				"Las escupidoras te enredan los pies con su seda. No te quedes quieto delante de ellas.",
+				"La reina es grande como un buey y tiene una marca roja en el lomo. Cuando la hieres, llama a sus crías.",
+				"Por las galerías aún quedan vagonetas cargadas. Lo que no te lleves tú, se lo comerá el óxido."],
+		"work": "fire", "work_anim": "idle",
 	},
 	# Plantilla de los guardias del castillo (cada uno con su cara; pueden morir)
 	"guardia_castillo": {
@@ -198,11 +216,11 @@ const SHOPS := {
 	"herreria": {"gold": 700, "stock": [["weapon_sword", 1], ["weapon_axe", 1], ["weapon_mace", 1], ["weapon_dagger", 2], ["weapon_bow", 1], ["arrow", 60], ["lockpick", 5], ["potion_health", 1],
 			["shield_wood", 2], ["shield_iron", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 2], ["pants_leather", 1], ["boots_leather", 2],
 			["helm_iron", 1], ["armor_chain", 1], ["gauntlets_iron", 1], ["greaves_iron", 1], ["boots_iron", 1]]},
-	"posada_lobo": {"gold": 250, "stock": [["bread", 5], ["cheese", 4], ["potion_health", 2], ["potion_stamina", 2], ["torch_item", 3], ["tunic_wool", 1]]},
+	"posada_lobo": {"gold": 250, "stock": [["bread", 5], ["cheese", 4], ["potion_health", 2], ["potion_cure", 1], ["potion_stamina", 2], ["torch_item", 3], ["tunic_wool", 1]]},
 	"armeria": {"gold": 900, "stock": [["weapon_sword", 2], ["weapon_mace", 1], ["weapon_axe", 1], ["shield_wood", 2], ["shield_iron", 2], ["helm_iron", 2], ["armor_chain", 2],
 			["gauntlets_iron", 2], ["greaves_iron", 2], ["boots_iron", 2], ["armor_leather", 1], ["arrow", 40]]},
-	"sanador": {"gold": 350, "stock": [["potion_health", 6], ["potion_stamina", 4], ["potion_mana", 3], ["bread", 3], ["apple", 4]]},
-	"cazadora": {"gold": 400, "stock": [["arrow", 80], ["weapon_bow", 1], ["weapon_dagger", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 1], ["pants_leather", 1], ["boots_leather", 1], ["potion_health", 2]]},
+	"sanador": {"gold": 350, "stock": [["potion_health", 6], ["potion_cure", 5], ["potion_stamina", 4], ["potion_mana", 3], ["bread", 3], ["apple", 4]]},
+	"cazadora": {"gold": 400, "stock": [["arrow", 80], ["potion_cure", 2], ["weapon_bow", 1], ["weapon_dagger", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 1], ["pants_leather", 1], ["boots_leather", 1], ["potion_health", 2]]},
 }
 
 

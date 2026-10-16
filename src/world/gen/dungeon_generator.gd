@@ -22,6 +22,11 @@ var edges: Array[Dictionary] = []      # {a, b, kind}
 var entities: Array[Dictionary] = []
 var floor_tiles: Dictionary = {}       # Vector2i -> true (suelo transitable)
 var corridor_tiles: Array[Vector2i] = []
+# Mina: raíles (casilla -> 0 norte-sur / 1 este-oeste), vigas del techo
+# (casillas de suelo) y postes de madera embutidos en los muros (casilla -> altura)
+var rail_tiles: Dictionary = {}
+var timber_beams: Dictionary = {}
+var timber_posts: Dictionary = {}
 var entrance_index: int = 0
 var boss_index: int = 0
 var bounds: Rect2i
@@ -96,6 +101,9 @@ func _generate() -> void:
 	entities.clear()
 	floor_tiles.clear()
 	corridor_tiles.clear()
+	rail_tiles.clear()
+	timber_beams.clear()
+	timber_posts.clear()
 	# 1) Árbol de expansión por DFS aleatorio
 	var visited := {}
 	var stack: Array[Vector2i] = []
@@ -278,6 +286,8 @@ func _carve_and_populate() -> void:
 	for t: Vector2i in candidates:
 		if traps >= 3 + difficulty:
 			break
+		if rail_tiles.has(t):
+			continue
 		if _rng.randf() < 0.5:
 			continue
 		entities.append({"type": "spike_trap", "pos": Vector3(t.x + 0.5, FLOOR_Y, t.y + 0.5), "yaw": 0.0,
@@ -293,7 +303,9 @@ func _carve_corridor(a: int, b: int, e: Dictionary) -> void:
 	var cb := rb.get_center()
 	var kind := str(e["kind"])
 	var tiles: Array[Vector2i] = []
-	if ca.y == cb.y or absi(ca.x - cb.x) > absi(ca.y - cb.y):
+	var along_x := ca.y == cb.y or absi(ca.x - cb.x) > absi(ca.y - cb.y)
+	var lane := (ca.y + cb.y) / 2 if along_x else (ca.x + cb.x) / 2
+	if along_x:
 		# Horizontal
 		var z := (ca.y + cb.y) / 2
 		for x in range(mini(ca.x, cb.x), maxi(ca.x, cb.x) + 1):
@@ -314,6 +326,7 @@ func _carve_corridor(a: int, b: int, e: Dictionary) -> void:
 		corridor_tiles.append(t)
 	if outside.is_empty():
 		return
+	_mine_corridor(outside, along_x, lane, kind)
 	# Elegir el umbral junto a la sala b (o la a) para la puerta/reja/pared falsa
 	var door_tiles: Array[Vector2i] = []
 	var near_b := rb.grow(1)
@@ -343,6 +356,128 @@ func _carve_corridor(a: int, b: int, e: Dictionary) -> void:
 			entities.append({"type": "secret_wall", "pos": pos, "yaw": yaw, "id": id})
 
 
+## Galería de mina: raíles por el carril izquierdo y un marco de entibado
+## (viga en el techo y dos postes en los muros) cada cuatro casillas. Nada de
+## esto delata la pared falsa de la sala secreta.
+func _mine_corridor(outside: Array[Vector2i], along_x: bool, lane: int, kind: String) -> void:
+	if kind == "secret":
+		return
+	var rails := bool(_theme.get("rails", false))
+	var timber := bool(_theme.get("timber", false))
+	for t in outside:
+		if rails and (t.y if along_x else t.x) == lane:
+			rail_tiles[t] = 1 if along_x else 0
+		if timber and posmod(t.x if along_x else t.y, 4) == 0:
+			timber_beams[t] = 3
+			if along_x:
+				timber_posts[Vector2i(t.x, lane - 1)] = 3
+				timber_posts[Vector2i(t.x, lane + 2)] = 3
+			else:
+				timber_posts[Vector2i(lane - 1, t.y)] = 3
+				timber_posts[Vector2i(lane + 2, t.y)] = 3
+
+
+## Lado de la sala sin pasillo (para arrimar muebles sin tapar una entrada):
+## devuelve la dirección hacia ese muro o Vector2i.ZERO si todos tienen.
+func _free_wall(rect: Rect2i, exclude: Vector2i = Vector2i.ZERO) -> Vector2i:
+	for d: Vector2i in [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]:
+		if d == exclude:
+			continue
+		var busy := false
+		if d.x == 0:
+			var z := rect.position.y - 1 if d.y < 0 else rect.end.y
+			for x in range(rect.position.x, rect.end.x):
+				if floor_tiles.has(Vector2i(x, z)):
+					busy = true
+		else:
+			var x2 := rect.position.x - 1 if d.x < 0 else rect.end.x
+			for z2 in range(rect.position.y, rect.end.y):
+				if floor_tiles.has(Vector2i(x2, z2)):
+					busy = true
+		if not busy:
+			return d
+	return Vector2i.ZERO
+
+
+## ¿Taparía un mueble en `p` la boca de un pasillo? (casilla junto a suelo de fuera de la sala)
+func _blocks_doorway(rect: Rect2i, p: Vector2) -> bool:
+	var t := Vector2i(int(floor(p.x)), int(floor(p.y)))
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var n := t + Vector2i(dx, dz)
+			if not rect.has_point(n) and floor_tiles.has(n):
+				return true
+	return false
+
+
+## Añade un mueble de la mina si no tapa ningún pasillo.
+func _add_prop(rect: Rect2i, e: Dictionary) -> void:
+	var p: Vector3 = e["pos"]
+	if not _blocks_doorway(rect, Vector2(p.x, p.z)):
+		entities.append(e)
+
+
+## Mobiliario de mina: entibado del techo, vagoneta junto a un muro libre,
+## cajas, barriles, mineral y herramientas en las esquinas libres; en las
+## salas hondas, capullos y huevos de araña.
+func _furnish_mine_room(i: int, rid: String, role: String) -> void:
+	var r := rooms[i]
+	var rect: Rect2i = r["rect"]
+	var h := int(r["height"])
+	if rect.size.x < 5 or rect.size.y < 5:
+		return
+	# Vigas transversales cada tres filas con sus postes en los muros
+	for z in range(rect.position.y + 1, rect.end.y - 1, 3):
+		for x in range(rect.position.x, rect.end.x):
+			timber_beams[Vector2i(x, z)] = h
+		timber_posts[Vector2i(rect.position.x - 1, z)] = h
+		timber_posts[Vector2i(rect.end.x, z)] = h
+	# Esquinas sin lámpara: noreste (cajas) y suroeste (mineral)
+	var ne := Vector2(rect.end.x - 0.6, rect.position.y + 0.6)
+	var sw := Vector2(rect.position.x + 0.75, rect.end.y - 0.8)
+	_add_prop(rect, {"type": "crate", "pos": Vector3(ne.x, FLOOR_Y, ne.y), "yaw": 0.0, "id": rid + "/crate"})
+	if role == "entrance":
+		# El diario del capataz, olvidado sobre la caja
+		entities.append({"type": "key_pickup", "pos": Vector3(ne.x, FLOOR_Y + 0.9, ne.y), "id": rid + "/diario", "item": "diario_mina"})
+		_add_prop(rect, {"type": "barrel", "pos": Vector3(ne.x - 0.95, FLOOR_Y, ne.y), "yaw": 0.0, "id": rid + "/barrel"})
+	elif _rng.randf() < 0.6:
+		_add_prop(rect, {"type": "barrel", "pos": Vector3(ne.x, FLOOR_Y + 0.75, ne.y), "yaw": 0.0, "id": rid + "/barrel"})
+	if role == "entrance" or _rng.randf() < 0.7:
+		_add_prop(rect, {"type": "ore_pile", "pos": Vector3(sw.x, FLOOR_Y, sw.y), "yaw": _rng.randf() * 360.0, "id": rid + "/ore"})
+	# La salida de la mina está en el muro sur de la sala de entrada: ahí no va la vagoneta
+	var wall := _free_wall(rect, Vector2i(0, 1) if role == "entrance" else Vector2i.ZERO)
+	if wall != Vector2i.ZERO and (role == "entrance" or _rng.randf() < 0.4):
+		var c := Vector2(rect.position.x + rect.size.x * 0.5, rect.position.y + rect.size.y * 0.5)
+		var half := Vector2(rect.size.x * 0.5 - 0.9, rect.size.y * 0.5 - 0.9)
+		var at := c + Vector2(wall.x * half.x, wall.y * half.y)
+		_add_prop(rect, {"type": "minecart", "pos": Vector3(at.x, FLOOR_Y, at.y), "yaw": 90.0 if wall.y != 0 else 0.0, "id": rid + "/cart"})
+	if _rng.randf() < 0.5:
+		_add_prop(rect, {"type": "pickaxe", "pos": Vector3(rect.position.x + 1.6, FLOOR_Y, rect.position.y + 1.6), "yaw": _rng.randf() * 360.0,
+				"id": rid + "/pick"})
+	if int(r["depth"]) >= 2 and role == "room":
+		if _rng.randf() < 0.55:
+			_add_prop(rect, {"type": "cocoon", "pos": Vector3(rect.position.x + 0.7, FLOOR_Y, sw.y - 1.5), "yaw": 90.0, "id": rid + "/cocoon",
+					"loot": "cocoon"})
+		if _rng.randf() < 0.5:
+			_add_prop(rect, {"type": "egg_sac", "pos": Vector3(ne.x - 1.4, FLOOR_Y, ne.y + 0.2), "yaw": _rng.randf() * 360.0, "id": rid + "/eggs"})
+
+
+## Sala del jefe convertida en nido: sacos de huevos por el suelo y capullos
+## contra los muros (las paredes y el techo de seda se ponen al generar los chunks).
+func _furnish_nest(rect: Rect2i, rid: String) -> void:
+	var spots := [Vector2(1.2, 1.4), Vector2(rect.size.x - 1.2, 1.6), Vector2(1.4, rect.size.y - 1.2), Vector2(rect.size.x - 1.5, rect.size.y - 1.4),
+			Vector2(rect.size.x * 0.5 + 2.6, 2.2)]
+	for k in spots.size():
+		var sp: Vector2 = spots[k]
+		_add_prop(rect, {"type": "egg_sac", "pos": Vector3(rect.position.x + sp.x, FLOOR_Y, rect.position.y + sp.y), "yaw": k * 71.0,
+				"id": rid + "/eggs_%d" % k})
+	var cocoon_spots := [Vector2(0.7, 1.8), Vector2(rect.size.x - 0.7, 2.6), Vector2(0.7, rect.size.y - 2.4), Vector2(rect.size.x - 0.7, rect.size.y - 1.8)]
+	for k2 in cocoon_spots.size():
+		var cp: Vector2 = cocoon_spots[k2]
+		_add_prop(rect, {"type": "cocoon", "pos": Vector3(rect.position.x + cp.x, FLOOR_Y, rect.position.y + cp.y),
+				"yaw": 90.0 if cp.x < 2.0 else -90.0, "id": rid + "/cocoon_%d" % k2, "loot": "cocoon"})
+
+
 func _populate_room(i: int) -> void:
 	var r := rooms[i]
 	var rect: Rect2i = r["rect"]
@@ -352,10 +487,15 @@ func _populate_room(i: int) -> void:
 	var def := DungeonDB.get_def(dungeon_id)
 	var guards := str(def.get("guards", "skeleton_warrior"))
 	var minions: Array = def.get("minions", ["skeleton_warrior"])
-	# Braseros en esquinas (salas medianas o grandes)
+	# Braseros (o lámparas de poste en la mina) en esquinas (salas medianas o grandes)
+	var light_type := str(_theme.get("lights", "brazier"))
 	if role != "junction" and rect.size.x >= 5:
 		for corner: Vector2i in [rect.position, Vector2i(rect.end.x - 1, rect.end.y - 1)]:
-			entities.append({"type": "brazier", "pos": Vector3(corner.x + 0.5, FLOOR_Y, corner.y + 0.5), "id": rid + "/brazier_%d" % corner.x})
+			entities.append({"type": light_type, "pos": Vector3(corner.x + 0.5, FLOOR_Y, corner.y + 0.5), "id": rid + "/brazier_%d" % corner.x,
+					"yaw": 0.0 if corner == rect.position else 180.0})
+	var mine := bool(_theme.get("timber", false))
+	if mine and role in ["entrance", "room", "treasure"]:
+		_furnish_mine_room(i, rid, role)
 	match role:
 		"entrance":
 			entities.append({"type": "dungeon_exit", "pos": Vector3(center.x, FLOOR_Y, rect.end.y - 0.6), "yaw": 180.0, "id": rid + "/exit"})
@@ -365,13 +505,17 @@ func _populate_room(i: int) -> void:
 			entities.append({"type": "enemy", "enemy": guards, "pos": center + Vector3(2.5, 0, 1.0), "yaw": 180.0, "id": rid + "/guard_1"})
 			entities.append({"type": "chest", "pos": Vector3(center.x, FLOOR_Y, rect.position.y + 1.0), "yaw": 180.0, "id": rid + "/chest",
 					"loot": str(def.get("boss_loot", "boss"))})
-			for px: int in [rect.position.x + 1, rect.end.x - 2]:
-				for pz: int in [rect.position.y + 2, rect.end.y - 3]:
-					entities.append({"type": "pillar", "pos": Vector3(px + 0.5, FLOOR_Y, pz + 0.5), "id": rid + "/pillar_%d_%d" % [px, pz]})
+			if bool(_theme.get("nest", false)):
+				_furnish_nest(rect, rid)
+			else:
+				for px: int in [rect.position.x + 1, rect.end.x - 2]:
+					for pz: int in [rect.position.y + 2, rect.end.y - 3]:
+						entities.append({"type": "pillar", "pos": Vector3(px + 0.5, FLOOR_Y, pz + 0.5), "id": rid + "/pillar_%d_%d" % [px, pz]})
 		"treasure":
 			# La mitad de los cofres tienen cerradura (decidido por hash: no altera la secuencia aleatoria)
 			var lock := (20 + difficulty * 10) if absi(hash(rid)) % 2 == 0 else 0
-			entities.append({"type": "chest", "pos": center, "yaw": float(_rng.randi() % 4) * 90.0, "id": rid + "/chest", "loot": "dungeon", "lock": lock})
+			entities.append({"type": "chest", "pos": center, "yaw": float(_rng.randi() % 4) * 90.0, "id": rid + "/chest",
+					"loot": str(def.get("room_loot", "dungeon")), "lock": lock})
 			entities.append({"type": "enemy", "enemy": guards, "pos": center + Vector3(1.2, 0, 1.2), "yaw": 0.0, "id": rid + "/e0"})
 		"secret":
 			entities.append({"type": "chest", "pos": center, "yaw": 0.0, "id": rid + "/chest", "loot": "secret", "lock": 45 + difficulty * 5})
@@ -466,6 +610,13 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 	var floor_a := int(_theme.get("floor", B.DUNGEON_FLOOR))
 	var floor_b := int(_theme.get("floor_alt", B.MOSS_STONE))
 	var webs := bool(_theme.get("cobwebs", true))
+	var ore := bool(_theme.get("ore", false))
+	var rough := bool(_theme.get("rough_ceiling", false))
+	var nest := bool(_theme.get("nest", false))
+	var boss_rect: Rect2i = rooms[boss_index]["rect"]
+	var boss_area := boss_rect.grow(1)
+	var boss_h := int(rooms[boss_index]["height"])
+	var entry_c := Vector2((rooms[entrance_index]["rect"] as Rect2i).get_center())
 	for pz in pad:
 		for px in pad:
 			var wx := x0 + px
@@ -475,19 +626,52 @@ func generate_chunk(cx: int, cz: int) -> ChunkData:
 			var col := px + pz * pad
 			for y in range(y_min, y_max + 1):
 				var h := WorldGenerator.hash2(wx * 7 + y, wz, 4242)
-				blocks[col + y * layer] = wall_a if h % 9 != 0 else wall_b
+				var wb := wall_a if h % 9 != 0 else wall_b
+				if ore:
+					# Vetas de mineral en la roca de la mina
+					if h % 29 == 3:
+						wb = B.IRON_ORE
+					elif h % 41 == 7:
+						wb = B.COAL_ORE
+				blocks[col + y * layer] = wb
 			var t := Vector2i(wx, wz)
 			if floor_tiles.has(t):
 				var ceil_h := _ceiling_height(t)
-				if str(DungeonDB.get_def(dungeon_id).get("theme", "")) == "cave":
+				var beam_h := int(timber_beams.get(t, 0))
+				if rough and beam_h == 0:
 					ceil_h = maxi(3, ceil_h + WorldGenerator.hash2(wx, wz, 99) % 3 - 1)   # techo irregular de roca
 				var floor_id := floor_a if WorldGenerator.hash2(wx, wz, 77) % 11 != 0 else floor_b
 				blocks[col + (FLOOR_Y - 1) * layer] = floor_id
 				for y2 in range(FLOOR_Y, FLOOR_Y + ceil_h):
 					blocks[col + y2 * layer] = B.AIR
+				# Mina: raíles, vigas de entibado y telarañas que cruzan las galerías hondas
+				if rail_tiles.has(t):
+					blocks[col + FLOOR_Y * layer] = B.RAIL + int(rail_tiles[t])
+				if beam_h > 0:
+					blocks[col + (FLOOR_Y + ceil_h) * layer] = B.DARK_PLANKS
+				var in_nest := nest and boss_rect.has_point(t)
+				if in_nest:
+					# Nido: techo cubierto de seda y telarañas a media altura junto a los muros
+					var hn := WorldGenerator.hash2(wx, wz, 515)
+					if hn % 3 != 0:
+						blocks[col + (FLOOR_Y + ceil_h) * layer] = B.SILK
+					if _is_edge(t) and hn % 4 == 1:
+						blocks[col + (FLOOR_Y + 1 + hn % 2) * layer] = B.COBWEB
+				elif nest and webs and not rail_tiles.has(t) and Vector2(t).distance_to(entry_c) > 20.0 \
+						and _ceiling_height(t) == 3 and WorldGenerator.hash2(wx, wz, 616) % 11 == 0:
+					blocks[col + (FLOOR_Y + 1) * layer] = B.COBWEB
 				# Telarañas en las esquinas altas
-				if webs and ceil_h >= 4 and _is_corner(t) and WorldGenerator.hash2(wx, wz, 13) % 3 == 0:
+				if webs and ceil_h >= 4 and _is_corner(t) and (WorldGenerator.hash2(wx, wz, 13) % 3 == 0 or in_nest):
 					blocks[col + (FLOOR_Y + ceil_h - 1) * layer] = B.COBWEB
+			elif timber_posts.has(t):
+				# Poste de entibado embutido en el muro, del suelo a la viga
+				for y3 in range(FLOOR_Y, FLOOR_Y + int(timber_posts[t])):
+					blocks[col + y3 * layer] = B.LOG
+			elif nest and boss_area.has_point(t):
+				# Muros del nido forrados de seda a parches
+				for y4 in range(FLOOR_Y - 1, FLOOR_Y + boss_h + 1):
+					if WorldGenerator.hash2(wx * 3 + y4, wz, 717) % 5 < 2:
+						blocks[col + y4 * layer] = B.SILK
 	data.blocks = blocks
 	data.max_y = y_max
 	# Entidades del chunk (solo las de su zona interior)
@@ -503,6 +687,14 @@ func _ceiling_height(t: Vector2i) -> int:
 		if (r["rect"] as Rect2i).has_point(t):
 			return int(r["height"])
 	return 3
+
+
+## Casilla de suelo junto a algún muro.
+func _is_edge(t: Vector2i) -> bool:
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if not floor_tiles.has(t + d):
+			return true
+	return false
 
 
 func _is_corner(t: Vector2i) -> bool:

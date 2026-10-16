@@ -49,9 +49,9 @@ extends Resource
 @export var projectile_speed: float = 30.0
 
 @export_group("Cuerpo y comportamiento")
-## Tipo de cuerpo: "humanoid" (esqueletos y bandidos) o "quadruped" (lobos).
-## El aspecto del humanoide lo decide `model`: "skeleton_warrior" o "bandit".
-@export_enum("humanoid", "quadruped") var body: String = "humanoid"
+## Tipo de cuerpo: "humanoid" (esqueletos y bandidos), "quadruped" (lobos) o
+## "arachnid" (arañas). El aspecto del humanoide lo decide `model`.
+@export_enum("humanoid", "quadruped", "arachnid") var body: String = "humanoid"
 ## Altura de los ojos (línea de visión).
 @export var eye_height: float = 1.6
 @export var collision_radius: float = 0.33
@@ -72,3 +72,26 @@ extends Resource
 @export var step_sound: String = "step_stone"
 ## Los animales salvajes reaparecen pasados unos días (0 = nunca).
 @export var respawn_days: int = 0
+
+@export_group("Efectos y ataques especiales")
+## Estado que inflige su ataque cuerpo a cuerpo cuando acierta ("poison",
+## "burn", "frost", "web"; vacío = ninguno).
+@export var attack_effect: String = ""
+@export var effect_duration: float = 0.0
+## Potencia del efecto: daño por segundo (veneno, quemadura) o fracción de
+## ralentización (escarcha, telaraña).
+@export var effect_power: float = 0.0
+## Proyectil de los ataques a distancia: "arrow" (flecha) o "web" (escupitajo de seda).
+@export var projectile_kind: String = "arrow"
+## Instante del disparo y duración total del ataque a distancia.
+@export var shoot_hit: float = 0.85
+@export var shoot_len: float = 1.3
+## Cuerpo a cuerpo con un ataque a distancia especial (la reina escupe seda):
+## alcance máximo (0 = no tiene), daño y espera entre escupitajos.
+@export var spit_range: float = 0.0
+@export var spit_damage: float = 5.0
+@export var spit_cooldown: float = 6.0
+## Invoca enemigos (crías) al bajar su salud de cada umbral (fracciones de mayor a menor).
+@export var summon: String = ""
+@export var summon_count: int = 0
+@export var summon_thresholds: PackedFloat32Array = PackedFloat32Array()

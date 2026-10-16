@@ -131,6 +131,22 @@ const QUESTS := {
 		],
 		"rewards": {"gold": 120, "items": [{"id": "potion_health", "count": 2}], "reputation": {"penalba": 15, "robledal": 15}},
 	},
+	"hierro_penalba": {
+		"title": "Hierro para Peñalba",
+		"giver": "garin",
+		"type": "limpiar",
+		"description": "Garin, el armero del castillo, no recibe hierro de la mina de Hierronegro desde hace semanas, y sin hierro no hay cotas ni espadas para la guardia. Los carreteros dicen que los mineros huyeron una noche y no han vuelto. Quiere que alguien vaya a la mina, al norte, averigüe qué ha pasado y lo arregle.",
+		"stages": [
+			{"text": "Ve a la mina de Hierronegro, al norte del castillo (está en tu mapa), y habla con Tobías, el capataz.", "objective": {"type": "talk", "target": "tobias"},
+				"say": "¿Te manda Garin? Pues dile que su hierro está ahí abajo, con ellas. Al picar la veta honda abrimos una cueva vieja llena de seda... y esa noche salieron las arañas. Grandes como perros, y una reina como un buey, con una marca roja en el lomo, anidada en lo más hondo. Mientras ella viva no se irán. Llévate antídotos, que su mordedura quema la sangre, y no te pares delante de las escupidoras: te enredan los pies."},
+			{"text": "Entra en la mina de Hierronegro.", "objective": {"type": "reach", "target": "mina_hierronegro"}},
+			{"text": "Mata a la Reina Tejedora en lo más hondo de la mina.", "objective": {"type": "kill", "target": "spider_queen", "count": 1},
+				"effects": {"flags": ["mina_limpia"]}},
+			{"text": "Vuelve con Garin, el armero del castillo de Peñalba.", "objective": {"type": "talk", "target": "garin"},
+				"say": "¿La reina, muerta? ¡Por el yunque de mi padre! Tobías ya ha mandado recado: mañana vuelven los picos a la galería honda. Toma: la forjé con la última barra de hierro negro que me quedaba, esperando a quien se la ganara. Corta como ninguna espada de la guardia."},
+		],
+		"rewards": {"gold": 180, "items": [{"id": "weapon_sword_penalba", "count": 1}, {"id": "potion_cure", "count": 2}], "reputation": {"penalba": 20, "guardia": 5}},
+	},
 	"cuervos_camino": {
 		"title": "Limpiar los caminos",
 		"giver": "aldric",

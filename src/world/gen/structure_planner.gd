@@ -24,6 +24,9 @@ var spawn_yaw_deg := -90.0              # mirando al este
 var castle_origin := Vector3i.ZERO
 var castle_rot := 0
 var jail_spot: Dictionary = {}          # {"pos", "yaw", "door"}
+# Bocamina de Hierronegro (marco local)
+var mine_origin := Vector3i.ZERO
+var mine_rot := 0
 
 
 func _init(generator: WorldGenerator) -> void:
@@ -168,6 +171,8 @@ func _plan_region() -> void:
 	_plan_bandit_camp(inn, ham)
 	# Igual que el campamento: generador propio, después de todo lo anterior
 	_plan_castle(ham)
+	# La mina de Hierronegro, al norte (también con su propio generador)
+	_plan_mine()
 
 
 ## Busca el mejor emplazamiento cerca de `around`: seco, lo más llano posible
@@ -448,6 +453,53 @@ func _plan_castle(ham: Vector3i) -> void:
 	spawns.append({"type": "notice_board", "id": "board/castle", "site": "castle", "pos": castle_local(Vector3(14.5, 0.0, 11.5)), "yaw": -90.0 + yaw_off})
 	# Celda del calabozo para quien no pueda pagar sus multas
 	jail_spot = {"pos": castle_local(Vector3(28.9, 0.0, 28.3)), "yaw": 0.0 + yaw_off, "door": "castle/fort/cell_a"}
+
+
+## Mina de Hierronegro: al norte, preferiblemente en un alto, con su bocamina
+## mirando al camino más cercano y unida a la red de caminos por un sendero.
+func _plan_mine() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(gen.world_seed * 3571 + 4409)
+	var size := StructureBuilder.MINE_SIZE
+	var c := _find_site(rng, Vector2(60.0, -320.0), 60.0, Vector2i(size + 8, size + 8), false, true)
+	var fy := c.y + 1
+	var center := Vector2(c.x, c.z)
+	var road := nearest_road_point(center)
+	var best: Vector2 = road.get("point", center + Vector2(0, 60))
+	var dir := best - center
+	var rot := 0
+	if absf(dir.x) > absf(dir.y):
+		rot = 1 if dir.x > 0.0 else 3
+	else:
+		rot = 2 if dir.y > 0.0 else 0
+	var half := size / 2
+	mine_origin = Vector3i(c.x - half, fy, c.z - half)
+	mine_rot = rot
+	# (la zona exterior tiene su propio identificador: «entrar en la mina» es cruzar la bocamina)
+	_site_zone(c, Vector2i(half + 2, half + 2), "Mina de Hierronegro", 14.0, "mina_bocamina")
+	reserved.append(Rect2i(c.x - half - 4, c.z - half - 4, size + 8, size + 8))
+	sites.append({"id": "mina_hierronegro", "name": "Mina de Hierronegro", "kind": "dungeon", "pos": center})
+	_add_structure({"id": "mina/entrance", "type": "mine_entrance", "origin": mine_origin, "w": size, "d": size, "rot": rot,
+			"dungeon": "mina_hierronegro", "margin": 2})
+	var yaw_off := -rot * 90.0
+	# Sendero desde la explanada hasta la red de caminos
+	var front := mine_local(Vector3(12.5, 0, -3.0))
+	_add_winding_road(Vector2(front.x, front.z), best, 2.5, rng)
+	# Tobías, el capataz, junto a su hoguera (de noche duerme en el cobertizo)
+	var spot := StructureBuilder.MINE_CAMPFIRE + Vector3(1.3, 0, 1.1)
+	var to_fire := StructureBuilder.MINE_CAMPFIRE - spot
+	var face := rad_to_deg(atan2(-to_fire.x, -to_fire.z))
+	spawns.append({"type": "npc", "npc": "tobias", "id": "npc/tobias", "pos": mine_local(spot), "yaw": face + yaw_off,
+			"home": mine_local(Vector3(20.0, 0, 2.4))})
+	# Arañas que han salido de la mina y rondan la bocamina
+	for k in 2:
+		spawns.append({"id": "mina/out_%d" % k, "enemy": "spider", "pos": mine_local(Vector3(10.5 + k * 4.0, 0, 6.0 + k * 0.5)),
+				"yaw": 180.0 + yaw_off, "respawn_days": 3})
+
+
+## Posición en el mundo de un punto en coordenadas locales de la bocamina.
+func mine_local(lp: Vector3) -> Vector3:
+	return ChunkWriter.local_to_world(mine_origin, StructureBuilder.MINE_SIZE, StructureBuilder.MINE_SIZE, mine_rot, lp)
 
 
 ## Posición en el mundo de un punto en coordenadas locales del castillo.

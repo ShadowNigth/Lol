@@ -36,6 +36,8 @@ static func build(wr: ChunkWriter, s: Dictionary) -> void:
 			barrow(wr, s)
 		"cave_mouth":
 			cave_mouth(wr, s)
+		"mine_entrance":
+			mine_entrance(wr, s)
 		"bandit_camp":
 			bandit_camp(wr, s)
 		"castle":
@@ -718,6 +720,141 @@ static func cave_mouth(wr: ChunkWriter, s: Dictionary) -> void:
 	wr.entity("bones", Vector3(ax + 1.2, 0, 2.2), 30.0, {"uid": "bones_1"})
 	wr.entity("bones", Vector3(ax - 2.4, 0, -1.4), 110.0, {"uid": "bones_2"})
 	wr.entity("dungeon_entrance", Vector3(ax + 0.5, 0, end_z + 0.85), 0.0, {"uid": "mouth", "dungeon": str(s.get("dungeon", "cave_lobos")), "style": "open"})
+
+
+# ---------------------------------------------------------------------------
+# Boca de la mina de Hierronegro: ladera de roca con vetas de hierro, galería
+# entibada con raíles que salen hasta una vagoneta, escombrera, cobertizo de
+# los mineros, hoguera del capataz y faroles en la bocamina.
+# Coordenadas locales (25 × 25, explanada y frente en z = 0).
+# ---------------------------------------------------------------------------
+
+const MINE_SIZE := 25
+const MINE_CAMPFIRE := Vector3(7.5, 0.0, 3.5)
+const MINE_SHED := Vector3(19.5, 0.0, 3.5)
+const MINE_PORTAL := Vector3(12.5, 0.0, 7.0)
+
+
+static func mine_entrance(wr: ChunkWriter, s: Dictionary) -> void:
+	var w := MINE_SIZE
+	var d := MINE_SIZE
+	# Explanada de tierra pisada y grava delante de la ladera
+	for lz in range(0, 11):
+		for lx in w:
+			wr.foundation(lx, -1, lz, B.DIRT, 6)
+			var hsh := WorldGenerator.hash2(lx * 5 + 1, lz, 5101) % 10
+			wr.put(lx, -1, lz, B.GRAVEL if hsh < 3 else (B.PATH if hsh < 6 else B.DIRT))
+			wr.clear(lx, 0, lz, lx, 9, lz)
+	# Ladera: montículo alargado de roca con un frente escarpado hacia z = 8
+	var cx := 12.0
+	var cz := 17.5
+	for lz2 in range(8, d):
+		for lx2 in w:
+			var nx := (lx2 - cx) / 12.5
+			var nz := (lz2 - cz) / 9.8
+			var r := sqrt(nx * nx + nz * nz) + WorldGenerator.hashf(lx2, lz2, 5103) * 0.12
+			if r > 1.0:
+				continue
+			var top := int(round(11.0 * sqrt(maxf(1.0 - r * r, 0.0)) + WorldGenerator.hashf(lx2, lz2, 5105) * 1.6))
+			if lz2 < 11:
+				top = mini(top, 3 + (lz2 - 8) * 3)
+			for ly in range(0, top + 1):
+				var hh := WorldGenerator.hash2(lx2 * 11 + ly, lz2, 5107) % 13
+				var id := B.STONE
+				if hh == 0:
+					id = B.IRON_ORE
+				elif hh == 1:
+					id = B.GRAVEL
+				elif hh == 2:
+					id = B.MOSS_STONE
+				elif hh == 3:
+					id = B.COBBLE
+				wr.put(lx2, ly, lz2, id)
+			if top >= 5 and WorldGenerator.hash2(lx2, lz2, 5109) % 3 == 0:
+				wr.put(lx2, top, lz2, B.GRASS)
+				if WorldGenerator.hash2(lx2, lz2, 5111) % 5 == 0:
+					wr.put(lx2, top + 1, lz2, B.TALL_GRASS)
+			wr.foundation(lx2, -1, lz2, B.STONE, 8)
+	# Galería: 3 de ancho y 4 de alto, con marcos de entibado
+	var ax0 := 11
+	var ax1 := 13
+	var back := 15
+	for lz3 in range(5, back + 1):
+		wr.fill(ax0, 0, lz3, ax1, 3, lz3, B.AIR)
+		for lx3 in range(ax0, ax1 + 1):
+			wr.put(lx3, -1, lz3, B.GRAVEL if (lx3 + lz3) % 3 != 0 else B.DIRT)
+	for fz: int in [8, 11, 14]:
+		for ly2 in range(0, 4):
+			wr.put(ax0 - 1, ly2, fz, B.LOG)
+			wr.put(ax1 + 1, ly2, fz, B.LOG)
+		for lx4 in range(ax0 - 1, ax1 + 2):
+			wr.put(lx4, 4, fz, B.DARK_PLANKS)
+	# Tejadillo de tablas sobre la bocamina
+	for lx5 in range(ax0 - 2, ax1 + 3):
+		wr.put(lx5, 5, 7, B.PLANK_SLAB)
+		wr.put(lx5, 4, 7, B.AIR)
+	wr.put(ax0 - 2, 4, 7, B.FENCE)
+	wr.put(ax1 + 2, 4, 7, B.FENCE)
+	for ly3 in range(0, 4):
+		wr.put(ax0 - 2, ly3, 7, B.FENCE)
+		wr.put(ax1 + 2, ly3, 7, B.FENCE)
+	# Raíles desde el fondo de la galería hasta la explanada, con tope
+	for lz4 in range(1, back + 1):
+		wr.put(12, 0, lz4, B.RAIL)
+	wr.put(12, 0, 0, B.PLANK_SLAB)
+	# Escombrera de grava y roca
+	for lz5 in range(2, 11):
+		for lx6 in range(0, 8):
+			var rr := Vector2(lx6 - 3.5, lz5 - 6.5).length() / 3.6 + WorldGenerator.hashf(lx6, lz5, 5113) * 0.15
+			if rr > 1.0:
+				continue
+			var tp := int(round(3.2 * (1.0 - rr * rr)))
+			for ly4 in range(0, tp):
+				wr.put(lx6, ly4, lz5, B.GRAVEL if WorldGenerator.hash2(lx6, lz5 + ly4, 5115) % 4 != 0 else B.STONE)
+	# Cobertizo de los mineros: postes, tablas de abeto, techo de losas
+	var sx0 := 17
+	var sx1 := 22
+	var sz0 := 1
+	var sz1 := 5
+	for lz6 in range(sz0, sz1 + 1):
+		for lx7 in range(sx0, sx1 + 1):
+			wr.put(lx7, -1, lz6, B.PLANKS)
+	for corner: Vector2i in [Vector2i(sx0, sz0), Vector2i(sx1, sz0), Vector2i(sx0, sz1), Vector2i(sx1, sz1)]:
+		for ly5 in range(0, 3):
+			wr.put(corner.x, ly5, corner.y, B.LOG)
+	for lx8 in range(sx0 + 1, sx1):
+		for ly6 in range(0, 3):
+			wr.put(lx8, ly6, sz1, B.SPRUCE_PLANKS)
+	for lz7 in range(sz0 + 1, sz1):
+		for ly7 in range(0, 3):
+			wr.put(sx1, ly7, lz7, B.SPRUCE_PLANKS)
+			if not (ly7 == 1 and lz7 == 3):
+				wr.put(sx0, ly7, lz7, B.SPRUCE_PLANKS)
+	wr.put(sx0, 1, 3, B.GLASS)
+	for lz8 in range(sz0 - 1, sz1 + 2):
+		for lx9 in range(sx0 - 1, sx1 + 2):
+			wr.put(lx9, 3, lz8, B.PLANK_SLAB)
+	# Mobiliario y herramientas
+	wr.entity("minecart", Vector3(12.5, 0, 3.5), 0.0, {"uid": "cart"})
+	wr.entity("ore_pile", Vector3(15.6, 0, 3.2), 40.0, {"uid": "ore"})
+	wr.entity("pickaxe", Vector3(10.2, 0, 5.4), 70.0, {"uid": "pick"})
+	wr.entity("crate", Vector3(15.6, 0, 6.4), 10.0, {"uid": "crate_0"})
+	wr.entity("crate", Vector3(15.6, 0.75, 6.4), 35.0, {"uid": "crate_1"})
+	wr.entity("barrel", Vector3(9.3, 0, 6.6), 0.0, {"uid": "barrel_0"})
+	wr.entity("table", Vector3(19.5, 0, 4.2), 0.0, {"uid": "shed_table"})
+	wr.entity("barrel", Vector3(21.3, 0, 4.3), 0.0, {"uid": "shed_barrel"})
+	wr.entity("crate", Vector3(18.0, 0, 4.4), 0.0, {"uid": "shed_crate"})
+	wr.entity("bedroll", Vector3(20.2, 0, 2.2), 90.0, {"uid": "shed_bed"})
+	wr.entity("campfire", MINE_CAMPFIRE, 0.0, {"uid": "fire"})
+	wr.entity("smoke", MINE_CAMPFIRE + Vector3(0, 0.6, 0), 0.0, {"uid": "smoke"})
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.4
+		wr.entity("log_seat", MINE_CAMPFIRE + Vector3(cos(a) * 1.6, 0, sin(a) * 1.6), rad_to_deg(-a) + 90.0, {"uid": "seat_%d" % k})
+	wr.entity("sign", Vector3(15.2, 0, 1.2), 0.0, {"uid": "sign"})
+	# Faroles en los postes de la bocamina
+	wr.entity("wall_lantern", Vector3(ax0 - 0.5, 2.2, 7.7), 0.0, {"uid": "lamp_w"})
+	wr.entity("wall_lantern", Vector3(ax1 + 1.5, 2.2, 7.7), 0.0, {"uid": "lamp_e"})
+	wr.entity("dungeon_entrance", Vector3(12.5, 0, back + 0.85), 0.0, {"uid": "adit", "dungeon": str(s.get("dungeon", "mina_hierronegro")), "style": "open"})
 
 
 # ---------------------------------------------------------------------------

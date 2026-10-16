@@ -10,7 +10,7 @@ var _rng := RandomNumberGenerator.new()
 var _cutout_names := {
 	"leaves": true, "spruce_leaves": true, "birch_leaves": true, "glass": true, "torch": true,
 	"tall_grass": true, "flower_red": true, "flower_yellow": true, "flower_blue": true, "bush": true,
-	"dead_bush": true, "mushroom": true, "crop": true, "reeds": true, "cobweb": true,
+	"dead_bush": true, "mushroom": true, "crop": true, "reeds": true, "cobweb": true, "rail": true,
 }
 
 
@@ -313,6 +313,16 @@ func _generate(tex_name: String, variant: int) -> Image:
 			_wrought_iron(img)
 		"cobweb":
 			_cobweb(img)
+		"iron_ore":
+			_stone(img, [_hex("5f6064"), _hex("6f7075"), _hex("808186"), _hex("909196")])
+			_ore(img, [_hex("8a5232"), _hex("b07a4a"), _hex("c98f5c"), _hex("dcae80")], 4 + variant)
+		"coal_ore":
+			_stone(img, [_hex("5f6064"), _hex("6f7075"), _hex("808186"), _hex("909196")])
+			_ore(img, [_hex("161618"), _hex("1f1f22"), _hex("2c2c30"), _hex("3d3d42")], 5)
+		"rail":
+			_rail(img)
+		"silk":
+			_silk(img, variant)
 		_:
 			img.fill(Color.MAGENTA)
 	return img
@@ -819,6 +829,52 @@ func _cobweb(img: Image) -> void:
 			var y2 := int(round(7.5 + sin(a2) * ring))
 			if (k % 3) != 0:
 				img.set_pixel(clampi(x2, 0, S - 1), clampi(y2, 0, S - 1), c)
+
+
+## Vetas de mineral: grumos de 2-5 píxeles con su brillo y su sombra.
+func _ore(img: Image, palette: Array, clusters: int) -> void:
+	for k in clusters:
+		var cx := _rng.randi_range(1, S - 3)
+		var cy := _rng.randi_range(1, S - 3)
+		var n := _rng.randi_range(2, 5)
+		for i in n:
+			var x := clampi(cx + _rng.randi_range(-1, 1), 0, S - 1)
+			var y := clampi(cy + _rng.randi_range(-1, 1), 0, S - 1)
+			img.set_pixel(x, y, palette[_rng.randi_range(1, 2)])
+			if y > 0:
+				img.set_pixel(x, y - 1, palette[3] if _rng.randf() < 0.5 else palette[2])
+			if y < S - 1 and _rng.randf() < 0.6:
+				img.set_pixel(x, y + 1, palette[0])
+
+
+## Raíles de vagoneta vistos desde arriba: traviesas de madera y dos carriles
+## de hierro a lo largo de la textura (fondo transparente).
+func _rail(img: Image) -> void:
+	_transparent(img)
+	var wood := [_hex("4a3220"), _hex("5a3d26"), _hex("6b4a2e")]
+	for sy: int in [1, 6, 11]:
+		for y in range(sy, sy + 3):
+			for x in range(1, S - 1):
+				var c: Color = wood[(x + y * 3 + _rng.randi() % 2) % wood.size()]
+				img.set_pixel(x, y, _shade(c, 0.85) if y == sy + 2 else c)
+	for rx: int in [3, 11]:
+		for y in S:
+			img.set_pixel(rx, y, _hex("3a3b40"))
+			img.set_pixel(rx + 1, y, _hex("8c8f96") if (y % 5) != 0 else _hex("6e7076"))
+
+
+## Seda de araña apelmazada: capas blanquecinas con hebras y sombras.
+func _silk(img: Image, variant: int) -> void:
+	_fill_palette_noise(img, [_hex("b9b9b0"), _hex("c9c9c0"), _hex("d8d8d0"), _hex("e6e6df")], 0.15)
+	for k in 5 + variant * 2:
+		var x := _rng.randi() % S
+		var y := _rng.randi() % S
+		var dx := 1 if _rng.randf() < 0.5 else -1
+		for i in _rng.randi_range(4, 9):
+			img.set_pixel(posmod(x, S), posmod(y, S), _hex("f4f4ef") if i % 3 else _hex("a3a39a"))
+			x += dx
+			y += 1 if _rng.randf() < 0.5 else 0
+	_speckle(img, _hex("9a9a90"), 5)
 
 
 ## Hierro forjado oscuro con algún punto de óxido (barrotes de calabozo).

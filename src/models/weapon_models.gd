@@ -52,6 +52,43 @@ static func sword(rusty: bool = false) -> VoxelModel:
 	return m
 
 
+## Espada de Hierronegro: acero pavonado casi negro con filos brillantes,
+## guarda de plata con gavilanes curvos y empuñadura azul de Peñalba.
+static func sword_penalba() -> VoxelModel:
+	var m := VoxelModel.new(V, 13)
+	var steel := m.mat(Color(0.28, 0.31, 0.37), 0.9, 0.3, 0.0, 0.05)
+	var edge := m.mat(Color(0.84, 0.87, 0.92), 0.95, 0.2, 0.0, 0.03)
+	var fuller := m.mat(Color(0.16, 0.18, 0.23), 0.9, 0.35, 0.0, 0.03)
+	var silver := m.mat(Color(0.8, 0.82, 0.86), 0.95, 0.25, 0.0, 0.04)
+	var blue := m.mat(Color(0.16, 0.26, 0.55), 0.0, 0.7, 0.0, 0.05)
+	var blue_dk := m.mat(Color(0.1, 0.16, 0.36), 0.0, 0.75, 0.0, 0.05)
+	var gem := m.mat(Color(0.3, 0.5, 1.0), 0.3, 0.2, 0.6, 0.0)
+	var p := m.part("weapon", "weapon", Vector3.ZERO)
+	for y in range(-3, 4):
+		p.box(Vector3i(-1, y, -1), Vector3i(0, y, 0), blue if y % 2 == 0 else blue_dk)
+	p.box(Vector3i(-2, -6, -1), Vector3i(1, -4, 0), silver)
+	p.put(Vector3i(-1, -5, -2), gem)
+	p.put(Vector3i(0, -5, 1), gem)
+	# Guarda con gavilanes curvados hacia la hoja y una gema central
+	p.box(Vector3i(-6, 4, -1), Vector3i(5, 5, 0), silver)
+	p.box(Vector3i(-7, 6, -1), Vector3i(-7, 7, 0), silver)
+	p.box(Vector3i(6, 6, -1), Vector3i(6, 7, 0), silver)
+	p.put(Vector3i(-1, 5, -2), gem)
+	p.put(Vector3i(0, 5, 1), gem)
+	for y2 in range(6, 37):
+		var half := 2 if y2 < 33 else (1 if y2 < 35 else 0)
+		p.box(Vector3i(-half, y2, -1), Vector3i(half - 1 if half > 0 else 0, y2, 0), steel)
+		if half >= 2:
+			p.put(Vector3i(-half, y2, -1), edge)
+			p.put(Vector3i(half - 1, y2, 0), edge)
+			p.put(Vector3i(-half, y2, 0), edge)
+			p.put(Vector3i(half - 1, y2, -1), edge)
+			if y2 < 30:
+				p.put(Vector3i(-1, y2, -1), fuller)
+				p.put(Vector3i(0, y2, 0), fuller)
+	return m
+
+
 static func dagger() -> VoxelModel:
 	var m := VoxelModel.new(V, 21)
 	var c := _mats(m, false)
@@ -225,6 +262,8 @@ static func by_id(weapon_id: String) -> VoxelModel:
 			return sword(false)
 		"rusty_sword":
 			return sword(true)
+		"sword_penalba":
+			return sword_penalba()
 		"dagger":
 			return dagger()
 		"axe":

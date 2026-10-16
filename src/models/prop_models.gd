@@ -719,8 +719,176 @@ static func log_seat() -> VoxelModel:
 
 
 ## Devuelve el modelo por nombre de entidad.
+# ---------------------------------------------------------------------------
+# Mina de Hierronegro: vagoneta, mineral, lámparas de poste, herramientas y
+# el nido de las arañas (sacos de huevos y capullos de seda)
+# ---------------------------------------------------------------------------
+
+## Vagoneta de mina cargada de mineral (1 m de largo, mira a ±Z).
+static func minecart() -> VoxelModel:
+	var m := VoxelModel.new(V, 140)
+	var c := _wood(m)
+	var rock := m.mat(Color(0.45, 0.45, 0.47), 0.0, 0.9, 0.0, 0.12)
+	var ore := m.mat(Color(0.69, 0.47, 0.29), 0.2, 0.7, 0.0, 0.12)
+	var p := m.part("body", "", Vector3.ZERO)
+	# Ruedas de hierro y ejes
+	for wz: int in [-5, 4]:
+		for side: int in [-7, 6]:
+			p.cylinder_x(2.5, wz, 2.5, side, side, c["iron"])
+		p.cylinder_x(2.5, wz, 0.6, -6, 5, c["iron"])
+	# Caja de tablones, algo más ancha arriba, con flejes de hierro
+	for y in range(3, 12):
+		var fl := (y - 3) / 4
+		var x0 := -5 - fl
+		var x1 := 4 + fl
+		var z0 := -8 - fl
+		var z1 := 7 + fl
+		for x in range(x0, x1 + 1):
+			p.put(Vector3i(x, y, z0), c["wood"] if y % 3 else c["wood_dk"])
+			p.put(Vector3i(x, y, z1), c["wood"] if y % 3 else c["wood_dk"])
+		for z in range(z0, z1 + 1):
+			p.put(Vector3i(x0, y, z), c["wood_lt"] if y % 3 else c["wood_dk"])
+			p.put(Vector3i(x1, y, z), c["wood_lt"] if y % 3 else c["wood_dk"])
+		for corner: Vector2i in [Vector2i(x0, z0), Vector2i(x1, z0), Vector2i(x0, z1), Vector2i(x1, z1)]:
+			p.put(Vector3i(corner.x, y, corner.y), c["iron"])
+	p.box(Vector3i(-5, 3, -8), Vector3i(4, 3, 7), c["wood_dk"])
+	for x2 in range(-7, 7):
+		p.put(Vector3i(x2, 11, -10), c["iron"])
+		p.put(Vector3i(x2, 11, 9), c["iron"])
+	# Carga de mineral asomando por encima
+	p.ellipsoid(Vector3(-0.5, 10.5, -0.5), Vector3(5.5, 3.0, 7.5), rock)
+	for k in 14:
+		p.put(Vector3i(-4 + (k * 5) % 9, 11 + (k % 3) / 2, -6 + (k * 7) % 13), ore)
+	return m
+
+
+## Montón de mineral y cascotes.
+static func ore_pile() -> VoxelModel:
+	var m := VoxelModel.new(V, 141)
+	var rock := m.mat(Color(0.42, 0.42, 0.45), 0.0, 0.9, 0.0, 0.14)
+	var rock_dk := m.mat(Color(0.3, 0.3, 0.32), 0.0, 0.9, 0.0, 0.1)
+	var ore := m.mat(Color(0.7, 0.46, 0.27), 0.2, 0.7, 0.0, 0.12)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.ellipsoid(Vector3(-0.5, 0.0, -0.5), Vector3(8.0, 5.0, 6.5), rock)
+	p.erase_box(Vector3i(-10, -6, -10), Vector3i(10, -1, 10))
+	for k in 26:
+		var x := -7 + (k * 7) % 14
+		var z := -5 + (k * 5) % 11
+		var y := 0
+		while p.voxels.has(Vector3i(x, y + 1, z)):
+			y += 1
+		if p.voxels.has(Vector3i(x, y, z)):
+			p.put(Vector3i(x, y, z), ore if k % 3 == 0 else rock_dk)
+	return m
+
+
+## Poste de mina con brazo y farol colgante (la luz la pone el generador de entidades).
+static func mine_lamp() -> VoxelModel:
+	var m := VoxelModel.new(V, 142)
+	var c := _wood(m)
+	var glow := m.mat(Color(1.0, 0.72, 0.32), 0.0, 0.5, 1.0, 0.05)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-1, 0, -1), Vector3i(0, 30, 0), c["wood_dk"])
+	p.box(Vector3i(-2, 0, -2), Vector3i(1, 1, 1), c["wood_dk"])
+	p.box(Vector3i(1, 29, -1), Vector3i(7, 30, 0), c["wood"])
+	p.line(Vector3(1, 25, -1), Vector3(4, 28, -1), c["wood"])
+	# Farol colgado del extremo del brazo
+	p.box(Vector3i(6, 26, -1), Vector3i(6, 28, -1), c["iron"])
+	p.box(Vector3i(4, 19, -3), Vector3i(8, 19, 1), c["iron"])
+	p.box(Vector3i(4, 25, -3), Vector3i(8, 25, 1), c["iron"])
+	for corner: Vector2i in [Vector2i(4, -3), Vector2i(8, -3), Vector2i(4, 1), Vector2i(8, 1)]:
+		p.box(Vector3i(corner.x, 20, corner.y), Vector3i(corner.x, 24, corner.y), c["iron"])
+	p.box(Vector3i(5, 20, -2), Vector3i(7, 24, 0), glow)
+	return m
+
+
+## Pico de minero tirado en el suelo.
+static func pickaxe() -> VoxelModel:
+	var m := VoxelModel.new(V, 143)
+	var c := _wood(m)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-1, 0, -9), Vector3i(0, 1, 8), c["wood"])
+	p.line(Vector3(-7, 0, 8), Vector3(0, 0, 10), c["iron"])
+	p.line(Vector3(0, 0, 10), Vector3(7, 0, 8), c["iron"])
+	p.box(Vector3i(-2, 0, 8), Vector3i(1, 2, 10), c["iron"])
+	return m
+
+
+## Racimo de huevos de araña envueltos en seda (brillan débilmente).
+static func egg_sac() -> VoxelModel:
+	var m := VoxelModel.new(V, 144)
+	var silk := m.mat(Color(0.86, 0.86, 0.8), 0.0, 1.0, 0.0, 0.08)
+	var egg := m.mat(Color(0.85, 0.88, 0.62), 0.0, 0.5, 0.35, 0.08)
+	var p := m.part("body", "", Vector3.ZERO)
+	var eggs := [Vector3(-2.5, 3.0, -1.5), Vector3(2.5, 3.0, -2.0), Vector3(0.0, 3.0, 2.5), Vector3(0.0, 7.0, 0.0),
+			Vector3(-3.0, 6.0, 2.0), Vector3(3.0, 6.0, 1.5)]
+	for e: Vector3 in eggs:
+		p.ellipsoid(e, Vector3(2.8, 3.0, 2.8), egg)
+	# Hebras de seda que lo envuelven y lo pegan al suelo
+	for k in 7:
+		var a := TAU * k / 7.0
+		p.line(Vector3(cos(a) * 7.0, 0, sin(a) * 7.0), Vector3(cos(a + 1.2) * 2.0, 9.0, sin(a + 1.2) * 2.0), silk)
+	p.box(Vector3i(-5, 0, -5), Vector3i(4, 0, 4), silk)
+	return m
+
+
+## Capullo de seda con una víctima dentro (de pie, pegado al suelo), o ya rajado.
+static func cocoon(torn: bool = false) -> VoxelModel:
+	var m := VoxelModel.new(V, 145)
+	var silk := m.mat(Color(0.82, 0.82, 0.76), 0.0, 1.0, 0.0, 0.1)
+	var silk_dk := m.mat(Color(0.62, 0.62, 0.56), 0.0, 1.0, 0.0, 0.08)
+	var inside := m.mat(Color(0.22, 0.17, 0.14), 0.0, 0.9, 0.0, 0.1)
+	var bone := m.mat(Color(0.85, 0.82, 0.7), 0.0, 0.85, 0.0, 0.06)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.ellipsoid(Vector3(-0.5, 14.0, -0.5), Vector3(5.0, 14.0, 4.5), silk)
+	for y in range(2, 27, 3):
+		for x in range(-6, 6):
+			for z in range(-6, 6):
+				if p.voxels.has(Vector3i(x, y, z)) and not p.voxels.has(Vector3i(x, y, z) + Vector3i(0, 0, -1)):
+					p.put(Vector3i(x, y, z), silk_dk)
+	# Hebras que lo anclan al suelo
+	for k in 5:
+		var a := TAU * k / 5.0
+		p.line(Vector3(cos(a) * 8.0, 0, sin(a) * 8.0), Vector3(cos(a) * 3.0, 6.0, sin(a) * 3.0), silk)
+	if torn:
+		# Rajado por delante: hueco oscuro y un brazo huesudo
+		p.erase_box(Vector3i(-3, 8, -6), Vector3i(2, 22, -3))
+		p.box(Vector3i(-3, 8, -3), Vector3i(2, 22, -3), inside)
+		p.line(Vector3(-1, 12, -3), Vector3(-2, 8, -6), bone)
+	return m
+
+
+## Libro pequeño (diarios y notas que se encuentran en las mazmorras).
+static func book_item() -> VoxelModel:
+	var m := VoxelModel.new(V, 146)
+	var cover := m.mat(Color(0.42, 0.22, 0.14), 0.0, 0.8, 0.0, 0.06)
+	var pages := m.mat(Color(0.9, 0.86, 0.74), 0.0, 0.9, 0.0, 0.04)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-3, 0, -4), Vector3i(2, 0, 3), cover)
+	p.box(Vector3i(-3, 1, -4), Vector3i(1, 1, 3), pages)
+	p.box(Vector3i(-3, 2, -4), Vector3i(2, 2, 3), cover)
+	p.box(Vector3i(2, 0, -4), Vector3i(2, 2, 3), cover)
+	return m
+
+
 static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 	match prop:
+		"minecart":
+			return minecart()
+		"ore_pile":
+			return ore_pile()
+		"mine_lamp":
+			return mine_lamp()
+		"pickaxe":
+			return pickaxe()
+		"egg_sac":
+			return egg_sac()
+		"cocoon":
+			return cocoon(false)
+		"cocoon_torn":
+			return cocoon(true)
+		"book":
+			return book_item()
 		"campfire":
 			return campfire()
 		"cage":
