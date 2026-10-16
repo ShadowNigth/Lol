@@ -172,6 +172,12 @@ func _build_queue() -> void:
 			var to := tgt - cam
 			_queue.append({"name": v[0], "pos": Vector3(cam.x, -1.0 if lp.y < 0.0 else cam.y, cam.z), "yaw": rad_to_deg(atan2(-to.x, -to.z)),
 					"pitch": rad_to_deg(atan2(to.y - 1.6, Vector2(to.x, to.z).length())), "time": v[3]})
+		# Un guardia inconsciente en el suelo (animación de desmayo)
+		var kcam := wg3.planner.castle_local(Vector3(19.2, 0.05, 15.2))
+		var ktgt := wg3.planner.castle_local(Vector3(21.2, 0.2, 18.0))
+		var kto := ktgt - kcam
+		_queue.append({"name": "castle_knockout", "pos": kcam, "yaw": rad_to_deg(atan2(-kto.x, -kto.z)),
+				"pitch": rad_to_deg(atan2(kto.y - 1.6, Vector2(kto.x, kto.z).length())), "time": 14.0, "knockout": "castle/guard_keep"})
 		_queue.append({"name": "castle_arrest", "ui": "arrest"})
 	if "bandits" in _sets:
 		_queue.append({"name": "bandits_idle", "bandits": "idle", "t": 0.6})
@@ -329,6 +335,12 @@ func _setup_shot(shot: Dictionary) -> void:
 		GameState.time_of_day = float(shot["time"])
 		p.viewmodel.visible = true
 		_wait = 12
+		if shot.has("knockout"):
+			for n1 in get_tree().get_nodes_in_group("npcs"):
+				var kn := n1 as NPC
+				if kn and kn.entity_id == str(shot["knockout"]):
+					kn._knock_out()
+			_wait = 20
 	elif shot.has("vm"):
 		p.teleport(Vector3(2.5, 37.0, 3.5), -60.0)
 		p._pitch = deg_to_rad(-12.0)

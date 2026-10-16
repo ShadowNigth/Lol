@@ -36,7 +36,7 @@ const NPCS := {
 				"La torre del sur vigila el camino. Desde arriba se ve hasta las ruinas.",
 				"Si bloqueas en el momento justo, el enemigo queda vendido. Lo aprendí a las malas."],
 		"patrol": true, "work_anim": "idle", "guard": true, "lantern": true, "health": 110.0,
-		"gear": {"weapon": "sword"},
+		"gear": {"weapon": "sword", "offhand": "shield_wood"},
 	},
 	"mira": {
 		"name": "Mira", "role": "Aldeana", "faction": "hojarrubia",

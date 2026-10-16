@@ -787,7 +787,8 @@ func _guard_should_calm() -> bool:
 		return false
 	if not Law.is_wanted() and not Law.resisted():
 		return state in [State.IDLE, State.PATROL, State.RETURN, State.CHASE, State.ALERT]
-	return not _aware and state in [State.IDLE, State.PATROL]
+	# Sin ver al jugador: de vuelta en su puesto (o tras un buen rato intentando volver)
+	return not _aware and (state in [State.IDLE, State.PATROL] or (state == State.RETURN and _state_t > 12.0))
 
 
 func _die(_info: Dictionary) -> void:
