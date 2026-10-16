@@ -245,6 +245,8 @@ static func build(data: ChunkData) -> Dictionary:
 							lights.append(p2 + Vector3(0.5, 0.78, 0.5))
 						BlockTypes.Shape.FENCE:
 							_emit_fence(surf2, col_ref, blocks, opq, shp_tbl, i, p2, tex_s)
+						BlockTypes.Shape.BARS:
+							_emit_bars(surf2, col_ref, blocks, opq, shp_tbl, i, p2, tex_s)
 						_:
 							pass
 
@@ -363,6 +365,31 @@ static func _emit_box(surf: SurfaceBuilder, col: CollisionBuilder, blocks: Packe
 		surf.add_quad_indices(base, false)
 		if col != null:
 			col.add_quad(pts[0], pts[1], pts[2], pts[3])
+
+
+## Reja de calabozo: barrotes verticales finos con dos pletinas, en el plano
+## que une con sus vecinos (otras rejas o muros); sin vecinos, a lo largo de x.
+static func _emit_bars(surf: SurfaceBuilder, col: CollisionBuilder, blocks: PackedByteArray, opq: PackedByteArray,
+		shp_tbl: PackedByteArray, i: int, p: Vector3, tex: int) -> void:
+	var s := 1.0 / 16.0
+	var joins := func(f: int) -> bool:
+		var nid := blocks[i + FACE_DELTA[f]]
+		return shp_tbl[nid] == BlockTypes.Shape.BARS or opq[nid] == 1
+	var along_x: bool = joins.call(0) or joins.call(1)
+	var along_z: bool = joins.call(4) or joins.call(5)
+	if not along_x and not along_z:
+		along_x = true
+	for k in 4:
+		var c := (2.0 + 4.0 * k) * s
+		if along_x:
+			_emit_box(surf, col, blocks, opq, i, p, Vector3(c - 0.8 * s, 0, 7.2 * s), Vector3(c + 0.8 * s, 1.0, 8.8 * s), tex, tex, tex)
+		if along_z:
+			_emit_box(surf, col, blocks, opq, i, p, Vector3(7.2 * s, 0, c - 0.8 * s), Vector3(8.8 * s, 1.0, c + 0.8 * s), tex, tex, tex)
+	for band: Array in [[1.0 * s, 2.6 * s], [13.4 * s, 15.0 * s]]:
+		if along_x:
+			_emit_box(surf, col, blocks, opq, i, p, Vector3(0, band[0], 6.8 * s), Vector3(1.0, band[1], 9.2 * s), tex, tex, tex)
+		if along_z:
+			_emit_box(surf, col, blocks, opq, i, p, Vector3(6.8 * s, band[0], 0), Vector3(9.2 * s, band[1], 1.0), tex, tex, tex)
 
 
 static func _emit_fence(surf: SurfaceBuilder, col: CollisionBuilder, blocks: PackedByteArray, opq: PackedByteArray,

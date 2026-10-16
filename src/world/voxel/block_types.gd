@@ -5,7 +5,7 @@ extends RefCounted
 ## Las propiedades se guardan en tablas empaquetadas indexadas por id para que
 ## el generador de mallas (que corre en hilos) pueda consultarlas rápido.
 
-enum Shape { NONE, CUBE, CROSS, SLAB, STAIRS, TORCH, FENCE, LIQUID, SLAB_TOP }
+enum Shape { NONE, CUBE, CROSS, SLAB, STAIRS, TORCH, FENCE, LIQUID, SLAB_TOP, BARS }
 enum Layer { OPAQUE, CUTOUT, WATER }
 enum Sound { NONE, GRASS, DIRT, STONE, WOOD, SAND, SNOW, LEAVES }
 
@@ -64,6 +64,7 @@ const IRON_BLOCK := 50
 const COBWEB := 51
 const CANVAS := 52
 const CANVAS_SLAB := 53
+const IRON_BARS := 54
 const COBBLE_SLAB := 60
 const PLANK_SLAB := 61
 const ROOF_SLAB := 62
@@ -196,6 +197,7 @@ static func _static_init() -> void:
 	_cube(IRON_BLOCK, "Hierro", "iron_block", "iron_block", "iron_block", Sound.STONE)
 	_cube(CANVAS, "Lona", "canvas", "canvas", "canvas", Sound.GRASS)
 	_define(FENCE, "Valla", Shape.FENCE, Layer.OPAQUE, false, true, "planks", "planks", "planks", Sound.WOOD)
+	_define(IRON_BARS, "Barrotes de hierro", Shape.BARS, Layer.OPAQUE, false, true, "iron_block", "iron_block", "iron_block", Sound.STONE)
 
 	_slab(COBBLE_SLAB, "Losa de adoquín", "cobble", Sound.STONE, false)
 	_slab(PLANK_SLAB, "Losa de madera", "planks", Sound.WOOD, false)

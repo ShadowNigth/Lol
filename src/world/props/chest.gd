@@ -2,7 +2,12 @@ class_name Chest
 extends StaticBody3D
 ## Cofre con tapa animada y botín generado por tablas. Solo se puede saquear
 ## una vez (persistente). Puede tener cerradura (`lock_level` > 0): se abre con
-## su llave o forzándola con ganzúas (ver LockPicking).
+## su llave o forzándola con ganzúas (ver LockPicking). Los cofres de casas,
+## posadas y del castillo tienen dueño: abrirlos delante de testigos es robo
+## (y forzarlos, allanamiento; ver Law).
+
+## Tablas de botín de cofres con dueño.
+const OWNED_LOOT := ["home", "inn", "barracks", "castle", "noble"]
 
 var entity_id: String = ""
 var loot_table: String = "home"
@@ -23,6 +28,10 @@ func setup(id: String, table: String, lock: int = 0, key: String = "") -> void:
 
 func is_locked() -> bool:
 	return lock_level > 0 and not _opened and not LockPicking.is_unlocked(entity_id)
+
+
+func is_owned() -> bool:
+	return loot_table in OWNED_LOOT
 
 
 func _ready() -> void:
@@ -67,7 +76,7 @@ func get_interaction_text() -> String:
 		return "Cofre (vacío)"
 	if is_locked():
 		return LockPicking.hint("el cofre", lock_level, key_id, GameState.player)
-	return "[E] Abrir cofre"
+	return "[E] Robar del cofre" if is_owned() else "[E] Abrir cofre"
 
 
 func interact(player: Node) -> void:
@@ -75,6 +84,8 @@ func interact(player: Node) -> void:
 		return
 	if is_locked():
 		var res := LockPicking.try_open(player, entity_id, lock_level, key_id, global_position + Vector3(0, 0.5, 0))
+		if res == "picked" and is_owned():
+			Law.report("allanamiento")
 		if res != "key" and res != "picked":
 			return
 		if _padlock:
@@ -86,7 +97,9 @@ func interact(player: Node) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(entity_id)
 	var found: Array[String] = []
+	var value := 0
 	var gold := LootTables.gold_for(loot_table, rng)
+	value += gold
 	if gold > 0 and player and "gold" in player:
 		player.set("gold", int(player.get("gold")) + gold)
 		found.append("%d monedas de oro" % gold)
@@ -94,8 +107,11 @@ func interact(player: Node) -> void:
 	for item: Dictionary in LootTables.roll(loot_table, rng):
 		GameState.give_item(player, item)
 		var c := int(item.get("count", 1))
+		value += int(ItemDB.get_def(str(item["id"])).get("value", 0)) * c
 		found.append(str(item["name"]) + (" x%d" % c if c > 1 else ""))
 	Events.notify.emit("El cofre contiene: " + (", ".join(found) if not found.is_empty() else "nada"), "item")
+	if is_owned():
+		Law.report("robo", null, value)
 
 
 func _process(delta: float) -> void:

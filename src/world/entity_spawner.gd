@@ -9,7 +9,7 @@ var _by_chunk: Dictionary = {}   # Vector2i -> Array[Node]
 var _enemy_data_cache: Dictionary = {}
 
 const STATIC_PROPS := ["barrel", "crate", "table", "chair", "bed", "anvil", "bucket", "goods", "hay_cart", "banner", "sign",
-		"bedroll", "log_seat", "sack"]
+		"bedroll", "log_seat", "sack", "throne", "training_dummy"]
 ## Props decorativos que no bloquean el paso.
 const NO_COLLISION_PROPS := ["banner", "sign", "bones", "bedroll"]
 
@@ -73,6 +73,13 @@ func _spawn(e: Dictionary) -> Node:
 				return null
 			return _spawn_enemy(e)
 		"npc":
+			var npc_def := NpcDB.get_npc(str(e.get("npc", "")))
+			# Guardias caídos: no vuelven hasta pasados unos días
+			if bool(npc_def.get("generic", false)) and GameState.is_killed(id, Law.GUARD_RESPAWN_DAYS):
+				return null
+			# Un personaje con nombre no puede estar en dos sitios (p. ej. acompañándote)
+			if not bool(npc_def.get("generic", false)) and _named_npc_exists(str(e.get("npc", ""))):
+				return null
 			var npc := NPC.new()
 			npc.setup(str(e.get("npc", "")), e, player)
 			npc.name = "NPC_" + str(e.get("npc", ""))
@@ -236,6 +243,22 @@ func _spawn(e: Dictionary) -> Node:
 			return br
 		"pillar", "sarcophagus", "bones":
 			return _spawn_static_prop(type, pos, yaw, e)
+		"castle_portcullis":
+			# Rastrillo alzado en la boca de la torre-puerta: decorativo, sin colisión
+			var pc := MeshInstance3D.new()
+			pc.mesh = ModelLibrary.prop_mesh("portcullis")
+			add_child(pc)
+			pc.global_position = pos + Vector3(0, 2.55, 0)
+			pc.rotation.y = yaw
+			pc.scale = Vector3(1.55, 1.0, 1.0)
+			return pc
+		"cell_door":
+			var cd := CellDoor.new()
+			cd.setup(id, int(e.get("lock", 0)), str(e.get("key", "")), rad_to_deg(yaw))
+			add_child(cd)
+			# Bisagra a la izquierda, como las puertas de madera
+			cd.global_position = pos + Basis(Vector3.UP, yaw) * Vector3(-0.5, 0, 0)
+			return cd
 		_:
 			if type in STATIC_PROPS:
 				return _spawn_static_prop(type, pos, yaw, e)
@@ -371,3 +394,81 @@ func find_free_spot(pos: Vector3, radius: float, height: float) -> Vector3:
 		if space.intersect_shape(params, 1).is_empty():
 			return ground + Vector3(0, 0.02, 0)
 	return pos
+
+
+func _named_npc_exists(npc_id: String) -> bool:
+	for n: Node in get_tree().get_nodes_in_group("npcs"):
+		var other := n as NPC
+		if other and other.npc_id == npc_id and not other.is_queued_for_deletion():
+			return true
+	return false
+
+
+## Vuelve a asociar un nodo al chunk donde está ahora (se liberará con él).
+func track_node(n: Node3D) -> void:
+	detach_node(n)
+	var coord := Vector2i(floori(n.global_position.x / ChunkData.SIZE), floori(n.global_position.z / ChunkData.SIZE))
+	if _by_chunk.has(coord):
+		(_by_chunk[coord] as Array).append(n)
+
+
+## Saca un nodo de las listas de los chunks (p. ej. un acompañante que te
+## sigue: no debe desaparecer cuando se descarga el chunk donde apareció).
+func detach_node(n: Node) -> void:
+	for coord: Vector2i in _by_chunk:
+		var arr: Array = _by_chunk[coord]
+		var i := arr.find(n)
+		if i >= 0:
+			arr.remove_at(i)
+
+
+## Acompañante de una escolta en curso: aparece junto al jugador.
+func spawn_follower(npc_id: String) -> NPC:
+	if _named_npc_exists(npc_id):
+		return null
+	var back := -player.look_direction()
+	back.y = 0.0
+	if back.length() < 0.1:
+		back = Vector3(0, 0, 1)
+	var pos := player.global_position + back.normalized() * 2.0
+	var npc := NPC.new()
+	npc.setup(npc_id, {"id": "npc/%s" % npc_id, "pos": pos, "yaw": player.get_yaw_degrees()}, player)
+	npc.name = "NPC_" + npc_id
+	npc.add_to_group("npcs")
+	npc.process_mode = Node.PROCESS_MODE_DISABLED
+	add_child(npc)
+	_activate_when_safe.call_deferred(npc)
+	return npc
+
+
+## Un guardia que pelea: un Enemy con el aspecto, equipo y nombre del PNJ
+## ocupa su lugar (el PNJ queda oculto hasta que se calme; ver Law).
+func spawn_guard_enemy(npc: NPC) -> Enemy:
+	var data: EnemyData = _enemy_data_cache.get("town_guard", null)
+	if data == null:
+		data = load("res://data/enemies/town_guard.tres") as EnemyData
+		if data == null:
+			push_warning("Falta data/enemies/town_guard.tres")
+			return null
+		_enemy_data_cache["town_guard"] = data
+	var e := Enemy.new()
+	e.name = "HostileGuard_" + npc.entity_id.replace("/", "_")
+	e.setup(data, {"id": npc.entity_id, "pos": npc.global_position, "yaw": rad_to_deg(npc.rotation.y),
+			"look": npc.look_final, "gear": npc.data.get("gear", {}), "name": str(npc.data.get("name", ""))}, world, player)
+	e.guard_npc = npc
+	e.guard_essential = npc.is_essential()
+	e.home = npc.work_pos
+	e.add_to_group("enemies")
+	e.killed.connect(func(en: Enemy) -> void: GameState.mark_killed(en.entity_id))
+	add_child(e)
+	e.global_position = npc.global_position
+	e.stats.health = e.stats.max_health * clampf(npc.health_ratio(), 0.05, 1.0)
+	e.make_aware()
+	npc.hide_for_hostile(e)
+	# Se libera con el chunk en el que está ahora (igual que el PNJ)
+	for coord: Vector2i in _by_chunk:
+		var arr: Array = _by_chunk[coord]
+		if arr.has(npc):
+			arr.append(e)
+			break
+	return e

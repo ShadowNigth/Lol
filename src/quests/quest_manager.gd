@@ -5,8 +5,10 @@ extends RefCounted
 ##   id -> {"stage": int, "progress": int, "done": bool}
 ##
 ## Objetivos de etapa: kill, collect, reach (lugar o mazmorra), talk (con PNJ;
-## admite "requires_flag") y flag (espera una bandera de historia, p. ej. que
-## se abra una jaula). Cada etapa puede tener "say" (lo que dice el PNJ al
+## admite "requires_flag"), flag (espera una bandera de historia, p. ej. que
+## se abra una jaula) y escort (el PNJ "target" sigue al jugador hasta el
+## lugar "to"; ver NPC._follow_update). La misión puede tener "on_accept"
+## ({"flags": [...]}) que se aplica al aceptarla. Cada etapa puede tener "say" (lo que dice el PNJ al
 ## cumplirla), "effects" ({"flags": [...]}) que se aplican al completarla y
 ## "skip_if_flag" (se salta si la historia ya la dejó atrás).
 ## La misión puede exigir "requires_flag"/"requires_not_flag" para ofrecerse.
@@ -47,6 +49,8 @@ static func accept(id: String) -> void:
 	var q := QuestDB.get_quest(id)
 	Events.notify.emit("Nueva misión: %s" % q["title"], "quest")
 	Audio.play_2d("quest", -3.0)
+	for f: String in (q.get("on_accept", {}) as Dictionary).get("flags", []):
+		GameState.set_flag(f)
 	# Los objetivos de recoger (o de bandera) pueden estar ya cumplidos
 	check_collect_objectives()
 	_check_flag_objectives()
@@ -185,3 +189,40 @@ static func on_talk(npc_id: String) -> Array[Dictionary]:
 		_advance(id)
 		out.append({"quest": id, "say": str(st.get("say", "")), "completed": is_done(id)})
 	return out
+
+
+## Escoltas ---------------------------------------------------------------------
+
+## Misión de escolta activa para este PNJ: {"quest", "to"} o vacío.
+static func escort_for(npc_id: String) -> Dictionary:
+	for id: String in GameState.quests.keys():
+		if not is_active(id):
+			continue
+		var obj: Dictionary = current_stage(id).get("objective", {})
+		if str(obj.get("type", "")) == "escort" and str(obj.get("target", "")) == npc_id:
+			return {"quest": id, "to": str(obj.get("to", ""))}
+	return {}
+
+
+## Todas las escoltas en curso: [{"quest", "npc", "to"}] (para recolocar al
+## acompañante junto al jugador al cargar partida o al cambiar de zona).
+static func active_escorts() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for id: String in GameState.quests.keys():
+		if not is_active(id):
+			continue
+		var obj: Dictionary = current_stage(id).get("objective", {})
+		if str(obj.get("type", "")) == "escort":
+			out.append({"quest": id, "npc": str(obj.get("target", "")), "to": str(obj.get("to", ""))})
+	return out
+
+
+## El acompañante ha llegado a un lugar: completa las etapas de escolta que
+## lo tenían como destino.
+static func on_escort_arrived(npc_id: String, loc_id: String) -> void:
+	for id: String in GameState.quests.keys():
+		if not is_active(id):
+			continue
+		var obj: Dictionary = current_stage(id).get("objective", {})
+		if str(obj.get("type", "")) == "escort" and str(obj.get("target", "")) == npc_id and str(obj.get("to", "")) == loc_id:
+			_advance(id)

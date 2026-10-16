@@ -2,10 +2,14 @@ class_name DialogueUI
 extends CanvasLayer
 ## Ventana de conversación con PNJ: saludo según reputación, rumores,
 ## ofertas y seguimiento de misiones, entrega de misiones y comercio.
+## También el alto de la guardia (pagar la multa, ir al calabozo o resistirse).
 
 signal closed
 
+const COLD_REPUTATION := -25      # por debajo, no quieren saber nada de ti
+
 var npc: NPC
+var arrest := false               # alto de la guardia: no se puede cerrar con Esc
 var _root: Control
 var _name: Label
 var _text: RichTextLabel
@@ -50,6 +54,10 @@ func _ready() -> void:
 
 func open(target: NPC) -> void:
 	npc = target
+	# Hablar con un guardia teniendo deudas con la Marca es entregarse
+	if npc.is_guard() and Law.is_wanted():
+		open_arrest(target)
+		return
 	npc.start_talking()
 	_name.text = npc.display_name()
 	# Prisionero tras los barrotes: suplica y explica cómo sacarle
@@ -76,9 +84,70 @@ func open(target: NPC) -> void:
 		GameState.set_flag(npc.rescued_flag)
 		GameState.add_reputation(str(npc.data.get("faction", "robledal")), 10)
 		_say("¡Gracias, forastero! No sé quién eres, pero me has salvado la vida. Vuelvo a casa, a Robledal, antes de que vuelvan.")
+	elif GameState.reputation(str(npc.data.get("faction", "hojarrubia"))) <= COLD_REPUTATION:
+		# Mala fama: no comercian ni encargan nada a un delincuente
+		_say(_cold_line())
+		_clear_options()
+		_option("Adiós.", close)
+		return
 	else:
 		_say(_greeting())
 	_main_options()
+
+
+func _cold_line() -> String:
+	var lines := ["No tengo nada que hablar contigo. Todo el mundo sabe lo que has hecho.",
+			"Lárgate antes de que llame a la guardia.",
+			"Aquí no servimos a gente como tú."]
+	return lines[_rng.randi() % lines.size()]
+
+
+## El alto de la guardia: la multa, el calabozo o la resistencia.
+func open_arrest(target: NPC) -> void:
+	npc = target
+	arrest = true
+	npc.start_talking()
+	_name.text = npc.display_name()
+	var b := Law.bounty()
+	var days := Law.jail_days()
+	_say("¡Alto en nombre de la Marca! Se te busca por delitos contra la ley de Peñalba. Debes [b]%d monedas[/b] de multa. Págalas ahora o acompáñame al calabozo: serán %d %s." \
+			% [b, days, "día" if days == 1 else "días"])
+	_clear_options()
+	var gold := int(GameState.player.get("gold")) if GameState.player else 0
+	if gold >= b:
+		_option("Pagar la multa (%d monedas; tienes %d)." % [b, gold], _arrest_pay)
+	else:
+		_option("No tengo el oro (te faltan %d monedas)." % (b - gold), func() -> void:
+			_say("Entonces no hay más que hablar. Al calabozo, o lo hacemos por las malas."))
+	_option("Me entrego: al calabozo (%d %s)." % [days, "día" if days == 1 else "días"], _arrest_jail)
+	_option("¡Nunca! (resistirse: la guardia te atacará)", _arrest_resist)
+
+
+func _arrest_pay() -> void:
+	if Law.pay_fine(GameState.player):
+		npc.end_arrest()
+		_say("Bien. La deuda queda saldada. Y que no tenga que volver a verte por estos asuntos.")
+		_clear_options()
+		_option("Adiós.", _arrest_close)
+
+
+func _arrest_jail() -> void:
+	var guard := npc
+	_arrest_close()
+	var game := get_tree().current_scene
+	if game and game.has_method("send_to_jail"):
+		game.call("send_to_jail", guard)
+
+
+func _arrest_resist() -> void:
+	var guard := npc
+	_arrest_close()
+	Law.resist(guard)
+
+
+func _arrest_close() -> void:
+	arrest = false
+	close()
 
 
 func _greeting() -> String:
@@ -198,6 +267,9 @@ func close() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause") and arrest:
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("pause") and _root.visible:
 		close()
 		get_viewport().set_input_as_handled()

@@ -29,6 +29,7 @@ var current_area: Dictionary = {"type": "overworld"}   # exterior o mazmorra (co
 var quests: Dictionary = {}             # id -> {"stage", "progress", "done"}
 var reputations: Dictionary = {}        # facción -> valor (-100..100)
 var shops: Dictionary = {}              # id de tienda -> {"gold", "stock"}
+var law: Dictionary = {"bounty": 0, "resisted_day": 0, "jail_days": 0}   # ver Law
 var player: Node = null
 var in_game: bool = false
 
@@ -85,6 +86,7 @@ func start_new_game(config: Dictionary) -> void:
 	quests = {}
 	reputations = {}
 	shops = {}
+	law = {"bounty": 0, "resisted_day": 0, "jail_days": 0}
 	inventory.clear()
 	equipment = {}
 	inventory.append({"id": "potion_health", "count": 2})
@@ -368,6 +370,7 @@ func build_save_data() -> Dictionary:
 		"quests": quests.duplicate(true),
 		"reputations": reputations.duplicate(true),
 		"shops": shops.duplicate(true),
+		"law": law.duplicate(),
 		"location": str(player.call("current_location_name")) if player and player.has_method("current_location_name") else "",
 	}
 
@@ -490,12 +493,21 @@ func load_game(slot: String) -> String:
 			quests.erase(qid)
 	reputations = (d.get("reputations", {}) as Dictionary).duplicate(true) if d.get("reputations", {}) is Dictionary else {}
 	shops = (d.get("shops", {}) as Dictionary).duplicate(true) if d.get("shops", {}) is Dictionary else {}
+	law = sanitize_law(d.get("law", {}))
 	pending_load = d["player"]
 	inventory_changed.emit()
 	get_tree().paused = false
 	get_tree().change_scene_to_file(GAME_SCENE)
 	Events.game_loaded.emit(slot)
 	return ""
+
+
+## Estado de la ley de una partida guardada (las anteriores no lo tenían).
+static func sanitize_law(v: Variant) -> Dictionary:
+	var src: Dictionary = v if v is Dictionary else {}
+	return {"bounty": clampi(int(src.get("bounty", 0)), 0, Law.MAX_BOUNTY),
+			"resisted_day": maxi(0, int(src.get("resisted_day", 0))),
+			"jail_days": maxi(0, int(src.get("jail_days", 0)))}
 
 
 func list_saves() -> Array[Dictionary]:

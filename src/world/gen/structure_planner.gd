@@ -20,6 +20,10 @@ var sites: Array[Dictionary] = []      # lugares de la región: {id, name, kind,
 var no_wildlife: Array[Rect2i] = []     # zonas habitadas: sin fauna salvaje
 var spawn_point := Vector3(3.5, VILLAGE_FLOOR + 1.0, 3.5)
 var spawn_yaw_deg := -90.0              # mirando al este
+# Castillo de Peñalba (marco local del recinto) y celda del calabozo
+var castle_origin := Vector3i.ZERO
+var castle_rot := 0
+var jail_spot: Dictionary = {}          # {"pos", "yaw", "door"}
 
 
 func _init(generator: WorldGenerator) -> void:
@@ -162,11 +166,14 @@ func _plan_region() -> void:
 	_plan_wolf_den(den)
 	# Se planifica el último y con su propio generador: no altera el resto de la región
 	_plan_bandit_camp(inn, ham)
+	# Igual que el campamento: generador propio, después de todo lo anterior
+	_plan_castle(ham)
 
 
 ## Busca el mejor emplazamiento cerca de `around`: seco, lo más llano posible
 ## y lejos de lo ya reservado. Devuelve (x, altura del suelo, z) del centro.
-func _find_site(rng: RandomNumberGenerator, around: Vector2, radius: float, size: Vector2i, prefer_forest: bool = false) -> Vector3i:
+func _find_site(rng: RandomNumberGenerator, around: Vector2, radius: float, size: Vector2i, prefer_forest: bool = false,
+		prefer_high: bool = false) -> Vector3i:
 	var best := Vector3i(int(around.x), SEA_LEVEL_SAFE, int(around.y))
 	var best_score := INF
 	for i in 24:
@@ -193,6 +200,9 @@ func _find_site(rng: RandomNumberGenerator, around: Vector2, radius: float, size
 		if blocked:
 			continue
 		var score := (hi - lo) + dist * 0.02 + maxf(sum / 25.0 - (WorldGenerator.SEA_LEVEL + 30.0), 0.0)
+		if prefer_high:
+			# Un castillo domina el terreno: mejor en un alto (sin llegar a la montaña)
+			score -= clampf((sum / 25.0 - (WorldGenerator.SEA_LEVEL + 6.0)) * 0.3, 0.0, 6.0)
 		if prefer_forest:
 			var b := gen.biome_at(int(c.x), int(c.y), int(sum / 25.0))
 			if b in [WorldGenerator.Biome.FOREST, WorldGenerator.Biome.BIRCH_FOREST, WorldGenerator.Biome.TAIGA]:
@@ -365,6 +375,93 @@ func _plan_bandit_camp(inn: Vector3i, ham: Vector3i) -> void:
 			"captive": {"flag": "jaula_cuervos_abierta", "rescued_flag": "lina_rescued",
 				"path": [lw.call(cage + Vector3(2.2, 0, 0.6)), lw.call(Vector3(11.5, 0, 4.0)), lw.call(Vector3(12.5, 0, -2.0)),
 					lw.call(Vector3(12.5, 0, -9.0))]}})
+
+
+## Castillo de Peñalba: sobre un alto al nordeste de Hojarrubia, más allá de
+## la capilla de Velmar, con la puerta mirando al camino que lo une con la
+## red de caminos. Dentro: cuartel, armería, pozo, farolas, el salón del trono,
+## el calabozo y su gente (señora, capitán, armero, sanador y guardias).
+func _plan_castle(ham: Vector3i) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(gen.world_seed * 6247 + 2203)
+	var size := CastleBuilder.SIZE
+	var c := _find_site(rng, Vector2(200.0, -170.0), 50.0, Vector2i(size + 14, size + 14), false, true)
+	var fy := c.y + 1
+	var center := Vector2(c.x, c.z)
+	var road := nearest_road_point(center)
+	var best: Vector2 = road.get("point", center + Vector2(0, 60))
+	var dir := best - center
+	var rot := 0
+	if absf(dir.x) > absf(dir.y):
+		rot = 1 if dir.x > 0.0 else 3
+	else:
+		rot = 2 if dir.y > 0.0 else 0
+	var half := size / 2
+	castle_origin = Vector3i(c.x - half, fy, c.z - half)
+	castle_rot = rot
+	_site_zone(c, Vector2i(half + 6, half + 6), "Castillo de Peñalba", 18.0, "castle")
+	sites.append({"id": "castle", "name": "Castillo de Peñalba", "kind": "castle", "pos": center})
+	_add_structure({"id": "castle/fort", "type": "castle", "origin": castle_origin, "w": size, "d": size, "rot": rot, "margin": 3})
+	# Edificios del patio (con sus propios constructores)
+	var barracks_at := Vector2i(6, 8)
+	var armory_at := Vector2i(27, 8)
+	_castle_building({"id": "castle/barracks", "type": "house", "w": 9, "d": 7, "floors": 1, "style": "stone", "roof": B.ROOF_STAIRS,
+			"interior": "barracks"}, barracks_at, 1)
+	_castle_building({"id": "castle/armory", "type": "smithy", "w": 7, "d": 6}, armory_at, 3)
+	_castle_building({"id": "castle/well", "type": "well", "w": 3, "d": 3, "margin": 2}, Vector2i(7, 23), 0)
+	for lp: Vector2i in [Vector2i(16, 9), Vector2i(22, 9), Vector2i(16, 17), Vector2i(22, 17)]:
+		_castle_building({"id": "castle/lamp_%d_%d" % [lp.x, lp.y], "type": "lamp", "w": 1, "d": 1, "margin": 1}, lp, 0)
+	# Camino desde la explanada de la puerta hasta la red de caminos
+	var gate := castle_local(Vector3(19.5, 0, -6.0))
+	_add_winding_road(Vector2(gate.x, gate.z), best, 3.0, rng)
+	var yaw_off := -rot * 90.0
+	# Gente del castillo
+	spawns.append({"type": "npc", "npc": "isolda", "id": "npc/isolda", "pos": castle_local(Vector3(20.9, 1.0, 29.3)), "yaw": 0.0 + yaw_off,
+			"home": castle_local(Vector3(17.5, 0.0, 25.0))})
+	spawns.append({"type": "npc", "npc": "aldric", "id": "npc/aldric", "pos": castle_local(Vector3(25.6, 0.0, 23.5)), "yaw": 90.0 + yaw_off})
+	spawns.append({"type": "npc", "npc": "garin", "id": "npc/garin",
+			"pos": castle_local(ChunkWriter.local_to_world(Vector3i(armory_at.x, 0, armory_at.y), 7, 6, 3, Vector3(3.5, 0, 3.6))),
+			"yaw": 0.0 - (rot + 3) * 90.0,
+			"home": castle_local(ChunkWriter.local_to_world(Vector3i(barracks_at.x, 0, barracks_at.y), 9, 7, 1, Vector3(4.5, 0, 2.5)))})
+	spawns.append({"type": "npc", "npc": "anselmo", "id": "npc/anselmo", "pos": castle_local(Vector3(8.5, 0.0, 29.6)), "yaw": 180.0 + yaw_off,
+			"home": castle_local(Vector3(17.5, 0.0, 22.5)), "unless_flag": "anselmo_escolta"})
+	# Tras la escolta, el hermano Anselmo atiende a los enfermos de Robledal
+	spawns.append({"type": "npc", "npc": "anselmo", "id": "npc/anselmo_robledal", "pos": Vector3(ham.x + 1.5, ham.y + 1, ham.z + 4.5), "yaw": 0.0,
+			"requires_flag": "anselmo_llego"})
+	var guards := [
+		["gate_w", Vector3(17.2, 0.0, -1.6), 0.0, []],
+		["gate_e", Vector3(21.8, 0.0, -1.6), 0.0, []],
+		["wall", Vector3(8.5, CastleBuilder.WALL_H, 3.5), 90.0, [Vector3(8.5, CastleBuilder.WALL_H, 3.5), Vector3(13.5, CastleBuilder.WALL_H, 3.5)]],
+		["yard", Vector3(13.5, 0.0, 7.5), -90.0, [Vector3(13.5, 0.0, 7.5), Vector3(25.5, 0.0, 7.5), Vector3(25.5, 0.0, 16.0), Vector3(13.5, 0.0, 16.0)]],
+		["keep", Vector3(21.2, 0.0, 18.0), 0.0, []],
+	]
+	for g: Array in guards:
+		var e := {"type": "npc", "npc": "guardia_castillo", "id": "castle/guard_%s" % g[0], "pos": castle_local(g[1]), "yaw": float(g[2]) + yaw_off}
+		var pts: Array = []
+		for q: Vector3 in g[3]:
+			pts.append(castle_local(q))
+		if not pts.is_empty():
+			e["patrol"] = pts
+		spawns.append(e)
+	spawns.append({"type": "notice_board", "id": "board/castle", "site": "castle", "pos": castle_local(Vector3(14.5, 0.0, 11.5)), "yaw": -90.0 + yaw_off})
+	# Celda del calabozo para quien no pueda pagar sus multas
+	jail_spot = {"pos": castle_local(Vector3(28.9, 0.0, 28.3)), "yaw": 0.0 + yaw_off, "door": "castle/fort/cell_a"}
+
+
+## Posición en el mundo de un punto en coordenadas locales del castillo.
+func castle_local(lp: Vector3) -> Vector3:
+	return ChunkWriter.local_to_world(castle_origin, CastleBuilder.SIZE, CastleBuilder.SIZE, castle_rot, lp)
+
+
+## Edificio del patio del castillo: `at` es su esquina mínima en coordenadas
+## locales del castillo y `sub_rot` su giro respecto al recinto.
+func _castle_building(s: Dictionary, at: Vector2i, sub_rot: int) -> void:
+	var fp := ChunkWriter.footprint(int(s["w"]), int(s["d"]), sub_rot)
+	var a := castle_local(Vector3(at.x, 0, at.y))
+	var b := castle_local(Vector3(at.x + fp.x, 0, at.y + fp.y))
+	s["origin"] = Vector3i(int(round(minf(a.x, b.x))), castle_origin.y, int(round(minf(a.z, b.z))))
+	s["rot"] = (castle_rot + sub_rot) % 4
+	_add_structure(s)
 
 
 ## Punto más cercano de la red de caminos: {"point", "dir" (unitario), "dist"}.

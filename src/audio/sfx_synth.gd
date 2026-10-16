@@ -253,6 +253,11 @@ func build_library() -> Dictionary:
 	lib["bandit_hurt"] = to_stream(_normalize(_vocal(0.26, 135.0, 98.0, [420.0, 880.0, 2350.0], 0.3), 0.8))
 	lib["bandit_death"] = to_stream(_normalize(_vocal(1.1, 145.0, 62.0, [560.0, 930.0, 2300.0], 0.42), 0.8))
 	lib["bandit_idle"] = to_stream(_normalize(_whistle(), 0.45))
+	# Aldeanos heridos, gritos de socorro y el «¡alto!» de la guardia
+	lib["npc_hurt"] = to_stream(_normalize(_vocal(0.3, 150.0, 110.0, [480.0, 950.0, 2400.0], 0.28), 0.75))
+	lib["npc_hurt_f"] = to_stream(_normalize(_vocal(0.3, 270.0, 200.0, [620.0, 1150.0, 2850.0], 0.25), 0.75))
+	lib["npc_scream"] = to_stream(_normalize(_vocal(0.9, 290.0, 235.0, [720.0, 1250.0, 2950.0], 0.3), 0.7))
+	lib["guard_halt"] = to_stream(_normalize(_vocal(0.45, 125.0, 150.0, [540.0, 1050.0, 2450.0], 0.2), 0.85))
 	lib["lock_pick"] = to_stream(_normalize(_lock_pick(), 0.6))
 	lib["lock_open"] = to_stream(_normalize(_lock_open(), 0.75))
 	lib["lock_break"] = to_stream(_normalize(_lock_break(), 0.75))

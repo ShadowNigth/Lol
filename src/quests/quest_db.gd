@@ -8,6 +8,7 @@ const FACTIONS := {
 	"hojarrubia": "Aldea de Hojarrubia",
 	"guardia": "Guardia de la Marca",
 	"robledal": "Parroquia de Robledal",
+	"penalba": "Casa de Peñalba",
 }
 
 const QUESTS := {
@@ -114,6 +115,33 @@ const QUESTS := {
 				"say": "¡Lina ha vuelto a casa! Llegó llorando y riendo a la vez... No tengo mucho, pero esto es tuyo, y el mejor queso de la granja. En Robledal nadie olvidará lo que has hecho."},
 		],
 		"rewards": {"gold": 150, "items": [{"id": "cheese", "count": 3}, {"id": "potion_health", "count": 1}], "reputation": {"robledal": 25}},
+	},
+	# --- Castillo de Peñalba ---
+	"escolta_anselmo": {
+		"title": "Remedios para Robledal",
+		"giver": "anselmo",
+		"type": "escoltar",
+		"description": "El hermano Anselmo, sanador del castillo de Peñalba, quiere llevar sus remedios a Robledal, donde unas fiebres tienen a media aldea en cama. Con los Cuervos y los lobos rondando los caminos no se atreve a ir solo: necesita que alguien le acompañe.",
+		"on_accept": {"flags": ["anselmo_escolta"]},
+		"stages": [
+			{"text": "Acompaña al hermano Anselmo hasta la aldea de Robledal. Te sigue: no le dejes atrás.", "objective": {"type": "escort", "target": "anselmo", "to": "robledal"},
+				"effects": {"flags": ["anselmo_llego"]}},
+			{"text": "Habla con Elena, la alcaldesa de Robledal.", "objective": {"type": "talk", "target": "elena"},
+				"say": "¿Es el hermano Anselmo? ¡Por fin! Las fiebres ya se han llevado a dos vecinos. Gracias por traerlo sano y salvo por esos caminos. Toma, es poco, pero Robledal no olvida."},
+		],
+		"rewards": {"gold": 120, "items": [{"id": "potion_health", "count": 2}], "reputation": {"penalba": 15, "robledal": 15}},
+	},
+	"cuervos_camino": {
+		"title": "Limpiar los caminos",
+		"giver": "aldric",
+		"type": "matar",
+		"description": "El capitán Aldric no tiene hombres suficientes para vigilar los caminos de la Marca. Paga a quien acabe con los salteadores que asaltan a los carreteros.",
+		"stages": [
+			{"text": "Acaba con salteadores de los Cuervos en los caminos o en su campamento (0/4).", "objective": {"type": "kill", "target": "bandit", "count": 4}},
+			{"text": "Vuelve a hablar con el capitán Aldric en el castillo de Peñalba.", "objective": {"type": "talk", "target": "aldric"},
+				"say": "Cuatro menos. Mis hombres dicen que los carreteros ya silban otra vez por el camino del oeste. Aquí tienes tu paga, y un yelmo de la guardia: te lo has ganado."},
+		],
+		"rewards": {"gold": 140, "items": [{"id": "helm_iron", "count": 1}], "reputation": {"guardia": 20}},
 	},
 }
 

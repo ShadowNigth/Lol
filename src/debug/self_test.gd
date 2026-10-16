@@ -77,7 +77,7 @@ func _shot(label: String) -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_total += delta
-	if _total > 420.0:
+	if _total > 600.0:
 		_fail("Tiempo de prueba agotado en la etapa '%s'" % _stage)
 		_finish()
 		return
@@ -628,9 +628,57 @@ func _process(delta: float) -> void:
 				_note("Banderas guardadas: %s" % [flags.keys()])
 				if not flags.has("lina_rescued") or not flags.has("known_bandit_camp"):
 					_fail("Las banderas de historia no se guardaron")
-				_finish()
+				_go_castle()
+				_next("castle_arrive")
 			elif _t > 40.0:
 				_fail("Robledal no terminó de cargar")
+				_finish()
+		"castle_arrive":
+			var w9 := _game().get("world") as VoxelWorld
+			if p.stats.health < p.stats.max_health * 0.5:
+				p.stats.heal(60.0)
+			if _t > 3.0 and w9.is_chunk_loaded_at(p.global_position) and w9.pending_task_count() == 0:
+				_test_castle(p)
+			elif _t > 45.0:
+				_fail("El castillo no terminó de cargar")
+				_finish()
+		"law_arrest":
+			var dlg2 := _open_dialogue()
+			if dlg2 and dlg2.arrest:
+				_test_arrest_pay(p, dlg2)
+			elif _t > 30.0:
+				_fail("Ningún guardia dio el alto al jugador buscado (recompensa %d)" % Law.bounty())
+				Law.clear()
+				_test_assault(p)
+		"jail_wait":
+			if _t > 1.0 and not bool(_game().get("_switching")):
+				_test_jailed(p)
+			elif _t > 40.0:
+				_fail("El traslado al calabozo no terminó")
+				_finish()
+		"law_calm":
+			if p.stats.health < p.stats.max_health * 0.6:
+				p.stats.heal(80.0)
+			if _t > 2.0:
+				_test_calm(p)
+		"escort_start":
+			if _t > 1.2:
+				var ans := _find_npc("anselmo")
+				_note("Escolta aceptada: Anselmo sigue al jugador: %s (bandera %s)" % [ans != null and ans.follow_quest == "escolta_anselmo",
+						GameState.has_flag("anselmo_escolta")])
+				if ans == null or ans.follow_quest != "escolta_anselmo":
+					_fail("El hermano Anselmo no sigue al jugador al aceptar la escolta")
+					_finish()
+					return
+				set_meta("escort_from", ans.global_position)
+				_goto_site("robledal")
+				_next("escort_arrive")
+		"escort_arrive":
+			var w10 := _game().get("world") as VoxelWorld
+			if _t > 4.0 and w10.is_chunk_loaded_at(p.global_position) and w10.pending_task_count() == 0:
+				_test_escort_arrival(p)
+			elif _t > 45.0:
+				_fail("Robledal no terminó de cargar (escolta)")
 				_finish()
 		"reload":
 			if p and _game().has_method("is_world_ready") and bool(_game().call("is_world_ready")) and _t > 1.0:
@@ -1006,6 +1054,329 @@ func _test_camp(p: Player) -> void:
 		dlg.close()
 	set_meta("lina_pos", lina.global_position)
 	_next("lina_leaving")
+
+
+# ---------------------------------------------------------------------------
+# Castillo de Peñalba, ley y orden, escolta
+# ---------------------------------------------------------------------------
+
+## La conversación abierta en el juego (o null si no hay o ya se cerró).
+func _open_dialogue() -> DialogueUI:
+	var dv: Variant = _game().get("_dialogue")
+	if dv == null or not is_instance_valid(dv) or (dv as Node).is_queued_for_deletion():
+		return null
+	return dv as DialogueUI
+
+
+func _castle_local(lp: Vector3) -> Vector3:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	return wg.planner.castle_local(lp)
+
+
+func _castle_block(lx: int, ly: int, lz: int) -> int:
+	var w := _game().get("world") as VoxelWorld
+	var wp := _castle_local(Vector3(lx + 0.5, ly + 0.5, lz + 0.5))
+	return w.get_block(int(floor(wp.x)), int(floor(wp.y)), int(floor(wp.z)))
+
+
+## Explanada ante la puerta del castillo, mirando hacia ella.
+func _go_castle() -> void:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	GameState.time_of_day = 11.0
+	_player().teleport(_castle_local(Vector3(19.5, 0.2, -3.5)), 180.0 - wg.planner.castle_rot * 90.0)
+
+
+func _castle_npc(entity_id: String) -> NPC:
+	for n: Node in get_tree().get_nodes_in_group("npcs"):
+		var npc := n as NPC
+		if npc and npc.entity_id == entity_id and not npc.is_queued_for_deletion():
+			return npc
+	return null
+
+
+func _attachments(npc_skel: Skeleton3D) -> int:
+	var k := 0
+	if npc_skel:
+		for ch: Node in npc_skel.get_children():
+			if ch is BoneAttachment3D:
+				k += 1
+	return k
+
+
+## Estructura del castillo, su gente con el equipo visible y robos con y sin testigos.
+func _test_castle(p: Player) -> void:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	var checks := {
+		"paso de la puerta": _castle_block(19, 1, 3) == BlockTypes.AIR and _castle_block(19, 0, 0) == BlockTypes.AIR,
+		"muralla maciza": BlockTypes.solid[_castle_block(10, 3, 3)] == 1,
+		"adarve": BlockTypes.solid[_castle_block(10, 5, 3)] == 1 and _castle_block(10, 6, 3) == BlockTypes.AIR,
+		"almena": _castle_block(10, 7, 2) == BlockTypes.STONE_BRICK,
+		"puerta de torre": _castle_block(5, 6, 3) == BlockTypes.AIR and _castle_block(6, 7, 3) == BlockTypes.AIR,
+		"caracol": BlockTypes.shape[_castle_block(2, 6, 4)] == BlockTypes.Shape.STAIRS,
+		"escalera al adarve": BlockTypes.shape[_castle_block(13, 5, 5)] == BlockTypes.Shape.STAIRS,
+		"rejas": _castle_block(28, 1, 26) == BlockTypes.IRON_BARS,
+		"salón": _castle_block(19, 3, 25) == BlockTypes.AIR and _castle_block(16, 3, 23) == BlockTypes.CHISELED,
+		"azotea": BlockTypes.solid[_castle_block(17, 12, 27)] == 1,
+	}
+	var bad: Array[String] = []
+	for k: String in checks:
+		if not bool(checks[k]):
+			bad.append(k)
+	var cells := 0
+	var thrones := 0
+	var dummies := 0
+	var banners := 0
+	var board := false
+	var thr_mesh := ModelLibrary.prop_mesh("throne")
+	var dum_mesh := ModelLibrary.prop_mesh("training_dummy")
+	var ban_mesh := ModelLibrary.prop_mesh("banner", {"kind": "penalba"})
+	for n: Node in (_game().get("spawner") as Node).get_children():
+		if n is CellDoor:
+			cells += 1
+		elif n is NoticeBoard and (n as NoticeBoard).site == "castle":
+			board = true
+		elif n is StaticBody3D:
+			for ch: Node in n.get_children():
+				if ch is MeshInstance3D:
+					var m := (ch as MeshInstance3D).mesh
+					thrones += 1 if m == thr_mesh else 0
+					dummies += 1 if m == dum_mesh else 0
+					banners += 1 if m == ban_mesh else 0
+	_note("Castillo de Peñalba (giro %d) · lugar '%s' · estructura: %s · celdas %d, trono %d, muñecos %d, estandartes azules %d, tablón %s" % [
+			wg.planner.castle_rot, _game().call("current_location_name"), "OK" if bad.is_empty() else "FALLA " + str(bad), cells, thrones, dummies, banners, board])
+	if not bad.is_empty() or cells != 2 or thrones != 1 or dummies != 3 or banners < 6 or not board:
+		_fail("El castillo no tiene todas sus partes")
+	if str(_game().call("current_location_name")) != "Castillo de Peñalba":
+		_fail("La explanada del castillo no está dentro de su zona con nombre")
+	# Gente del castillo y equipo visible
+	var names: Array[String] = []
+	for id: String in ["isolda", "aldric", "garin", "anselmo"]:
+		if _find_npc(id) == null:
+			names.append(id)
+	var guards: Array[NPC] = []
+	for n2: Node in get_tree().get_nodes_in_group("npcs"):
+		var g := n2 as NPC
+		if g and g.npc_id == "guardia_castillo":
+			guards.append(g)
+	var aldric := _find_npc("aldric")
+	var gl: Dictionary = guards[0].look_final if not guards.is_empty() else {}
+	var al: Dictionary = aldric.look_final if aldric else {}
+	_note("Gente: faltan %s · guardias %d · Aldric: yelmo %s, malla %s, guanteletes %s, grebas %s, escarpes %s, sobreveste %s, piezas en mano %d · guardia: yelmo %s, malla %s, sobreveste %s, piezas en mano %d" % [
+			names, guards.size(), al.has("helm"), al.has("chain"), al.has("gauntlets"), al.has("greaves"), al.has("sabatons"), al.has("tabard"),
+			_attachments(aldric.skeleton) if aldric else 0, gl.has("helm"), gl.has("chain"), gl.has("tabard"),
+			_attachments(guards[0].skeleton) if not guards.is_empty() else 0])
+	if not names.is_empty() or guards.size() < 4:
+		_fail("Falta gente en el castillo")
+	if not (al.has("helm") and al.has("chain") and al.has("gauntlets") and al.has("tabard")) or not (gl.has("helm") and gl.has("chain")):
+		_fail("La armadura de los guardias no se ve en sus modelos")
+	if aldric and _attachments(aldric.skeleton) < 2:
+		_fail("El capitán no lleva espada y escudo")
+	_shot("castle")
+	# Robo sin testigos: arcón del cuartel, con la puerta cerrada
+	var chest: Chest = null
+	var rack: WeaponRack = null
+	for n3: Node in (_game().get("spawner") as Node).get_children():
+		if n3 is Chest and (n3 as Chest).entity_id == "castle/barracks/chest":
+			chest = n3
+		elif n3 is WeaponRack and (n3 as WeaponRack).entity_id == "castle/fort/yard_rack":
+			rack = n3
+	if chest == null or rack == null:
+		_fail("No se encontraron el arcón del cuartel o el armero del patio")
+		_finish()
+		return
+	var hint := chest.get_interaction_text()
+	p.teleport(_castle_local(ChunkWriter.local_to_world(Vector3i(6, 0, 8), 9, 7, 1, Vector3(2.8, 0.05, 2.2))), 0.0)
+	var b0 := Law.bounty()
+	chest.interact(p)
+	_note("Robo sin testigos (arcón del cuartel, «%s»): recompensa %d -> %d" % [hint, b0, Law.bounty()])
+	if hint.find("Robar") < 0 or Law.bounty() != b0:
+		_fail("Robar sin testigos no debería ser delito (o el cofre no tiene dueño)")
+	# Robo con testigo: un guardia mira mientras se vacía el armero del patio
+	var witness := _castle_npc("castle/guard_keep")
+	var at := _castle_local(Vector3(13.6, 0.05, 21.2))
+	p.teleport(at, 0.0)
+	if witness:
+		witness.global_position = at + Vector3(3.0, 0.0, 0.0)
+		witness.rotation.y = atan2(3.0, 0.0)
+		witness.reset_physics_interpolation()
+	var rep0 := GameState.reputation("guardia")
+	rack.interact(p)
+	_note("Robo con testigo (armero, %s mirando): recompensa %d, reputación con la guardia %d -> %d" % [witness != null, Law.bounty(), rep0, GameState.reputation("guardia")])
+	if Law.bounty() <= 25 or GameState.reputation("guardia") >= rep0:
+		_fail("El robo delante de un guardia no se denunció")
+	p.gold = maxi(p.gold, Law.bounty() + 50)
+	_next("law_arrest")
+
+
+func _test_arrest_pay(p: Player, dlg: DialogueUI) -> void:
+	var guard := dlg.npc
+	var b := Law.bounty()
+	var gold0 := p.gold
+	dlg._arrest_pay()
+	_note("Alto de la guardia (%s, a %.1f m): multa %d pagada, oro %d -> %d, recompensa ahora %d" % [guard.display_name() if guard else "?",
+			guard.global_position.distance_to(p.global_position) if guard else -1.0, b, gold0, p.gold, Law.bounty()])
+	if Law.is_wanted() or p.gold != gold0 - b:
+		_fail("Pagar la multa no saldó la deuda")
+	if dlg and is_instance_valid(dlg):
+		dlg._arrest_close()
+	_test_assault(p)
+
+
+## Agresión a un aldeano: denuncia, huida y, después, calabozo.
+func _test_assault(p: Player) -> void:
+	var ans := _find_npc("anselmo")
+	if ans == null:
+		_fail("No está el hermano Anselmo para la prueba de agresión")
+		_finish()
+		return
+	p.teleport(ans.global_position + Vector3(1.2, 0.1, 0.0), 0.0)
+	var rep0 := GameState.reputation("penalba")
+	var hp0 := ans.health
+	var res := ans.take_hit(6.0, {"attacker": p, "position": ans.global_position + Vector3(0, 1.3, 0), "damage_type": "blunt"})
+	var alerted := 0
+	for n: Node in get_tree().get_nodes_in_group("npcs"):
+		var g := n as NPC
+		if g and g.is_guard() and (g._alert_pos != Vector3.INF or g._pursue):
+			alerted += 1
+	_note("Agresión a Anselmo: %s, salud %.0f -> %.0f, huye %s, recompensa %d, reputación Peñalba %d -> %d, guardias alertados %d" % [res, hp0, ans.health,
+			ans.is_fleeing(), Law.bounty(), rep0, GameState.reputation("penalba"), alerted])
+	if Law.bounty() != Law.CRIMES["agresion"]["bounty"] or not ans.is_fleeing() or GameState.reputation("penalba") >= rep0:
+		_fail("La agresión no se denunció o la víctima no huyó")
+	# Al calabozo: el guardia más cercano le da el alto y el jugador se entrega
+	var guard := _castle_npc("castle/guard_yard")
+	if guard == null:
+		guard = _castle_npc("castle/guard_gate_w")
+	set_meta("day_before_jail", GameState.day)
+	_game().call("open_arrest", guard)
+	var dlg := _open_dialogue()
+	if dlg == null or not dlg.arrest:
+		_fail("No se abrió el diálogo de detención")
+		_finish()
+		return
+	dlg._arrest_jail()
+	_next("jail_wait")
+
+
+func _test_jailed(p: Player) -> void:
+	var wg := _game().get("overworld_generator") as WorldGenerator
+	var spot: Dictionary = wg.planner.jail_spot
+	var door: CellDoor = null
+	for n: Node in get_tree().get_nodes_in_group("cell_doors"):
+		if (n as CellDoor).entity_id == str(spot["door"]):
+			door = n
+	var dist := p.global_position.distance_to(spot["pos"])
+	var day0 := int(get_meta("day_before_jail"))
+	_note("Calabozo: día %d -> %d, hora %.1f, recompensa %d, en la celda a %.1f m, reja abierta %s, días cumplidos %d" % [day0, GameState.day,
+			GameState.time_of_day, Law.bounty(), dist, door.open if door else false, int(GameState.law.get("jail_days", 0))])
+	if GameState.day != day0 + 1 or Law.is_wanted() or dist > 1.6 or door == null or not door.open or int(GameState.law["jail_days"]) != 1:
+		_fail("La condena en el calabozo no funcionó")
+	_shot("jail")
+	_test_resist(p)
+
+
+## Atacar a un guardia: se resiste, el guardia pelea (Enemy con su aspecto),
+## muere (asesinato, vuelve en días) y el capitán, con nombre, solo cae inconsciente.
+func _test_resist(p: Player) -> void:
+	GameState.time_of_day = 11.0
+	var guard := _castle_npc("castle/guard_keep")
+	if guard == null:
+		guard = _castle_npc("castle/guard_gate_e")
+	if guard == null:
+		_fail("No hay guardia para la prueba de resistencia")
+		_finish()
+		return
+	p.teleport(guard.global_position + Vector3(1.5, 0.1, 0.0), 0.0)
+	var gid := guard.entity_id
+	guard.take_hit(8.0, {"attacker": p, "position": guard.global_position + Vector3(0, 1.3, 0), "damage_type": "slash"})
+	var e := guard.hostile_enemy
+	var body := e.get_node_or_null("Model/Skeleton3D/Body") as MeshInstance3D if e else null
+	_note("Ataque a un guardia: se resiste %s, recompensa %d, guardia convertido en enemigo %s ('%s', %s, malla %s, piezas %d), PNJ oculto %s" % [Law.resisted(), Law.bounty(),
+			e != null, e.display_name() if e else "", e.data.id if e else "", body != null, _attachments(e.skeleton) if e else 0, not guard.visible])
+	if e == null or not Law.resisted() or e.data.id != "town_guard" or body == null or guard.visible or _attachments(e.skeleton) < 2:
+		_fail("El guardia atacado no pasó a pelear")
+		_finish()
+		return
+	var b0 := Law.bounty()
+	e.take_hit(9999.0, {"attacker": p, "damage_type": "blunt"})
+	var gold0 := p.gold
+	e.interact(p)
+	_note("Guardia abatido: muerto %s, no vuelve hasta dentro de %d días %s, PNJ liberado %s, recompensa %d -> %d, botín oro %d -> %d" % [not e.is_alive(),
+			Law.GUARD_RESPAWN_DAYS, GameState.is_killed(gid, Law.GUARD_RESPAWN_DAYS), not is_instance_valid(guard) or guard.is_queued_for_deletion(), b0, Law.bounty(), gold0, p.gold])
+	if e.is_alive() or not GameState.is_killed(gid, Law.GUARD_RESPAWN_DAYS):
+		_fail("El guardia muerto no quedó registrado")
+	# El capitán (con nombre) cae inconsciente en vez de morir
+	var aldric := _find_npc("aldric")
+	if aldric:
+		p.teleport(aldric.global_position + Vector3(1.5, 0.1, 0.0), 0.0)
+		aldric.take_hit(5.0, {"attacker": p, "damage_type": "slash"})
+		var ae := aldric.hostile_enemy
+		if ae:
+			ae.take_hit(9999.0, {"attacker": p, "damage_type": "blunt"})
+		_note("Capitán Aldric: peleó %s y cayó inconsciente %s (visible %s)" % [ae != null, aldric.is_knocked_out(), aldric.visible])
+		if ae == null or not aldric.is_knocked_out() or not aldric.visible:
+			_fail("El capitán no quedó inconsciente al vencerle")
+	# Se salda todo: los guardias que se hubieran unido vuelven a su puesto
+	Law.clear()
+	p.stats.heal(p.stats.max_health)
+	_next("law_calm")
+
+
+func _test_calm(p: Player) -> void:
+	var hostile := 0
+	for n: Node in get_tree().get_nodes_in_group("enemies"):
+		var e := n as Enemy
+		if e and e.guard_npc != null and e.is_alive() and not e.is_queued_for_deletion():
+			hostile += 1
+	_note("Deuda saldada: guardias aún hostiles %d" % hostile)
+	if hostile > 0:
+		_fail("Los guardias no se calmaron al saldar la deuda")
+	# La ley viaja en la partida guardada (y las partidas antiguas sin ella valen)
+	GameState.law["bounty"] = 123
+	GameState.law["resisted_day"] = GameState.day + 1
+	var data := GameState.build_save_data()
+	var rt: Variant = JSON.parse_string(JSON.stringify(data))
+	var law2 := GameState.sanitize_law((rt as Dictionary).get("law", null))
+	var old := GameState.sanitize_law(null)
+	_note("Ley guardada: %s · partida antigua: %s" % [law2, old])
+	if int(law2["bounty"]) != 123 or int(law2["resisted_day"]) != GameState.day + 1 or int(old["bounty"]) != 0:
+		_fail("El estado de la ley no se guarda bien")
+	Law.clear()
+	# Escolta: el hermano Anselmo acompaña al jugador hasta Robledal
+	var ans := _find_npc("anselmo")
+	if ans:
+		ans._flee_t = 0.0
+		p.teleport(ans.global_position + Vector3(1.5, 0.1, 0.0), 0.0)
+	QuestManager.accept("escolta_anselmo")
+	_next("escort_start")
+
+
+func _test_escort_arrival(p: Player) -> void:
+	var ans := _find_npc("anselmo")
+	var dist := ans.global_position.distance_to(p.global_position) if ans else -1.0
+	var loc := (_game().get("overworld_generator") as WorldGenerator).planner.location_id_at(ans.global_position.x, ans.global_position.z) if ans else ""
+	_note("Escolta en Robledal: Anselmo a %.1f m del jugador (lugar '%s'), llegó %s, etapa: %s" % [dist, loc, GameState.has_flag("anselmo_llego"),
+			QuestManager.stage_text("escolta_anselmo")])
+	if ans == null or not GameState.has_flag("anselmo_llego"):
+		_fail("El acompañante no llegó a Robledal")
+		_finish()
+		return
+	var gold0 := p.gold
+	var res := QuestManager.on_talk("elena")
+	var tracked := false
+	var sp := _game().get("spawner") as EntitySpawner
+	for coord: Vector2i in sp._by_chunk:
+		if (sp._by_chunk[coord] as Array).has(ans):
+			tracked = true
+	_note("Elena: «%s» · misión completada %s · oro %d -> %d · Anselmo deja de seguir %s y queda en Robledal %s" % [
+			str(res[0].get("say", "")).substr(0, 40) + "..." if not res.is_empty() else "(nada)", QuestManager.is_done("escolta_anselmo"), gold0, p.gold,
+			ans.follow_quest == "", tracked])
+	if not QuestManager.is_done("escolta_anselmo") or p.gold < gold0 + 120 or ans.follow_quest != "" or not tracked:
+		_fail("La escolta no terminó bien")
+	var data := GameState.build_save_data()
+	var flags: Dictionary = (data["world_changes"] as Dictionary).get("flags", {})
+	if not flags.has("anselmo_escolta") or not flags.has("anselmo_llego"):
+		_fail("Las banderas de la escolta no se guardan")
+	_finish()
 
 
 ## Lleva al jugador a la plaza de un lugar de la región.

@@ -252,10 +252,14 @@ static func weapon_rack() -> VoxelModel:
 	return m
 
 
-static func banner() -> VoxelModel:
+## Estandarte colgado de una barra. "penalba": azul con la torre de plata de
+## la casa de Peñalba; por defecto, rojo con el árbol dorado de Hojarrubia.
+static func banner(kind: String = "") -> VoxelModel:
 	var m := VoxelModel.new(V, 112)
-	var cloth := m.mat(Color(0.48, 0.1, 0.1), 0.0, 0.95, 0.0, 0.07)
-	var emblem := m.mat(Color(0.88, 0.72, 0.28), 0.2, 0.7, 0.0, 0.05)
+	var penalba := kind == "penalba"
+	var cloth := m.mat(Color(0.14, 0.24, 0.56) if penalba else Color(0.48, 0.1, 0.1), 0.0, 0.95, 0.0, 0.07)
+	var trim := m.mat(Color(0.82, 0.8, 0.74) if penalba else Color(0.36, 0.07, 0.07), 0.1, 0.8, 0.0, 0.05)
+	var emblem := m.mat(Color(0.86, 0.87, 0.9) if penalba else Color(0.88, 0.72, 0.28), 0.3 if penalba else 0.2, 0.6, 0.0, 0.05)
 	var c := _wood(m)
 	var p := m.part("body", "", Vector3.ZERO)
 	p.box(Vector3i(-7, 0, 0), Vector3i(6, 0, 1), c["wood_dk"])
@@ -263,11 +267,99 @@ static func banner() -> VoxelModel:
 		for x in range(-6, 6):
 			if y < -20 and absi(x + 0.5) > (y + 26) * 1.2:
 				continue
-			p.put(Vector3i(x, y, 0), cloth)
-	# Emblema: árbol (hoja roja de Hojarrubia)
-	p.box(Vector3i(-1, -18, -1), Vector3i(0, -8, -1), emblem)
-	p.ellipsoid(Vector3(-0.5, -8.0, -1.0), Vector3(4.0, 3.5, 0.4), emblem)
-	p.box(Vector3i(-3, -18, -1), Vector3i(2, -18, -1), emblem)
+			var border := penalba and (x == -6 or x == 5)
+			p.put(Vector3i(x, y, 0), trim if border else cloth)
+	if penalba:
+		# Emblema: torre almenada con puerta
+		p.box(Vector3i(-3, -18, -1), Vector3i(2, -9, -1), emblem)
+		for mx: int in [-3, -1, 1]:
+			p.box(Vector3i(mx, -8, -1), Vector3i(mx + 1, -7, -1), emblem)
+		p.box(Vector3i(-1, -18, -1), Vector3i(0, -15, -1), cloth)
+		p.put(Vector3i(-1, -12, -1), cloth)
+		p.put(Vector3i(0, -12, -1), cloth)
+		p.box(Vector3i(-5, -19, -1), Vector3i(4, -19, -1), emblem)
+	else:
+		# Emblema: árbol (hoja roja de Hojarrubia)
+		p.box(Vector3i(-1, -18, -1), Vector3i(0, -8, -1), emblem)
+		p.ellipsoid(Vector3(-0.5, -8.0, -1.0), Vector3(4.0, 3.5, 0.4), emblem)
+		p.box(Vector3i(-3, -18, -1), Vector3i(2, -18, -1), emblem)
+	return m
+
+
+## Trono de la casa de Peñalba: respaldo alto tallado, cojín azul, remates
+## dorados y la torre del linaje en el respaldo. Mira hacia -Z.
+static func throne() -> VoxelModel:
+	var m := VoxelModel.new(V, 131)
+	var c := _wood(m)
+	var cloth := m.mat(Color(0.14, 0.24, 0.56), 0.0, 0.9, 0.0, 0.06)
+	var gold := m.mat(Color(0.86, 0.68, 0.3), 0.9, 0.3, 0.0, 0.04)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-9, 0, -8), Vector3i(8, 1, 7), c["wood_dk"])
+	for lx: int in [-7, 5]:
+		for lz: int in [-6, 3]:
+			p.box(Vector3i(lx, 2, lz), Vector3i(lx + 1, 7, lz + 1), c["wood_dk"])
+	p.box(Vector3i(-7, 7, -6), Vector3i(6, 8, 4), c["wood"])
+	p.box(Vector3i(-6, 9, -6), Vector3i(5, 10, 3), cloth)
+	# Respaldo con panel acolchado y emblema
+	p.box(Vector3i(-7, 9, 4), Vector3i(6, 30, 6), c["wood_dk"])
+	p.box(Vector3i(-5, 11, 3), Vector3i(4, 27, 3), cloth)
+	p.box(Vector3i(-2, 17, 2), Vector3i(1, 24, 2), gold)
+	for mx: int in [-2, 1]:
+		p.put(Vector3i(mx, 25, 2), gold)
+	p.box(Vector3i(-1, 17, 2), Vector3i(0, 19, 2), cloth)
+	p.box(Vector3i(-6, 31, 4), Vector3i(5, 32, 6), c["wood"])
+	for fx: int in [-7, 6]:
+		p.box(Vector3i(fx, 31, 4), Vector3i(fx, 34, 5), gold)
+	p.box(Vector3i(-1, 33, 4), Vector3i(0, 35, 5), gold)
+	# Brazos con pomos dorados
+	for ax: int in [-9, 7]:
+		p.box(Vector3i(ax, 9, -6), Vector3i(ax + 1, 14, 4), c["wood"])
+		p.box(Vector3i(ax, 15, -7), Vector3i(ax + 1, 15, -6), gold)
+	return m
+
+
+## Muñeco de entrenamiento: poste, travesaño, cuerpo de paja atado y cabeza
+## de arpillera con una diana pintada.
+static func training_dummy() -> VoxelModel:
+	var m := VoxelModel.new(V, 132)
+	var c := _wood(m)
+	var straw := m.mat(Color(0.8, 0.66, 0.32), 0.0, 0.95, 0.0, 0.12)
+	var burlap := m.mat(Color(0.62, 0.5, 0.34), 0.0, 0.95, 0.0, 0.1)
+	var rope := m.mat(Color(0.45, 0.33, 0.2), 0.0, 0.9, 0.0, 0.05)
+	var red := m.mat(Color(0.65, 0.12, 0.1), 0.0, 0.8, 0.0, 0.04)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(-6, 0, -1), Vector3i(5, 1, 0), c["wood_dk"])
+	p.box(Vector3i(-1, 0, -6), Vector3i(0, 1, 5), c["wood_dk"])
+	p.box(Vector3i(-1, 2, -1), Vector3i(0, 30, 0), c["wood"])
+	p.box(Vector3i(-10, 23, -1), Vector3i(9, 24, 0), c["wood"])
+	p.ellipsoid(Vector3(-0.5, 19.0, -0.5), Vector3(5.0, 7.5, 3.8), straw)
+	for ry: int in [14, 19, 24]:
+		p.box(Vector3i(-5, ry, -4), Vector3i(4, ry, 3), rope)
+	p.ellipsoid(Vector3(-0.5, 30.0, -0.5), Vector3(3.4, 3.6, 3.4), burlap)
+	p.box(Vector3i(-2, 18, -5), Vector3i(1, 21, -5), red)
+	p.box(Vector3i(-1, 19, -6), Vector3i(0, 20, -6), straw)
+	for tx: int in [-10, 9]:
+		p.box(Vector3i(tx, 21, -1), Vector3i(tx, 22, 0), straw)
+	return m
+
+
+## Puerta enrejada de calabozo (1 x 2). Origen en la bisagra (borde -X).
+static func cell_door() -> VoxelModel:
+	var m := VoxelModel.new(V, 133)
+	var iron := m.mat(Color(0.3, 0.31, 0.34), 0.85, 0.45, 0.0, 0.06)
+	var iron_dk := m.mat(Color(0.2, 0.2, 0.22), 0.8, 0.55, 0.0, 0.05)
+	var brass := m.mat(Color(0.7, 0.55, 0.25), 0.9, 0.35, 0.0, 0.04)
+	var p := m.part("body", "", Vector3.ZERO)
+	p.box(Vector3i(0, 0, -1), Vector3i(1, 31, 0), iron_dk)
+	p.box(Vector3i(14, 0, -1), Vector3i(15, 31, 0), iron_dk)
+	for bx: int in [4, 7, 10]:
+		p.box(Vector3i(bx, 0, -1), Vector3i(bx, 31, 0), iron)
+	for by: int in [0, 15, 30]:
+		p.box(Vector3i(0, by, -1), Vector3i(15, by + 1, 0), iron_dk)
+	for hy: int in [3, 27]:
+		p.box(Vector3i(-1, hy, -1), Vector3i(0, hy + 2, 0), iron_dk)
+	p.box(Vector3i(12, 13, -2), Vector3i(14, 17, 1), brass)
+	p.put(Vector3i(13, 15, -3), iron_dk)
 	return m
 
 
@@ -664,7 +756,13 @@ static func by_name(prop: String, extra: Dictionary = {}) -> VoxelModel:
 		"notice_board":
 			return notice_board()
 		"banner":
-			return banner()
+			return banner(str(extra.get("kind", "")))
+		"throne":
+			return throne()
+		"training_dummy":
+			return training_dummy()
+		"cell_door":
+			return cell_door()
 		"goods":
 			return goods(str(extra.get("kind", "food")))
 		"hay_cart":

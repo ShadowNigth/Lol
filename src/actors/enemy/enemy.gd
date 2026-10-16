@@ -60,6 +60,13 @@ var _fled := false
 var _variant := -1
 ## Mantiene su puesto (p. ej. la arquera de la torre de vigía): no retrocede ni avanza.
 var hold_position := false
+## Guardia de la Marca peleando: sustituye a su PNJ hasta que se calma (ver Law).
+var guard_npc: NPC = null
+var guard_essential := false
+var look: Dictionary = {}          # aspecto humano (modelo "guard")
+var gear: Dictionary = {}          # equipo visible: arma y escudo
+var custom_name := ""
+var _guard_check := 0.0
 
 
 func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, player: Player) -> void:
@@ -75,6 +82,9 @@ func setup(enemy_data: EnemyData, spawn: Dictionary, voxel_world: VoxelWorld, pl
 	_rng.seed = hash(entity_id)
 	_variant = int(spawn.get("variant", -1))
 	hold_position = bool(spawn.get("hold", false))
+	look = spawn.get("look", {})
+	gear = spawn.get("gear", {})
+	custom_name = str(spawn.get("name", ""))
 
 
 func _ready() -> void:
@@ -126,6 +136,9 @@ func _build_model() -> void:
 		"bandit":
 			# Cada bandido tiene su propia cara y colores (semilla por identificador)
 			model = CharacterModels.bandit(variant, absi(hash(entity_id)) % 100000 + 11)
+		"guard":
+			# Guardia: el mismo aspecto y armadura que su PNJ
+			model = CharacterModels.human(look, hash(entity_id))
 		_:
 			model = CharacterModels.skeleton_warrior(variant)
 	_material = ModelLibrary.unique_model_material()
@@ -140,7 +153,7 @@ func _build_model() -> void:
 	wa.bone_name = "hand.L" if data.ranged else "hand.R"
 	skeleton.add_child(wa)
 	var wmesh := MeshInstance3D.new()
-	wmesh.mesh = ModelLibrary.weapon_mesh(data.weapon_model, false)
+	wmesh.mesh = ModelLibrary.weapon_mesh(str(gear.get("weapon", data.weapon_model)), false)
 	if data.ranged:
 		wmesh.transform = Transform3D(Basis.IDENTITY, Vector3(0.0, -0.07, -0.02))
 	else:
@@ -151,7 +164,8 @@ func _build_model() -> void:
 		sa.bone_name = "forearm.L"
 		skeleton.add_child(sa)
 		var smesh := MeshInstance3D.new()
-		smesh.mesh = ModelLibrary.weapon_mesh(data.shield_model, false)
+		var shield_id := NpcDB.shield_model(str(gear["offhand"])) if gear.has("offhand") else data.shield_model
+		smesh.mesh = ModelLibrary.weapon_mesh(shield_id, false)
 		smesh.transform = Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(-0.09, -0.14, 0.0))
 		sa.add_child(smesh)
 	var lib := HumanoidAnims.build_library("warrior")
@@ -206,7 +220,19 @@ func is_aware() -> bool:
 
 
 func display_name() -> String:
-	return data.display_name
+	return custom_name if custom_name != "" else data.display_name
+
+
+## Ya sabe dónde está el jugador (guardia que entra en combate, etc.).
+func make_aware() -> void:
+	if state == State.DEAD or target == null:
+		return
+	_aware = true
+	_last_seen = target.global_position
+	_lost_t = 0.0
+	_set_state(State.ALERT)
+	playback.travel("alert")
+	Audio.play_3d(data.sound_alert, _voice_pos(), 0.0)
 
 
 func health_ratio() -> float:
@@ -249,6 +275,13 @@ func _physics_process(delta: float) -> void:
 	if _think_t <= 0.0:
 		_think_t = 0.2
 		_perceive()
+	if guard_npc != null:
+		_guard_check -= delta
+		if _guard_check <= 0.0:
+			_guard_check = 0.5
+			if _guard_should_calm():
+				Law.calm_guard(self)
+				return
 	var move_dir := Vector3.ZERO
 	_desired_speed = 0.0
 	match state:
@@ -746,7 +779,24 @@ func take_hit(amount: float, info: Dictionary) -> String:
 	return "hit"
 
 
+## El guardia vuelve a ser PNJ: ya no hay deudas ni resistencia, o ha
+## perdido de vista al jugador y ha vuelto a su puesto.
+func _guard_should_calm() -> bool:
+	if not is_instance_valid(guard_npc):
+		guard_npc = null
+		return false
+	if not Law.is_wanted() and not Law.resisted():
+		return state in [State.IDLE, State.PATROL, State.RETURN, State.CHASE, State.ALERT]
+	return not _aware and state in [State.IDLE, State.PATROL]
+
+
 func _die(_info: Dictionary) -> void:
+	if guard_npc != null and is_instance_valid(guard_npc):
+		if guard_essential:
+			# Los guardias con nombre no mueren: caen inconscientes
+			Law.calm_guard(self, true)
+			return
+		Law.guard_killed(self)
 	_set_state(State.DEAD)
 	playback.travel("death")
 	Audio.play_3d(data.sound_death, _voice_pos(), 0.0)

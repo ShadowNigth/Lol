@@ -38,6 +38,8 @@ static func build(wr: ChunkWriter, s: Dictionary) -> void:
 			cave_mouth(wr, s)
 		"bandit_camp":
 			bandit_camp(wr, s)
+		"castle":
+			CastleBuilder.build(wr, s)
 		_:
 			push_warning("Estructura desconocida: %s" % s["type"])
 	var _unused := size
@@ -233,6 +235,18 @@ static func _furnish(wr: ChunkWriter, s: Dictionary, w: int, d: int, floors: int
 				wr.entity("lantern", Vector3(w / 2.0, wall_h * 2 - 1.05, d / 2.0), 0.0, {"uid": "l2"})
 		"smith":
 			pass
+		"barracks":
+			# Cuartel de la guardia: literas en fila, armero, mesa de dados y arcón
+			for bi in 4:
+				wr.entity("bed", Vector3(1.5 + bi * 1.6, 0, d - 2.5), 0.0, {"uid": "bed_%d" % bi})
+			wr.entity("weapon_rack", Vector3(w - 1.62, 0, d / 2.0), 90.0, {"uid": "rack"})
+			wr.entity("table", Vector3(w / 2.0, 0, 2.2), 0.0, {"uid": "t1"})
+			wr.entity("chair", Vector3(w / 2.0 - 1.0, 0, 2.2), 90.0, {"uid": "c1"})
+			wr.entity("chair", Vector3(w / 2.0 + 1.0, 0, 2.2), -90.0, {"uid": "c2"})
+			wr.entity("chest", Vector3(1.4, 0, 1.6), 90.0, {"uid": "chest", "loot": "barracks"})
+			wr.entity("barrel", Vector3(w - 1.5, 0, 1.5), 0.0, {"uid": "b1"})
+			wr.entity("lantern", Vector3(w / 2.0, wall_h - 1.05, d / 2.0), 0.0, {"uid": "l1"})
+			wr.entity("banner", Vector3(w / 2.0, 2.4, d - 1.08), 0.0, {"uid": "banner", "kind": "penalba"})
 		_:
 			wr.entity("table", Vector3(w - 2.5, 0, 2.0), 0.0, {"uid": "t1"})
 			wr.entity("chair", Vector3(w - 2.5, 0, 1.1), 180.0, {"uid": "c1"})

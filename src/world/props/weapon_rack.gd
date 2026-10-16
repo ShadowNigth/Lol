@@ -23,10 +23,15 @@ func _ready() -> void:
 	add_child(cs)
 
 
+## Los armeros del castillo son de la guardia: llevarse sus armas es robo.
+func is_owned() -> bool:
+	return entity_id.begins_with("castle/")
+
+
 func get_interaction_text() -> String:
 	if GameState.is_looted(entity_id):
 		return "Armero (vacío)"
-	return "[E] Tomar armas del armero"
+	return "[E] Robar armas del armero" if is_owned() else "[E] Tomar armas del armero"
 
 
 func interact(player: Node) -> void:
@@ -40,3 +45,5 @@ func interact(player: Node) -> void:
 			given += 1
 	if given == 0:
 		Events.notify.emit("Ya tienes todas estas armas.", "info")
+	elif is_owned():
+		Law.report("robo", null, 40 * given)

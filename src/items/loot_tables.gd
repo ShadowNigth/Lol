@@ -21,6 +21,12 @@ const TABLES := {
 	"bandit_archer": [["arrow", 0.9, 4, 10], ["lockpick", 0.3, 1, 1], ["bread", 0.3, 1, 1], ["potion_health", 0.15, 1, 1], ["weapon_bow", 0.05, 1, 1]],
 	"bandit_chief": [["key_cuervos", 1.0, 1, 1], ["nota_cuervos", 1.0, 1, 1], ["potion_health", 1.0, 1, 2], ["lockpick", 1.0, 2, 3], ["silver_ring", 0.5, 1, 1],
 			["helm_iron", 0.35, 1, 1]],
+	# Castillo de Peñalba: cuartel, arcones del salón y del calabozo, cámara de la señora
+	"barracks": [["bread", 0.6, 1, 2], ["arrow", 0.6, 5, 12], ["potion_health", 0.35, 1, 1], ["lockpick", 0.25, 1, 1], ["gloves_leather", 0.15, 1, 1]],
+	"castle": [["potion_health", 0.6, 1, 2], ["ley_marca", 0.5, 1, 1], ["silver_ring", 0.25, 1, 1], ["key_calabozo", 0.5, 1, 1], ["arrow", 0.4, 8, 16]],
+	"noble": [["silver_goblet", 0.9, 1, 1], ["silver_ring", 0.7, 1, 2], ["cronica_penalba", 1.0, 1, 1], ["potion_mana", 0.4, 1, 1]],
+	# Guardia de Peñalba abatido (equipo de la guardia y algo de paga)
+	"guard": [["potion_health", 0.4, 1, 1], ["key_calabozo", 0.15, 1, 1], ["bread", 0.3, 1, 1], ["helm_iron", 0.12, 1, 1], ["weapon_sword", 0.1, 1, 1]],
 	# Arcón del jefe: el fruto de meses de asaltos en el camino
 	"bandit_stash": [["silver_ring", 0.9, 1, 2], ["potion_health", 1.0, 1, 2], ["potion_stamina", 0.7, 1, 1], ["cheese", 1.0, 2, 4], ["arrow", 0.8, 10, 20],
 			["armor_leather", 0.35, 1, 1], ["weapon_axe", 0.25, 1, 1], ["tunic_wool", 0.5, 1, 1]],
@@ -53,4 +59,12 @@ static func gold_for(table: String, rng: RandomNumberGenerator) -> int:
 			return rng.randi_range(150, 250)
 		"bandit_stash":
 			return rng.randi_range(120, 200)
+		"barracks":
+			return rng.randi_range(8, 25)
+		"castle":
+			return rng.randi_range(40, 90)
+		"noble":
+			return rng.randi_range(120, 220)
+		"guard":
+			return rng.randi_range(10, 30)
 	return rng.randi_range(1, 10)

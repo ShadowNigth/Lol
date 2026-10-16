@@ -574,7 +574,9 @@ func _update_target(delta: float) -> void:
 	var t: Node = null
 	if not hit.is_empty():
 		var c := hit["collider"] as Node
-		if c != null and c.has_method("take_hit") and c.has_method("is_alive") and bool(c.call("is_alive")):
+		# Los PNJ pacíficos no son «objetivo» (solo los enemigos y guardias hostiles)
+		if c != null and c.has_method("take_hit") and c.has_method("is_alive") and bool(c.call("is_alive")) \
+				and (not c.has_method("is_hostile") or bool(c.call("is_hostile"))):
 			t = c
 	if t != _current_target:
 		_current_target = t

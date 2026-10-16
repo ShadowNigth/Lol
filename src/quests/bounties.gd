@@ -12,6 +12,7 @@ const SITES := {
 	"hojarrubia": {"name": "Hojarrubia", "faction": "hojarrubia"},
 	"robledal": {"name": "Robledal", "faction": "robledal"},
 	"inn_lobo": {"name": "la Posada del Lobo Gris", "faction": "robledal"},
+	"castle": {"name": "el castillo de Peñalba", "faction": "guardia"},
 }
 const DELIVERIES := [["wolf_pelt", 2, 3, 30], ["bone_dust", 3, 5, 12], ["wolf_fang", 3, 6, 10]]
 

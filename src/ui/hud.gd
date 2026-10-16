@@ -24,6 +24,8 @@ var _vignette_mat: ShaderMaterial
 var _damage_flash := 0.0
 var _info: Label
 var _debug: Label
+var _wanted: Label
+var _wanted_t := 0.0
 var _target: Node = null
 var _underwater: ColorRect
 var _fade: ColorRect
@@ -173,6 +175,22 @@ func _ready() -> void:
 	_debug.visible = Settings.show_fps
 	_root.add_child(_debug)
 
+	# Recompensa por tu cabeza (bajo la brújula, en rojo)
+	_wanted = Label.new()
+	_wanted.anchor_left = 0.5
+	_wanted.anchor_right = 0.5
+	_wanted.offset_left = -300
+	_wanted.offset_right = 300
+	_wanted.offset_top = 50
+	_wanted.offset_bottom = 74
+	_wanted.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_wanted.add_theme_font_size_override("font_size", 16)
+	_wanted.add_theme_color_override("font_color", Color(0.95, 0.35, 0.3))
+	_wanted.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_wanted.add_theme_constant_override("outline_size", 4)
+	_wanted.visible = false
+	_root.add_child(_wanted)
+
 	_fade = ColorRect.new()
 	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_fade.color = Color(0, 0, 0, 0)
@@ -184,6 +202,7 @@ func _ready() -> void:
 	Events.target_changed.connect(_on_target)
 	Events.player_damaged.connect(_on_damaged)
 	Events.location_entered.connect(_on_location)
+	Events.law_changed.connect(func(_b: int) -> void: _update_wanted())
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -198,6 +217,10 @@ func _process(delta: float) -> void:
 	(_bars as HudBars).set_values(s.health / s.max_health, s.stamina / s.max_stamina, s.mana / s.max_mana,
 			"%d/%d" % [ceili(s.health), ceili(s.max_health)])
 	(_compass as HudCompass).yaw = player.get_yaw_degrees()
+	_wanted_t -= delta
+	if _wanted_t <= 0.0:
+		_wanted_t = 1.0
+		_update_wanted()
 	(_compass as HudCompass).time_text = day_night.hour_string() if day_night else ""
 	_damage_flash = maxf(_damage_flash - delta * 1.8, 0.0)
 	var low := clampf(1.0 - (s.health / s.max_health) / 0.3, 0.0, 1.0)
@@ -273,6 +296,15 @@ func _on_target(t: Node) -> void:
 
 func _on_damaged(amount: float, _src: Vector3) -> void:
 	_damage_flash = clampf(_damage_flash + amount / 30.0 + 0.25, 0.0, 1.0)
+
+
+func _update_wanted() -> void:
+	var b := Law.bounty()
+	_wanted.visible = b > 0 or Law.resisted()
+	if Law.resisted():
+		_wanted.text = "¡La guardia te busca! · recompensa: %d monedas" % b
+	else:
+		_wanted.text = "Se busca · recompensa: %d monedas" % b
 
 
 func _on_location(loc_name: String) -> void:

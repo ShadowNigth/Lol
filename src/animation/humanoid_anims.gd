@@ -227,6 +227,43 @@ static func build_library(style: String = "warrior") -> AnimationLibrary:
 		"shin.L": [[0.0, Vector3(0, 0, 0)], [0.25, Vector3(-25, 0, 0)], [0.45, Vector3(0, 0, 0)], [1.6, Vector3(0, 0, 0)]],
 	}, {"hips": [[0.0, _p(HIPS_Y)], [0.2, _p(HIPS_Y - 0.08)], [0.42, _p(HIPS_Y + 0.08)], [0.6, _p(HIPS_Y)], [1.6, _p(HIPS_Y)]]}))
 
+	# --- Inconsciente: se le doblan las rodillas, cae de costado y queda tendido ---
+	lib.add_animation("knockout", AnimBuilder.make(1.4, false, {
+		"root": [[0.0, Vector3(0, 0, 0)], [0.3, Vector3(6, 0, 4)], [0.7, Vector3(40, 0, 18)], [1.05, Vector3(86, 0, 12)], [1.4, Vector3(88, 0, 10)]],
+		"spine": [[0.0, Vector3(0, 0, 0)], [0.3, Vector3(12, 0, 0)], [0.8, Vector3(-6, 0, 4)], [1.4, Vector3(-4, 0, 6)]],
+		"chest": [[0.0, Vector3(0, 0, 0)], [0.3, Vector3(14, 0, 0)], [0.9, Vector3(-10, 8, 0)], [1.4, Vector3(-6, 10, 0)]],
+		"head": [[0.0, Vector3(0, 0, 0)], [0.25, Vector3(25, 0, 0)], [0.9, Vector3(-10, 20, 0)], [1.4, Vector3(-6, 38, 12)]],
+		"upper_arm.R": [[0.0, Vector3(5, 0, 8)], [0.4, Vector3(-20, 0, 30)], [1.0, Vector3(-30, 0, 70)], [1.4, Vector3(-25, 0, 78)]],
+		"forearm.R": [[0.0, Vector3(10, 0, 0)], [0.6, Vector3(35, 0, 0)], [1.4, Vector3(20, 0, 0)]],
+		"upper_arm.L": [[0.0, Vector3(5, 0, -8)], [0.4, Vector3(-15, 0, -25)], [1.0, Vector3(-10, 0, -60)], [1.4, Vector3(-8, 0, -66)]],
+		"forearm.L": [[0.0, Vector3(10, 0, 0)], [0.6, Vector3(50, 0, 0)], [1.4, Vector3(40, 0, 0)]],
+		"thigh.R": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(50, 0, 4)], [0.9, Vector3(30, 0, 8)], [1.4, Vector3(18, 0, 10)]],
+		"thigh.L": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(45, 0, -4)], [0.9, Vector3(40, 0, -8)], [1.4, Vector3(34, 0, -10)]],
+		"shin.R": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(-95, 0, 0)], [0.9, Vector3(-40, 0, 0)], [1.4, Vector3(-22, 0, 0)]],
+		"shin.L": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(-90, 0, 0)], [0.9, Vector3(-60, 0, 0)], [1.4, Vector3(-52, 0, 0)]],
+	}, {
+		"hips": [[0.0, _p(HIPS_Y)], [0.35, _p(HIPS_Y - 0.38)], [0.9, _p(HIPS_Y - 0.16)], [1.4, _p(HIPS_Y - 0.12)]],
+		"root": [[0.0, Vector3(0, 0, 0)], [0.7, Vector3(0, 0.05, 0.15)], [1.05, Vector3(0, 0.15, 0.32)], [1.4, Vector3(0, 0.15, 0.33)]],
+	}))
+	# --- Levantarse: se incorpora, apoya una rodilla y se pone en pie ---
+	lib.add_animation("getup", AnimBuilder.make(1.6, false, {
+		"root": [[0.0, Vector3(88, 0, 10)], [0.45, Vector3(55, 0, 6)], [0.9, Vector3(14, 0, 0)], [1.3, Vector3(4, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"spine": [[0.0, Vector3(-4, 0, 6)], [0.45, Vector3(22, 0, 2)], [0.9, Vector3(20, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"chest": [[0.0, Vector3(-6, 10, 0)], [0.45, Vector3(16, 0, 0)], [1.0, Vector3(8, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"head": [[0.0, Vector3(-6, 38, 12)], [0.45, Vector3(10, 10, 0)], [1.0, Vector3(-8, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"upper_arm.R": [[0.0, Vector3(-25, 0, 78)], [0.45, Vector3(30, 0, 20)], [0.9, Vector3(40, 0, 15)], [1.6, Vector3(5, 0, 8)]],
+		"forearm.R": [[0.0, Vector3(20, 0, 0)], [0.45, Vector3(10, 0, 0)], [1.6, Vector3(10, 0, 0)]],
+		"upper_arm.L": [[0.0, Vector3(-8, 0, -66)], [0.45, Vector3(35, 0, -20)], [0.9, Vector3(45, 0, -12)], [1.6, Vector3(5, 0, -8)]],
+		"forearm.L": [[0.0, Vector3(40, 0, 0)], [0.6, Vector3(20, 0, 0)], [1.6, Vector3(10, 0, 0)]],
+		"thigh.R": [[0.0, Vector3(18, 0, 10)], [0.45, Vector3(85, 0, 4)], [0.9, Vector3(80, 0, 0)], [1.3, Vector3(20, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"thigh.L": [[0.0, Vector3(34, 0, -10)], [0.45, Vector3(60, 0, -4)], [0.9, Vector3(-10, 0, 0)], [1.3, Vector3(5, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"shin.R": [[0.0, Vector3(-22, 0, 0)], [0.45, Vector3(-120, 0, 0)], [0.9, Vector3(-95, 0, 0)], [1.3, Vector3(-25, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+		"shin.L": [[0.0, Vector3(-52, 0, 0)], [0.45, Vector3(-100, 0, 0)], [0.9, Vector3(-90, 0, 0)], [1.3, Vector3(-10, 0, 0)], [1.6, Vector3(0, 0, 0)]],
+	}, {
+		"hips": [[0.0, _p(HIPS_Y - 0.12)], [0.45, _p(HIPS_Y - 0.5)], [0.9, _p(HIPS_Y - 0.42)], [1.3, _p(HIPS_Y - 0.08)], [1.6, _p(HIPS_Y)]],
+		"root": [[0.0, Vector3(0, 0.15, 0.33)], [0.45, Vector3(0, 0.05, 0.2)], [0.9, Vector3(0, 0.0, 0.05)], [1.6, Vector3(0, 0, 0)]],
+	}))
+
 	# --- Muerte: se desploma hacia atrás y queda en el suelo ---
 	lib.add_animation("death", AnimBuilder.make(1.5, false, {
 		"root": [[0.0, Vector3(0, 0, 0)], [0.35, Vector3(-8, 0, 0)], [0.75, Vector3(30, 0, 4)], [1.1, Vector3(84, 0, 6)], [1.25, Vector3(90, 0, 6)], [1.5, Vector3(88, 0, 6)]],
@@ -275,7 +312,8 @@ static func build_tree(lib: AnimationLibrary, actions: PackedStringArray) -> Ani
 		if not sm.has_node(act):
 			continue
 		sm.add_transition("loco", act, _xfade(0.15, false))
-		if act != "death":
+		# La muerte y el desmayo no vuelven solos a la locomoción
+		if act != "death" and act != "knockout":
 			var back := _xfade(0.22, true)
 			if act == "block":
 				back = _xfade(0.2, false)

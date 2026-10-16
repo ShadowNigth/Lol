@@ -24,7 +24,7 @@ const NPCS := {
 		"rumors": ["Una espada bien templada vale más que tres mal forjadas.",
 				"Los esqueletos de las ruinas llevan hierro viejo. Herrumbre, nada más.",
 				"Si pegas con una maza a un esqueleto, se le parten los huesos mejor que con una espada."],
-		"work": "smithy_anvil", "work_anim": "work",
+		"work": "smithy_anvil", "work_anim": "work", "held": "mace", "held_scale": 0.55,
 	},
 	"rolf": {
 		"name": "Rolf", "role": "Guardia", "faction": "guardia",
@@ -35,7 +35,8 @@ const NPCS := {
 		"rumors": ["Por la noche se ven luces azules en el cementerio olvidado.",
 				"La torre del sur vigila el camino. Desde arriba se ve hasta las ruinas.",
 				"Si bloqueas en el momento justo, el enemigo queda vendido. Lo aprendí a las malas."],
-		"patrol": true, "work_anim": "idle",
+		"patrol": true, "work_anim": "idle", "guard": true, "lantern": true, "health": 110.0,
+		"gear": {"weapon": "sword"},
 	},
 	"mira": {
 		"name": "Mira", "role": "Aldeana", "faction": "hojarrubia",
@@ -120,6 +121,76 @@ const NPCS := {
 				"Los Cuervos guardan lo robado en un arcón, en la tienda grande del jefe."],
 		"work": "plaza", "work_anim": "idle",
 	},
+	# --- Castillo de Peñalba ---
+	"isolda": {
+		"name": "Isolda de Peñalba", "role": "Señora de la Marca", "faction": "penalba",
+		"look": {"skin": Color(0.8, 0.62, 0.5), "hair": Color(0.42, 0.2, 0.1), "tunic": Color(0.16, 0.24, 0.52), "pants": Color(0.12, 0.14, 0.26),
+				"female": true, "cape": true},
+		"quests": [], "trade": "",
+		"greet": ["Bienvenido a Peñalba. Mientras respetes la ley de la Marca, aquí estarás a salvo.", "Habla con el capitán Aldric si buscas trabajo. Los caminos necesitan espadas."],
+		"greet_friend": ["La Marca tiene pocos amigos como tú. Peñalba te abre sus puertas cuando quieras."],
+		"greet_flags": {"anselmo_llego": ["Me cuentan que llevaste al hermano Anselmo a Robledal. Eso es servir a la Marca."]},
+		"rumors": ["Mi abuelo levantó estos muros cuando los reyes de Velmar aún mandaban en el sur. Ningún asedio los ha tomado.",
+				"Los Cuervos no son simples ladrones: alguien en Puerto Sal les paga por lo que roban... y por la gente que secuestran.",
+				"La ley de la Marca es sencilla: quien hace daño, paga. Quien no puede pagar, cumple calabozo.",
+				"El túmulo de los Reyes Grises lleva cien años sellado. Que se haya abierto ahora no es casualidad."],
+		"work": "throne", "work_anim": "talk",
+	},
+	"aldric": {
+		"name": "Aldric", "role": "Capitán de la guardia", "faction": "guardia",
+		"look": {"skin": Color(0.72, 0.52, 0.4), "hair": Color(0.3, 0.26, 0.22), "tunic": Color(0.18, 0.25, 0.48), "pants": Color(0.18, 0.18, 0.2),
+				"beard": true, "tabard": Color(0.16, 0.26, 0.56), "tabard_emblem": Color(0.9, 0.9, 0.84)},
+		"gear": {"head": "helm_iron", "chest": "armor_chain", "hands": "gauntlets_iron", "legs": "greaves_iron", "feet": "boots_iron",
+				"weapon": "sword", "offhand": "shield_iron"},
+		"quests": ["cuervos_camino"], "trade": "", "guard": true, "lantern": true, "health": 150.0,
+		"greet": ["Capitán Aldric, de la guardia de Peñalba. Si tienes cuentas pendientes con la ley, este es el sitio para saldarlas.",
+				"Mantén el acero envainado dentro del recinto y no tendremos problemas."],
+		"greet_friend": ["Ojalá tuviera diez como tú en la guardia. ¿Seguro que no quieres el tabardo azul?"],
+		"rumors": ["Una multa se paga aquí o a cualquier guardia. Si no tienes el oro, el calabozo te espera: un día por cada cien monedas.",
+				"Quien levanta la mano contra la guardia se las ve con toda la guardia. Hasta el día siguiente, por lo menos.",
+				"Los salteadores vigilan el camino del oeste desde los árboles. Si oyes un silbido, desenvaina.",
+				"Robar delante de testigos es de idiotas. Robar sin testigos... sigue siendo robar, pero nadie viene a por ti."],
+		"work": "jail", "work_anim": "idle",
+	},
+	"anselmo": {
+		"name": "Hermano Anselmo", "role": "Sanador", "faction": "penalba",
+		"look": {"skin": Color(0.76, 0.58, 0.46), "hair": Color(0.55, 0.52, 0.5), "tunic": Color(0.42, 0.33, 0.22), "pants": Color(0.36, 0.28, 0.2),
+				"beard": true, "hood": Color(0.42, 0.33, 0.22)},
+		"quests": ["escolta_anselmo"], "trade": "sanador",
+		"greet": ["Que la paz sea contigo. Tengo ungüentos y pociones para quien los necesite.", "Las hierbas del huerto curan más que muchas espadas."],
+		"greet_friend": ["Amigo mío, siempre tengo un remedio guardado para ti."],
+		"greet_flags": {"anselmo_llego": ["Las fiebres de Robledal remiten. Sin tu escolta no habría llegado."]},
+		"rumors": ["Una poción de salud a tiempo vale más que el mejor escudo.",
+				"En Robledal hay fiebres. Debería ir, pero el camino del sur no es lugar para un viejo con un saco de frascos.",
+				"Los muertos de Velmar no descansan porque nadie rezó por ellos. Eso decían los monjes antiguos."],
+		"work": "garden", "work_anim": "work",
+	},
+	"garin": {
+		"name": "Garin", "role": "Armero del castillo", "faction": "penalba",
+		"look": {"skin": Color(0.66, 0.46, 0.34), "hair": Color(0.2, 0.15, 0.12), "tunic": Color(0.3, 0.28, 0.3), "pants": Color(0.22, 0.2, 0.18),
+				"apron": Color(0.3, 0.2, 0.12), "beard": true, "gloves": Color(0.28, 0.18, 0.1)},
+		"quests": [], "trade": "armeria", "held": "mace", "held_scale": 0.55,
+		"greet": ["Cota, yelmo, escudo... Aquí se viste a la guardia de Peñalba. Y a quien pague.", "Si el acero de la guardia se oxida, la culpa es mía."],
+		"greet_friend": ["Te he guardado lo mejor del taller. No se lo digas al capitán."],
+		"rumors": ["Una cota de malla para un tajo; una maza la atraviesa como si nada. Lleva escudo.",
+				"Los guardias llevan escudo de hierro. Si les atacas de frente, buena suerte.",
+				"El hierro de las minas del norte ya no llega desde que los lobos bajaron."],
+		"work": "castle_forge", "work_anim": "work",
+	},
+	# Plantilla de los guardias del castillo (cada uno con su cara; pueden morir)
+	"guardia_castillo": {
+		"name": "Guardia de Peñalba", "role": "Guardia", "faction": "guardia", "generic": true,
+		"look": {"skin": Color(0.74, 0.55, 0.42), "hair": Color(0.35, 0.25, 0.18), "tunic": Color(0.18, 0.25, 0.48), "pants": Color(0.18, 0.18, 0.2),
+				"tabard": Color(0.16, 0.26, 0.56), "tabard_emblem": Color(0.9, 0.9, 0.84)},
+		"gear": {"head": "helm_iron", "chest": "armor_chain", "hands": "gloves_leather", "feet": "boots_iron", "weapon": "sword", "offhand": "shield_iron"},
+		"quests": [], "trade": "", "guard": true, "lantern": true, "health": 100.0,
+		"greet": ["Circula, forastero.", "Todo en orden en Peñalba.", "Si tienes asuntos con el capitán, está junto al calabozo."],
+		"greet_friend": ["¡Eh, tú eres el que limpia los caminos! Pasa, pasa."],
+		"rumors": ["Dicen que la señora Isolda no duerme hasta que vuelve la última patrulla.",
+				"De noche se ven hogueras en el bosque del oeste. Cuervos, seguro.",
+				"El calabozo está casi vacío. Que siga así."],
+		"work": "post", "work_anim": "idle",
+	},
 }
 
 const SHOPS := {
@@ -128,9 +199,31 @@ const SHOPS := {
 			["shield_wood", 2], ["shield_iron", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 2], ["pants_leather", 1], ["boots_leather", 2],
 			["helm_iron", 1], ["armor_chain", 1], ["gauntlets_iron", 1], ["greaves_iron", 1], ["boots_iron", 1]]},
 	"posada_lobo": {"gold": 250, "stock": [["bread", 5], ["cheese", 4], ["potion_health", 2], ["potion_stamina", 2], ["torch_item", 3], ["tunic_wool", 1]]},
+	"armeria": {"gold": 900, "stock": [["weapon_sword", 2], ["weapon_mace", 1], ["weapon_axe", 1], ["shield_wood", 2], ["shield_iron", 2], ["helm_iron", 2], ["armor_chain", 2],
+			["gauntlets_iron", 2], ["greaves_iron", 2], ["boots_iron", 2], ["armor_leather", 1], ["arrow", 40]]},
+	"sanador": {"gold": 350, "stock": [["potion_health", 6], ["potion_stamina", 4], ["potion_mana", 3], ["bread", 3], ["apple", 4]]},
 	"cazadora": {"gold": 400, "stock": [["arrow", 80], ["weapon_bow", 1], ["weapon_dagger", 1], ["hood_leather", 1], ["armor_leather", 1], ["gloves_leather", 1], ["pants_leather", 1], ["boots_leather", 1], ["potion_health", 2]]},
 }
 
 
 static func get_npc(id: String) -> Dictionary:
 	return NPCS.get(id, {})
+
+
+## Variación de cara, pelo y piel para los PNJ genéricos (guardias), estable
+## por identificador de aparición.
+static func vary_look(look: Dictionary, seed_id: String) -> Dictionary:
+	var out := look.duplicate()
+	var r := RandomNumberGenerator.new()
+	r.seed = hash(seed_id)
+	var skins := [Color(0.82, 0.64, 0.52), Color(0.74, 0.55, 0.42), Color(0.62, 0.44, 0.32), Color(0.48, 0.33, 0.24)]
+	var hairs := [Color(0.15, 0.12, 0.1), Color(0.35, 0.25, 0.18), Color(0.6, 0.45, 0.25), Color(0.5, 0.2, 0.1), Color(0.55, 0.55, 0.55)]
+	out["skin"] = skins[r.randi() % skins.size()]
+	out["hair"] = hairs[r.randi() % hairs.size()]
+	out["beard"] = r.randf() < 0.5
+	return out
+
+
+## Modelo de escudo para un objeto de la mano izquierda.
+static func shield_model(item_id: String) -> String:
+	return "shield_iron" if item_id == "shield_iron" else "shield"

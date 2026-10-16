@@ -393,6 +393,8 @@ func _refresh_map() -> void:
 					mcol = Color(0.9, 0.15, 0.15)
 				"camp":
 					mcol = Color(0.7, 0.3, 0.9)
+				"castle":
+					mcol = Color(0.35, 0.6, 1.0)
 			var mx := int((sp.x - ox) / scale)
 			var mz := int((sp.y - oz) / scale)
 			for dz in range(-2, 3):
@@ -400,7 +402,7 @@ func _refresh_map() -> void:
 					if absi(dx) + absi(dz) <= 3 and mx + dx >= 0 and mz + dz >= 0 and mx + dx < size and mz + dz < size:
 						img.set_pixel(mx + dx, mz + dz, mcol if absi(dx) + absi(dz) < 3 else Color(0.1, 0.08, 0.06))
 			legend.append("%s: %s" % [site["name"], StructurePlanner.direction_text(me, sp)])
-		_map_label.text = "Mapa de la región (cada píxel = %d m; tú en el centro, norte arriba). Amarillo: aldeas · Naranja: posadas · Rojo: mazmorras · Morado: campamentos\n%s" % [scale, "  ·  ".join(legend)]
+		_map_label.text = "Mapa de la región (cada píxel = %d m; tú en el centro, norte arriba). Amarillo: aldeas · Naranja: posadas · Azul: castillos · Rojo: mazmorras · Morado: campamentos\n%s" % [scale, "  ·  ".join(legend)]
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
 			img.set_pixel(size / 2 + dx, size / 2 + dy, Color(1, 1, 1))

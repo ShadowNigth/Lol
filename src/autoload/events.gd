@@ -13,4 +13,5 @@ signal world_ready
 signal game_saved(slot: String)
 signal game_loaded(slot: String)
 signal location_entered(name: String)
+signal law_changed(bounty: int)                              # recompensa por tu cabeza (ver Law)
 @warning_ignore_restore("unused_signal")

@@ -255,6 +255,22 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		head.box(Vector3i(-3, 10, -2), Vector3i(2, 10, 2), iron)
 		head.box(Vector3i(-6, 6, -5), Vector3i(5, 6, 5), cap_dk)            # reborde
 		head.box(Vector3i(-1, 2, -5), Vector3i(0, 6, -5), iron)             # nasal
+	# Yelmo de hierro (equipo «helm_iron»): bacinete con nasal, carrilleras y
+	# cogotera; tapa el pelo de arriba y de los lados.
+	var steel := m.mat(Color(0.62, 0.64, 0.68), 0.85, 0.32, 0.0, 0.04)
+	var steel_dk := m.mat(Color(0.36, 0.37, 0.41), 0.85, 0.45, 0.0, 0.05)
+	if look.has("helm"):
+		head.erase_box(Vector3i(-5, 5, -4), Vector3i(4, 8, 4))
+		head.box(Vector3i(-5, 5, -4), Vector3i(4, 9, 4), steel)              # calota
+		head.box(Vector3i(-4, 10, -3), Vector3i(3, 10, 3), steel)
+		head.box(Vector3i(-1, 9, -5), Vector3i(0, 10, 5), steel_dk)         # cresta central
+		head.box(Vector3i(-5, 0, -2), Vector3i(-5, 5, 4), steel)            # carrilleras
+		head.box(Vector3i(4, 0, -2), Vector3i(4, 5, 4), steel)
+		head.box(Vector3i(-5, 0, 4), Vector3i(4, 5, 4), steel)              # cogotera
+		head.box(Vector3i(-6, 5, -5), Vector3i(5, 5, 5), steel_dk)          # reborde
+		head.box(Vector3i(-1, 1, -5), Vector3i(0, 5, -5), steel)            # nasal
+		for rv: int in [-4, 3]:
+			head.put(Vector3i(rv, 7, -5), steel_dk)                           # remaches
 	var neck := m.part("neck", "neck", Vector3(0, 1.5, 0))
 	neck.box(Vector3i(-2, -1, -2), Vector3i(1, 1, 1), skin)
 
@@ -267,6 +283,27 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		chest.box(Vector3i(-5, -3, -4), Vector3i(4, 4, -4), iron)
 		chest.ellipsoid(Vector3(5.0, 4.5, -0.5), Vector3(2.4, 1.6, 2.6), iron)
 		chest.ellipsoid(Vector3(-6.0, 4.5, -0.5), Vector3(2.4, 1.6, 2.6), iron)
+	# Cota de malla (equipo «armor_chain»): anillas en hileras de dos tonos
+	var chain := look.has("chain")
+	var mail := m.mat(Color(0.5, 0.52, 0.55), 0.8, 0.5, 0.0, 0.06)
+	var mail_dk := m.mat(Color(0.34, 0.35, 0.38), 0.8, 0.55, 0.0, 0.05)
+	if chain:
+		for my in range(-4, 6):
+			chest.recolor_box(Vector3i(-5, my, -4), Vector3i(4, my, 3), mail if my % 2 == 0 else mail_dk)
+		chest.box(Vector3i(-2, 4, -4), Vector3i(1, 5, -4), mail)          # almófar cerrado sobre el escote
+	# Sobreveste con los colores del señor (y su emblema) sobre la malla
+	if look.has("tabard"):
+		var tab := m.mat(look["tabard"], 0.0, 0.9, 0.0, 0.06)
+		var tab_dk := m.mat((look["tabard"] as Color).darkened(0.3), 0.0, 0.9, 0.0, 0.05)
+		var emb := m.mat(look.get("tabard_emblem", Color(0.9, 0.9, 0.85)), 0.1, 0.7, 0.0, 0.04)
+		chest.box(Vector3i(-4, -4, -4), Vector3i(3, 4, -4), tab)
+		chest.box(Vector3i(-4, -4, 3), Vector3i(3, 4, 3), tab)
+		chest.box(Vector3i(-4, 4, -4), Vector3i(3, 4, -4), tab_dk)          # ribete del cuello
+		# Emblema: torre almenada
+		chest.box(Vector3i(-1, -2, -5), Vector3i(0, 2, -5), emb)
+		chest.box(Vector3i(-2, 2, -5), Vector3i(1, 2, -5), emb)
+		chest.put(Vector3i(-2, 3, -5), emb)
+		chest.put(Vector3i(1, 3, -5), emb)
 	if look.has("apron"):
 		var apron := m.mat(look["apron"], 0.0, 0.9, 0.0, 0.05)
 		chest.box(Vector3i(-3, -4, -4), Vector3i(2, 3, -4), apron)
@@ -324,11 +361,38 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 	if vested:
 		spine.box(Vector3i(-4, -1, -4), Vector3i(3, 4, -4), vest)
 		spine.box(Vector3i(-4, -1, 3), Vector3i(3, 4, 3), vest)
+	if chain:
+		for sy in range(-1, 5):
+			spine.recolor_box(Vector3i(-4, sy, -3), Vector3i(3, sy, 2), mail if sy % 2 == 0 else mail_dk)
+	if look.has("tabard"):
+		var tab2 := m.mat(look["tabard"], 0.0, 0.9, 0.0, 0.06)
+		spine.box(Vector3i(-4, -1, -4), Vector3i(3, 4, -4), tab2)
+		spine.box(Vector3i(-4, -1, 3), Vector3i(3, 4, 3), tab2)
 	var hips := m.part("hips", "hips", Vector3(0, 0.95, 0))
 	hips.box(Vector3i(-5, -2, -3), Vector3i(4, 1, 2), pants)
 	hips.box(Vector3i(-5, 2, -3), Vector3i(4, 2, 2), belt)
 	hips.put(Vector3i(-1, 2, -4), buckle)
 	hips.put(Vector3i(0, 2, -4), buckle)
+	if chain:
+		# Faldar de malla sobre las caderas
+		for hy in range(-3, 2):
+			hips.box(Vector3i(-5, hy, -4), Vector3i(4, hy, -4), mail if hy % 2 == 0 else mail_dk)
+			hips.box(Vector3i(-5, hy, 3), Vector3i(4, hy, 3), mail if hy % 2 == 0 else mail_dk)
+			hips.box(Vector3i(-6, hy, -3), Vector3i(-6, hy, 2), mail if hy % 2 == 0 else mail_dk)
+			hips.box(Vector3i(5, hy, -3), Vector3i(5, hy, 2), mail if hy % 2 == 0 else mail_dk)
+	if look.has("tabard"):
+		# Faldones de la sobreveste por delante y por detrás, con el cinto encima
+		var tab3 := m.mat(look["tabard"], 0.0, 0.9, 0.0, 0.06)
+		var tab3_dk := m.mat((look["tabard"] as Color).darkened(0.3), 0.0, 0.9, 0.0, 0.05)
+		var zf := -5 if chain else -4
+		var zb := 4 if chain else 3
+		hips.box(Vector3i(-3, -7, zf), Vector3i(2, 1, zf), tab3)
+		hips.box(Vector3i(-3, -7, zb), Vector3i(2, 1, zb), tab3)
+		hips.box(Vector3i(-3, -7, zf), Vector3i(2, -7, zf), tab3_dk)
+		hips.box(Vector3i(-3, -7, zb), Vector3i(2, -7, zb), tab3_dk)
+		hips.box(Vector3i(-4, 2, zf), Vector3i(3, 2, zf), belt)
+		hips.put(Vector3i(-1, 2, zf - 1), buckle)
+		hips.put(Vector3i(0, 2, zf - 1), buckle)
 	if female or look.has("apron"):
 		var skirt_c: int = tunic if female else (m.mat(look["apron"], 0.0, 0.9, 0.0, 0.05))
 		for y in range(-9, 2):
@@ -340,14 +404,32 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		var sx: float = side[1]
 		var ua := m.part("arm." + n, "upper_arm." + n, Vector3(0.23 * sx, 1.44, 0))
 		ua.box(Vector3i(-2, -7, -2), Vector3i(1, 1, 1), tunic)
+		if chain:
+			for ay in range(-7, 2):
+				ua.recolor_box(Vector3i(-2, ay, -2), Vector3i(1, ay, 1), mail if ay % 2 == 0 else mail_dk)
+			# Hombrera de hierro sobre la malla
+			ua.box(Vector3i(-3, -1, -3), Vector3i(2, 1, 2), steel)
+			ua.box(Vector3i(-3, -2, -3), Vector3i(2, -2, 2), steel_dk)
 		var fa := m.part("fore." + n, "forearm." + n, Vector3(0.25 * sx, 1.15, 0))
 		fa.box(Vector3i(-2, -5, -2), Vector3i(1, 0, 1), tunic if not bool(look.get("armor", false)) else iron)
+		if chain:
+			for fy in range(-5, 1):
+				fa.recolor_box(Vector3i(-2, fy, -2), Vector3i(1, fy, 1), mail if fy % 2 == 0 else mail_dk)
 		if look.has("bracers"):
 			fa.box(Vector3i(-2, -5, -2), Vector3i(1, -2, 1), m.mat(look["bracers"], 0.0, 0.75, 0.0, 0.06))
 		fa.box(Vector3i(-1, -6, -1), Vector3i(0, -5, 0), skin)
 		var hd := m.part("hand." + n, "hand." + n, Vector3(0.26 * sx, 0.9, 0))
 		hd.box(Vector3i(-1, -3, -2), Vector3i(0, 0, 1), skin)
 		hd.put(Vector3i(int(sx) if sx > 0 else -2, -1, -2), skin_dk)
+		# Guanteletes de hierro (con manopla acampanada) o guantes de cuero
+		if look.has("gauntlets"):
+			fa.box(Vector3i(-3, -6, -3), Vector3i(2, -3, 2), steel)
+			fa.box(Vector3i(-3, -3, -3), Vector3i(2, -3, 2), steel_dk)
+			hd.recolor_box(Vector3i(-2, -4, -3), Vector3i(1, 1, 2), steel)
+		elif look.has("gloves"):
+			var glove := m.mat(look["gloves"], 0.0, 0.75, 0.0, 0.06)
+			fa.box(Vector3i(-2, -6, -2), Vector3i(1, -4, 1), glove)
+			hd.recolor_box(Vector3i(-2, -4, -3), Vector3i(1, 1, 2), glove)
 	# Piernas
 	for side2: Array in [["R", 1.0], ["L", -1.0]]:
 		var n2: String = side2[0]
@@ -359,7 +441,47 @@ static func human(look: Dictionary, model_seed: int = 7) -> VoxelModel:
 		sh.box(Vector3i(-2, -9, -2), Vector3i(1, -5, 1), boots)
 		var ft := m.part("foot." + n2, "foot." + n2, Vector3(0.11 * sx2, 0.09, 0))
 		ft.box(Vector3i(-2, -2, -5), Vector3i(1, 0, 1), boots)
+		# Grebas: espinillera y rodillera de hierro
+		if look.has("greaves"):
+			sh.box(Vector3i(-2, -5, -3), Vector3i(1, -1, -3), steel)
+			sh.recolor_box(Vector3i(-2, -5, -2), Vector3i(1, 0, 1), steel_dk)
+			th.box(Vector3i(-2, -10, -3), Vector3i(1, -8, -3), steel)
+		# Escarpes de hierro sobre las botas
+		if look.has("sabatons"):
+			ft.recolor_box(Vector3i(-2, -2, -5), Vector3i(1, 0, 1), steel)
+			ft.box(Vector3i(-2, 0, -5), Vector3i(1, 0, -4), steel_dk)
+			sh.recolor_box(Vector3i(-2, -9, -2), Vector3i(1, -6, 1), steel)
 	return m
+
+
+## Traduce el equipo de un PNJ (ranura -> id de objeto, como el del jugador)
+## a rasgos visibles del modelo: yelmo, cota de malla, jubón, guanteletes,
+## grebas, escarpes... Así la armadura que lleva cada guardia se ve encima.
+static func look_with_gear(look: Dictionary, gear: Dictionary) -> Dictionary:
+	var out := look.duplicate()
+	match str(gear.get("head", "")):
+		"helm_iron", "velmar_helm":
+			out["helm"] = true
+		"hood_leather":
+			out["hood"] = Color(0.36, 0.24, 0.14)
+	match str(gear.get("chest", "")):
+		"armor_chain":
+			out["chain"] = true
+		"armor_leather":
+			out["vest"] = Color(0.36, 0.23, 0.12)
+	match str(gear.get("hands", "")):
+		"gauntlets_iron":
+			out["gauntlets"] = true
+		"gloves_leather":
+			out["gloves"] = Color(0.3, 0.19, 0.1)
+	match str(gear.get("legs", "")):
+		"greaves_iron":
+			out["greaves"] = true
+		"pants_leather":
+			out["pants"] = Color(0.32, 0.22, 0.13)
+	if str(gear.get("feet", "")) == "boots_iron":
+		out["sabatons"] = true
+	return out
 
 
 ## Bandidos de los Cuervos: humanos con capucha, embozo y cuero.

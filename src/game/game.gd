@@ -200,6 +200,7 @@ func _on_area_ready() -> void:
 	_switching = false
 	_current_location = ""
 	hud.fade_to(0.0, 0.8)
+	_spawn_followers()
 
 
 var _dialogue: DialogueUI
@@ -223,8 +224,29 @@ func drop_item(id: String) -> void:
 
 ## Abre la conversación con un PNJ.
 func open_dialogue(npc: NPC) -> void:
-	if _dialogue and is_instance_valid(_dialogue):
+	if _dialogue_open():
 		return
+	_open_dialogue_ui()
+	_dialogue.open(npc)
+
+
+## Un guardia da el alto al jugador: pagar, calabozo o resistirse.
+func open_arrest(guard: NPC) -> void:
+	if _dialogue_open() or _switching or player.is_dead:
+		return
+	if game_menu and game_menu.visible:
+		return
+	_open_dialogue_ui()
+	_dialogue.open_arrest(guard)
+
+
+## ¿Hay una conversación abierta? (una recién cerrada aún puede existir
+## hasta el final del fotograma)
+func _dialogue_open() -> bool:
+	return _dialogue != null and is_instance_valid(_dialogue) and not _dialogue.is_queued_for_deletion()
+
+
+func _open_dialogue_ui() -> void:
 	_dialogue = DialogueUI.new()
 	add_child(_dialogue)
 	player.controls_enabled = false
@@ -232,11 +254,70 @@ func open_dialogue(npc: NPC) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	hud.set_visible_hud(false)
 	_dialogue.closed.connect(func() -> void:
-		player.controls_enabled = true
+		if not _switching:
+			player.controls_enabled = true
 		player.viewmodel.visible = true
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		hud.set_visible_hud(true))
-	_dialogue.open(npc)
+
+
+## Calabozo de Peñalba: fundido a negro, pasan los días de la condena y el
+## jugador despierta en la celda con la reja abierta (desde una mazmorra
+## también: la guardia le saca de allí).
+func send_to_jail(guard: NPC = null) -> void:
+	if _switching or player == null or overworld_generator == null:
+		return
+	var spot: Dictionary = overworld_generator.planner.jail_spot
+	if spot.is_empty():
+		return
+	_switching = true
+	player.controls_enabled = false
+	Events.target_changed.emit(null)
+	var tw := hud.fade_to(1.0, 0.8)
+	await tw.finished
+	var days := Law.serve_sentence(player)
+	if guard and is_instance_valid(guard):
+		guard.end_arrest()
+	var pos: Vector3 = spot["pos"]
+	var yaw := float(spot["yaw"])
+	var door_id := str(spot["door"])
+	GameState.set_opened(door_id, true)
+	GameState.set_opened(LockPicking.lock_key(door_id), true)
+	if generator.is_interior():
+		GameState.current_area = {"type": "overworld"}
+		_switching = false
+		_switch_area(overworld_generator, pos, yaw)
+	else:
+		player.process_mode = Node.PROCESS_MODE_DISABLED
+		player.teleport(pos + Vector3(0, 0.05, 0), yaw)
+		world.update_focus(pos)
+		var waited := 0.0
+		while waited < 30.0 and not world.is_chunk_loaded_at(pos):
+			await get_tree().process_frame
+			waited += get_process_delta_time()
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		player.teleport(pos + Vector3(0, 0.05, 0), yaw)
+		player.process_mode = Node.PROCESS_MODE_INHERIT
+		player.controls_enabled = true
+		_switching = false
+		_current_location = ""
+		hud.fade_to(0.0, 1.2)
+	for n: Node in get_tree().get_nodes_in_group("cell_doors"):
+		var cd := n as CellDoor
+		if cd and cd.entity_id == door_id:
+			cd.release()
+	Events.notify.emit("Cumples %d %s de calabozo en Peñalba. Al amanecer el carcelero abre la reja: eres libre, y tu deuda está saldada." \
+			% [days, "día" if days == 1 else "días"], "warning")
+
+
+## Acompañantes de las escoltas en curso: aparecen junto al jugador al cargar
+## la partida o al cambiar de zona (el anterior se fue con la zona vieja).
+func _spawn_followers() -> void:
+	if spawner == null:
+		return
+	for esc: Dictionary in QuestManager.active_escorts():
+		spawner.spawn_follower(str(esc["npc"]))
 
 
 func _build_environment() -> void:
@@ -327,6 +408,8 @@ func _on_world_ready() -> void:
 	hud.set_visible_hud(true)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	Events.world_ready.emit()
+	Events.law_changed.emit(Law.bounty())
+	_spawn_followers()
 	if GameState.pending_load.is_empty():
 		Events.notify.emit("Bienvenido a la Marca de Vaelmoor, %s." % GameState.character_name, "info")
 		Events.notify.emit("WASD mover · Ratón mirar · Clic izq. atacar · Clic der. bloquear · E interactuar", "info")

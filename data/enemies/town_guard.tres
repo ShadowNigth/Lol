@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/combat/enemy_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "town_guard"
+display_name = "Guardia de la Marca"
+model = "guard"
+weapon_model = "sword"
+has_shield = true
+shield_model = "shield_iron"
+max_health = 95.0
+armor = 18.0
+damage_min = 8.0
+damage_max = 14.0
+damage_type = "slash"
+attack_range = 1.95
+attack_cooldown = 0.95
+walk_speed = 1.7
+run_speed = 4.7
+detection_range = 22.0
+fov_degrees = 150.0
+hearing_range = 9.0
+block_chance = 0.45
+stagger_threshold = 10.0
+xp_reward = 45
+gold_min = 10
+gold_max = 30
+loot_table = "guard"
+level = 3
+model_variant = 0
+flee_health = 0.0
+hit_effect = "blood"
+sound_alert = "guard_halt"
+sound_hurt = "bandit_hurt"
+sound_death = "bandit_death"
+sound_idle = "bandit_idle"
+resist_slash = 0.15
+resist_blunt = -0.1
+resist_pierce = 0.2
+pack_call = true
+step_sound = "step_stone"
