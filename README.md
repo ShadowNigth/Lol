@@ -114,7 +114,7 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
 ## Instalación (paquete binario)
 
 El paquete ya compilado y probado está en la carpeta [`release/`](release/) del repositorio
-(`vaelmoor-0.1.0-linux-x86_64.tar.xz`, ~19 MB, con su suma SHA-256). También puedes generarlo tú
+(`vaelmoor-0.1.0-linux-x86_64.tar.xz`, ~20 MB, con su suma SHA-256). También puedes generarlo tú
 mismo (ver «Exportar y empaquetar»).
 
 0. (Opcional) Comprueba la descarga: `sha256sum -c vaelmoor-0.1.0-linux-x86_64.tar.xz.sha256`

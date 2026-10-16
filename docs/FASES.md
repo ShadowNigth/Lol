@@ -375,14 +375,14 @@ lanzador, instalador de usuario y entrada de menú (`scripts/package_linux.sh`),
 instalación, controles y solución de problemas.
 
 **Pruebas del paquete (esta entrega)**: plantilla release recompilada (dependencias: solo `libc`,
-`libm` y el cargador; símbolos hasta GLIBC_2.35); exportación y paquete de ~19 MB; suma SHA-256
+`libm` y el cargador; símbolos hasta GLIBC_2.35); exportación y paquete de ~20 MB; suma SHA-256
 verificada junto al archivo (se corrigió que el `.sha256` incluyera la ruta `dist/`); autoprueba
 completa con `./vaelmoor.sh --headless -- --self-test` desde el paquete descomprimido; `install.sh`
 en un `HOME` vacío (binario, `.pck`, lanzador en `~/.local/bin`, entrada de menú e icono), autoprueba
 del juego instalado ejecutado desde otra carpeta (las partidas van a `~/.local/share/vaelmoor/`) y
 `install.sh --uninstall` (elimina el juego y conserva las partidas). Es decir: descargar, instalar,
 jugar, guardar, salir y cargar funcionan, aunque solo se han probado sin gráficos (`--headless`).
-El paquete probado se incluye en `release/` (~19 MB, con su `.sha256`).
+El paquete probado se incluye en `release/` (~20 MB, con su `.sha256`; repetidas todas estas pruebas con la versión que añade el castillo, la ley y la escolta).
 
 En la verificación final se detectó que Godot importaba las capturas de `docs/screenshots/` y las
 metía en el `.pck` (de 0,6 MB a 3,5 MB): ahora `docs/.gdignore` excluye esa carpeta del proyecto y el
