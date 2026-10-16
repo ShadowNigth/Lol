@@ -154,6 +154,25 @@ func _build_queue() -> void:
 						_queue.append({"name": "camp_ambush", "pos": Vector3(cam2.x, -1.0, cam2.y), "yaw": rad_to_deg(atan2(-to2.x, -to2.y)),
 								"pitch": -4.0, "time": 15.0, "camp": true})
 						found = true
+	if "castle" in _sets:
+		var wg3 := (_game().get("overworld_generator") as WorldGenerator)
+		# [nombre, cámara (local del castillo; y < 0 = sobre el terreno), objetivo (local), hora]
+		var cviews := [["castle_gate", Vector3(19.5, -1.0, -17.0), Vector3(19.5, 5.0, 8.0), 16.0],
+				["castle_corner", Vector3(-9.0, -1.0, -9.0), Vector3(17.0, 5.0, 17.0), 17.5],
+				["castle_yard", Vector3(19.5, 0.05, 8.0), Vector3(19.5, 5.0, 26.0), 14.0],
+				["castle_walls", Vector3(8.5, 6.05, 3.6), Vector3(22.0, 7.2, 3.6), 15.0],
+				["castle_hall", Vector3(19.5, 0.05, 20.6), Vector3(19.5, 1.8, 30.5), 13.0],
+				["castle_captain", Vector3(23.0, 0.05, 22.8), Vector3(25.6, 1.3, 23.5), 12.0],
+				["castle_jail", Vector3(28.6, 0.05, 23.0), Vector3(30.0, 1.0, 28.5), 12.0],
+				["castle_night", Vector3(19.5, -1.0, -14.0), Vector3(19.5, 5.0, 8.0), 22.5]]
+		for v: Array in cviews:
+			var lp: Vector3 = v[1]
+			var cam := wg3.planner.castle_local(Vector3(lp.x, maxf(lp.y, 0.0), lp.z))
+			var tgt := wg3.planner.castle_local(v[2])
+			var to := tgt - cam
+			_queue.append({"name": v[0], "pos": Vector3(cam.x, -1.0 if lp.y < 0.0 else cam.y, cam.z), "yaw": rad_to_deg(atan2(-to.x, -to.z)),
+					"pitch": rad_to_deg(atan2(to.y - 1.6, Vector2(to.x, to.z).length())), "time": v[3]})
+		_queue.append({"name": "castle_arrest", "ui": "arrest"})
 	if "bandits" in _sets:
 		_queue.append({"name": "bandits_idle", "bandits": "idle", "t": 0.6})
 		_queue.append({"name": "bandits_attack", "bandits": "attack_1", "t": 0.42})
@@ -234,7 +253,27 @@ func _setup_shot(shot: Dictionary) -> void:
 		var menu := g.get("game_menu") as GameMenu
 		if menu.visible:
 			menu.close()
-		if str(shot["ui"]) == "dialogue":
+		if str(shot["ui"]) == "arrest":
+			# El alto de la guardia, con el aviso de recompensa en el HUD
+			var guard: NPC = null
+			var best := INF
+			for n0 in get_tree().get_nodes_in_group("npcs"):
+				var npc := n0 as NPC
+				if npc and npc.is_guard() and npc.visible:
+					var dd := npc.global_position.distance_to(p.global_position)
+					if dd < best:
+						best = dd
+						guard = npc
+			if guard:
+				GameState.time_of_day = 13.0
+				GameState.law["bounty"] = 120
+				Events.law_changed.emit(120)
+				p.teleport(guard.global_position - guard.global_basis.z * 1.8, 0.0)
+				var tg := guard.global_position - p.global_position
+				p._yaw = atan2(-tg.x, -tg.z)
+				p._pitch = deg_to_rad(-4.0)
+				g.call("open_arrest", guard)
+		elif str(shot["ui"]) == "dialogue":
 			var target: NPC = null
 			for n in get_tree().get_nodes_in_group("npcs"):
 				if (n as NPC).npc_id == "mira":

@@ -30,11 +30,11 @@ juego usa el renderizador Compatibility (OpenGL 3.3), así que los colores puede
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Prototipo jugable: aldea voxel, jugador en 1.ª persona con brazos y espada, enemigo animado, combate real, HUD, menú, sonido | **Completada** |
-| 2 | Calidad visual y animaciones: armas con animaciones propias, arco y magia, brazos con IK, esqueletos, bandidos y lobos con máquina de estados | **Mayormente hecha** |
+| 2 | Calidad visual y animaciones: armas con animaciones propias, arco y magia, brazos con IK, esqueletos, bandidos y lobos con máquina de estados, **armadura visible en los PNJ**, desmayo y levantarse | **Mayormente hecha** |
 | 3 | Región procedural, mazmorra conectada, carga por chunks, semilla persistente | **Hecha** |
 | 4 | Sistemas RPG y guardado: atributos, habilidades por uso, inventario con peso, **equipo por ranuras con armadura y resistencias**, **cerraduras y ganzúas**, comercio, guardado seguro | **Hecha** |
-| 5 | PNJ con horarios y diálogos, misiones con etapas (incluida una de **búsqueda de una persona desaparecida**), banderas de historia, facciones y reputación | **Hecha** |
-| 6 | Expansión: posada de camino, aldea de Robledal, túmulo, cubil de lobos y **campamento de bandidos** procedurales, caminos, fauna con manadas, mazmorras temáticas | **Hecha (región ampliada)** |
+| 5 | PNJ con horarios y diálogos, misiones con etapas (**persona desaparecida**, **escolta**), banderas de historia, facciones y reputación, **ley y orden** (delitos con testigos, guardias, multas y calabozo) | **Hecha** |
+| 6 | Expansión: posada de camino, aldea de Robledal, túmulo, cubil de lobos, **campamento de bandidos** y **castillo de Peñalba** procedurales, caminos, fauna con manadas, mazmorras temáticas | **Hecha (región ampliada)** |
 | 7 | Pulido y distribución Linux: exportación reproducible, paquete .tar.xz, instalador de usuario | **Parcial** (sin AppImage ni pruebas en GPU real) |
 
 Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las pruebas y lo que falta.
@@ -76,6 +76,23 @@ Consulta [docs/FASES.md](docs/FASES.md) para el detalle de lo implementado, las 
   del jefe o con ganzúas. Lina vuelve a casa por su propio pie y desde entonces vive en Robledal.
 - Cuidarte de las **emboscadas**: lejos de las aldeas, algunas parejas de bandidos acechan junto a
   los caminos (y vuelven pasados unos días).
+- Visitar el **castillo de Peñalba**, sede de la señora de la Marca, sobre un alto al nordeste:
+  recinto amurallado con **adarve almenado**, cuatro **torres** con escalera de caracol hasta la
+  azotea, **torre-puerta con rastrillo**, **torre del homenaje** (salón del trono con estrado,
+  braseros y estandartes; cámara de la señora; azotea), **calabozo** con celdas enrejadas, cuartel,
+  armería, pozo, campo de entrenamiento y huerto. Allí viven Isolda de Peñalba, el capitán Aldric,
+  el armero Garin, el hermano Anselmo (sanador) y la guardia, cada guardia con su cara y con la
+  **armadura que lleva puesta visible** (yelmo, cota de malla, sobreveste con la torre de Peñalba,
+  guanteletes, grebas, espada y escudo).
+- Respetar la **ley de la Marca**: agredir, robar de cofres con dueño, forzar cerraduras ajenas o
+  matar a un guardia es delito **si alguien lo ve** (los testigos necesitan verte; agachado te ven a
+  menos distancia). Cada delito suma una **recompensa por tu cabeza** y baja la reputación; los
+  aldeanos huyen y gritan, y si les dejas sin fuerzas caen **inconscientes** y se levantan al rato.
+  Los guardias que te reconocen te dan el **alto**: pagar la multa, cumplir **calabozo** (un día por
+  cada 100 monedas; pasa el tiempo y se oxidan dos habilidades) o **resistirte**, y entonces toda la
+  guardia te ataca hasta el día siguiente. Con mala fama, la gente se niega a hablar contigo.
+- Acompañar al hermano Anselmo hasta Robledal (**misión de escolta**: te sigue por el camino y se
+  reúne contigo si se queda atrás) y cobrar los encargos del capitán Aldric contra los salteadores.
 - Explorar **mazmorras temáticas** (cripta, túmulo, cueva) con llaves, palancas, salas secretas,
   trampas y jefes.
 - Ciclo de **día y noche** con cielo, nubes voxel, estrellas, luz de antorchas, faroles y aullidos
@@ -160,7 +177,8 @@ Bloquear justo antes de recibir el golpe produce una **parada perfecta** que atu
 Un ataque agachado contra un enemigo que no te ha visto es un **ataque furtivo** (daño ×2,5).
 Ante un cofre o una jaula cerrados, **E** usa la llave si la llevas; si no, intenta **forzar la
 cerradura** con una ganzúa (el aviso en pantalla muestra la dificultad, la probabilidad y cuántas
-ganzúas te quedan).
+ganzúas te quedan). Los cofres con dueño muestran «Robar del cofre»: hazlo sin testigos. Si se
+busca tu cabeza, bajo la brújula aparece la recompensa; habla con cualquier guardia para entregarte.
 
 ## Opciones
 
@@ -207,8 +225,8 @@ scenes/                Escenas principales (menú, juego, jugador)
 src/autoload/          Settings, Events, Audio, GameState (guardado/carga)
 src/world/voxel/       Bloques, texturas procedurales, datos y mallado de chunks, streaming
 src/world/gen/         Terreno/biomas, planificador regional (lugares, caminos, puentes, fauna),
-                       constructor de estructuras, mazmorras (generador + DungeonDB)
-src/world/props/       Puertas, cofres, armero, entradas de mazmorra, tablones de anuncios
+                       constructor de estructuras y del castillo, mazmorras (generador + DungeonDB)
+src/world/props/       Puertas, rejas de calabozo, cofres, armero, entradas de mazmorra, tablones
 src/world/env/         Ciclo de día y noche
 src/models/            Modelos voxel (personajes, bandidos, lobos, armas, mobiliario), rigs y caché de mallas
 src/animation/         Animaciones de primera persona, humanoides y cuadrúpedos (AnimationTree)
@@ -218,7 +236,8 @@ src/items/             Objetos, equipo por ranuras (Equipment) y tablas de botí
 src/ui/                HUD, menús, opciones, guardado/carga, pantalla de muerte
 src/audio/             Sintetizador de efectos de sonido
 src/quests/            Misiones, facciones y encargos generados de los tablones
-src/npc/               PNJ (horarios, diálogos), base de datos de personajes y tiendas
+src/npc/               PNJ (horarios, diálogos, huida, desmayo, guardias, escolta), personajes y tiendas
+src/law/               Ley y orden: delitos, testigos, recompensa, detención, calabozo
 src/debug/             Autoprueba integrada (--self-test)
 data/                  Armas y criaturas editables (.tres: esqueletos, bandidos, lobos, jefes)
 shaders/               Terreno, recorte, agua, cielo, llamas, modelos, arma en 1.ª persona
@@ -238,7 +257,11 @@ Ver la sección de pruebas de [docs/FASES.md](docs/FASES.md). Resumen:
   magia y arco, saqueo, guardado y carga, cripta (verificación, ruta al jefe, salida), lugares de la
   región, puentes, combate contra un lobo, viaje a la posada y a Robledal, entrada en la cueva,
   combate contra un bandido y la misión de Lina completa (campamento, ganzúas, jaula, rescate,
-  arcón con llave, regreso a Robledal y banderas de historia en la partida guardada).
+  arcón con llave, regreso a Robledal y banderas de historia en la partida guardada); el castillo
+  de Peñalba (estructura, gente y armadura visible), robo sin y con testigos, alto de la guardia y
+  multa, agresión y huida, calabozo (días, celda, reja), resistencia (guardia convertido en enemigo,
+  muerte, reaparición diferida; el capitán solo queda inconsciente), la ley en la partida guardada
+  y la escolta del hermano Anselmo hasta Robledal.
 - Paquete `.tar.xz`: suma SHA-256 verificada, autoprueba con el lanzador del paquete, instalación de
   usuario en un `HOME` limpio (lanzador, menú e icono), autoprueba del juego instalado y
   desinstalación (conserva las partidas).

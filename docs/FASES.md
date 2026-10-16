@@ -82,9 +82,23 @@ ejecutarse sin GPU en este entorno. La lógica (física, IA, guardado, etc.) es 
 - Bloques de **lona** (cubo, remate y faldón en escalera) con textura procedural de tejido y
   remiendo; modelos de hoguera, jaula con puerta articulada, petate y tronco-asiento.
 
+- **Armadura visible según el equipo** (`CharacterModels.look_with_gear`): el equipo de un PNJ (las
+  mismas piezas que el jugador: `helm_iron`, `armor_chain`, `gauntlets_iron`, `greaves_iron`,
+  `boots_iron`, guantes y calzas de cuero...) se traduce en rasgos del modelo de micro-vóxeles:
+  bacinete con nasal, carrilleras y cresta; cota de malla en hileras de dos tonos con almófar,
+  hombreras y faldar; sobreveste con los colores del señor y su emblema bordado (la torre de
+  Peñalba) y cinto encima; guanteletes con manopla acampanada; grebas con rodillera; escarpes.
+  El arma de la mano y el escudo del brazo salen de los mismos datos (antes había casos especiales en
+  el código para el herrero y el guardia). Los guardias genéricos varían cara, pelo y barba según su
+  identificador.
+- Animaciones nuevas: **desmayo** (se le doblan las rodillas y cae de costado; el estado no vuelve
+  solo a la locomoción) y **levantarse** (se incorpora, apoya una rodilla y se pone en pie).
+- Bloque **IRON_BARS** (barrotes) con forma propia en el mallador: barrotes finos verticales con dos
+  pletinas, orientados según los vecinos, con colisión. Modelos nuevos: trono, muñeco de
+  entrenamiento, puerta enrejada y estandarte azul de Peñalba.
+
 **Falta**
-- Más criaturas (arañas) y armadura visible en el modelo del cuerpo de los PNJ según su equipo
-  (ahora se define por su apariencia).
+- Más criaturas (arañas).
 - Volumetría/AO de pantalla no disponibles en el renderizador Compatibility (se usa AO por vértice).
 
 ## Fase 3 — Región procedural · **HECHA (región inicial)**
@@ -187,7 +201,54 @@ rescata, ella sale del campamento y aparece después en Robledal; hablar con Bra
 (+150 de oro, reputación +25) y las banderas viajan en la partida guardada. Superada también con
 el binario exportado (`--self-test`).
 
-**Falta**: guardias que reaccionen a delitos; encargos de escolta.
+**Ley y orden** (`src/law/law.gd`):
+- **Delitos con testigos**: agresión (40 de multa, −10 de reputación), agresión a la guardia (80),
+  agresión grave —dejar inconsciente— (150), asesinato de un guardia (500), robo (25 + el doble de lo
+  robado), allanamiento —forzar una cerradura ajena— (15) y resistencia a la autoridad (50). Solo
+  cuentan si alguien lo ve: PNJ despiertos, visibles y con línea de visión (18 m; en los robos 10 m y
+  mirando hacia ti; agachado te ven a menos distancia) o la propia víctima. Sin testigos no hay delito.
+- **Recompensa** en la partida guardada (`law`: recompensa, día de resistencia, días de calabozo; las
+  partidas antiguas cargan con todo a cero) y aviso en el HUD bajo la brújula.
+- **Aldeanos**: si les pegas gritan pidiendo ayuda y huyen; al quedarse sin salud caen
+  **inconscientes** 30 s (los PNJ con nombre nunca mueren) y se levantan. Los testigos de un robo
+  gritan «¡Al ladrón!» y los gritos atraen a los guardias en 30 m.
+- **Guardias** (Rolf, Aldric y la guardia del castillo): si te ven con deudas te dan el alto
+  («¡Alto en nombre de la Marca!»), te persiguen y abren el **diálogo de detención** (no se puede
+  cerrar con Esc): **pagar la multa**, **ir al calabozo** (un día por cada 100 monedas, máximo 14: el
+  tiempo pasa, despiertas a las 8:00 en la celda de Peñalba con la reja abierta, curado, pero dos
+  habilidades pierden lo avanzado) o **resistirte**. Hablar con un guardia teniendo deudas es
+  entregarse. Atacar a un guardia o resistirse hace que **toda la guardia te ataque a la vista hasta
+  el día siguiente**.
+- **Guardias que pelean**: el PNJ se oculta y un `Enemy` con su mismo aspecto, armadura, arma, escudo y
+  nombre ocupa su lugar (datos `town_guard`: bloquea con escudo, avisa a los suyos). Vuelve a ser PNJ
+  cuando se salda la deuda o cuando, sin verte, regresa a su puesto. Un guardia genérico abatido es
+  un asesinato si alguien lo ve, deja botín y no vuelve hasta pasados 3 días; los guardias con nombre
+  caen inconscientes. Las flechas perdidas de los bandidos no enfrentan a los guardias contigo.
+- **Robos**: los cofres de casas, posadas y del castillo tienen dueño («Robar del cofre») y los
+  armeros del castillo son de la guardia. Con mala reputación (≤ −25) la gente se niega a hablar
+  contigo y no comercia.
+
+**Escolta** (nuevo objetivo `escort`): el hermano Anselmo, sanador del castillo, pide que le acompañes
+a Robledal. Al aceptar te sigue (deja de pertenecer al chunk donde apareció), anda o corre según la
+distancia, se reúne contigo si se queda atrás más de 30 m, atascado o en otro nivel, y vuelve a
+aparecer a tu lado al cargar la partida o al salir de una mazmorra. Al llegar a Robledal se queda allí
+(y desde entonces aparece en Robledal y ya no en el castillo); hablar con la alcaldesa Elena completa
+la misión. Nueva misión de **matar** del capitán Aldric (salteadores en los caminos) y nuevas tiendas
+(armería del castillo, sanador).
+
+**Pruebas (ley y escolta)**, en la autoprueba: robo en el cuartel con la puerta cerrada → sin delito;
+robo del armero del patio con un guardia mirando → recompensa 265 y reputación con la guardia −10;
+el guardia persigue al jugador y le da el alto a 1,6 m; pagar la multa salda la deuda (265 monedas);
+agresión al hermano Anselmo → recompensa 40, huye, reputación con Peñalba −10 y 6 guardias alertados;
+entregarse → un día de calabozo (día 1 → 2, 8:00, en la celda, reja abierta); atacar a un guardia →
+resistencia, el guardia pasa a ser un enemigo con su modelo, armas y escudo; abatido, queda registrado
+(no vuelve en 3 días) y deja botín; el capitán Aldric cae inconsciente en vez de morir; al saldar la
+deuda ningún guardia sigue hostil; la ley sobrevive al guardado (y las partidas antiguas cargan);
+la escolta: Anselmo sigue al jugador, se reúne con él en Robledal, la misión avanza, Elena la
+completa (+120 de oro) y Anselmo se queda en Robledal.
+
+**Falta**: perdón de delitos por reputación o sobornos y tribunales; guardias en las demás aldeas
+(ahora solo Rolf en Hojarrubia y la guardia del castillo).
 
 ## Fase 6 — Expansión del mundo · **HECHA (región ampliada)**
 
@@ -263,8 +324,37 @@ leyenda; inventario con el panel de equipo; escudos de madera y de hierro en pri
 de la revisión se oscureció el pelaje gris (se veía casi blanco al sol) y se amplió la lista de equipo
 para que se vean las 6 ranuras sin desplazarse.
 
-**Falta**: castillos y ciudades amuralladas, más tipos de mazmorra y una red de lugares que se
-extienda indefinidamente más allá de la región inicial.
+**Castillo de Peñalba** (`src/world/gen/castle_builder.gd`), planificado con su propio generador
+después del resto de la región (no altera las demás posiciones): sobre un alto a unos 230 m al
+nordeste de Hojarrubia (se buscan emplazamientos secos y llanos y se prefieren los altos), con la
+puerta orientada hacia el camino que lo une a la red de caminos. Recinto de 39 × 39 bloques:
+- **Murallas** de tres bloques de grosor con **adarve**, parapeto almenado y antorchas en el lado
+  exterior y matacán corrido; **tres escaleras** de piedra suben del patio al adarve.
+- **Cuatro torres** de esquina de 7 × 7 con muro de dos bloques, puertas al adarve, saeteras y una
+  **escalera de caracol** que esquiva las puertas y sube a la azotea almenada.
+- **Torre-puerta** con paso abovedado (jambas y dovelas talladas), **rastrillo alzado**, sala de
+  guardia a la altura del adarve, estandartes y faroles.
+- **Torre del homenaje**: salón del trono con alfombra, columnas, estrado con escalones, **trono** de
+  los Peñalba, braseros, estandartes, mesa y arcón cerrado; escalera a la **cámara de la señora**
+  (cama, arcón noble, estudio, librerías) y otra a la **azotea** con barandilla y almenas.
+- **Calabozo**: puesto del carcelero y dos celdas con **rejas de hierro** y **puertas enrejadas** con
+  cerradura (llave del calabozo o ganzúas; forzarlas con testigos es allanamiento).
+- Edificios del patio con los constructores existentes, girados con el recinto: **cuartel** con
+  literas, armero y arcón; **armería** con fragua; pozo y farolas. Campo de entrenamiento con
+  **muñecos de paja**, huerto con cerca, carro, barriles y tablón de anuncios.
+- Gente: **Isolda de Peñalba** junto al trono, el **capitán Aldric** (multas y encargos) ante el
+  calabozo, el **armero Garin** (tienda), el **hermano Anselmo** en el huerto y cinco guardias (dos en
+  la puerta, uno de ronda por el adarve, uno por el patio y otro ante el homenaje).
+- Lugar con nombre en el HUD, marcador azul en el mapa y nueva facción «Casa de Peñalba».
+
+**Pruebas (castillo)**: en la autoprueba se comprueban bloque a bloque el paso de la puerta, la
+muralla, el adarve, las almenas, las puertas de las torres, el caracol, la escalera al adarve, las
+rejas, el salón y la azotea; 2 puertas enrejadas, el trono, 3 muñecos, 10 estandartes azules y el
+tablón; Isolda, Aldric, Garin, Anselmo y 5 guardias, con yelmo, malla, guanteletes, grebas, escarpes,
+sobreveste, espada y escudo en sus modelos.
+
+**Falta**: ciudades amuralladas grandes, más tipos de mazmorra y una red de lugares que se extienda
+indefinidamente más allá de la región inicial.
 
 ## Fase 7 — Pulido y distribución · **PARCIAL**
 
