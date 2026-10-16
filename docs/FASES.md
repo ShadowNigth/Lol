@@ -353,6 +353,17 @@ rejas, el salón y la azotea; 2 puertas enrejadas, el trono, 3 muñecos, 10 esta
 tablón; Isolda, Aldric, Garin, Anselmo y 5 guardias, con yelmo, malla, guanteletes, grebas, escarpes,
 sobreveste, espada y escudo en sus modelos.
 
+**Revisión visual del castillo** (capturas automáticas: puerta, esquina, patio, adarve, salón del
+trono, capitán, calabozo, noche, guardia inconsciente y diálogo de detención). A raíz de ella: (1) en
+la semilla de prueba el castillo queda en un cerro y los árboles crecían pegados a los muros, con una
+explanada mínima — la zona nivelada pasa a 63 × 63 bloques con un margen de transición de 24 y queda
+reservada (sin árboles); (2) la puerta del calabozo daba a un callejón de dos bloques entre el
+homenaje y el calabozo — ahora está en su fachada norte, hacia el patio, con el capitán al lado y un
+camino empedrado a lo largo del homenaje; (3) la alfombra de la cámara de la señora se veía como una
+mancha roja en el techo del salón del trono (el suelo de la planta es el techo de la de abajo) — se
+quitó; (4) los barrotes usaban la textura clara del bloque de hierro y parecían blancos — nueva
+textura de hierro forjado oscuro con puntos de óxido.
+
 **Falta**: ciudades amuralladas grandes, más tipos de mazmorra y una red de lugares que se extienda
 indefinidamente más allá de la región inicial.
 

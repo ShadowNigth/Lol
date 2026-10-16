@@ -17,8 +17,12 @@ terceros (ver [ATTRIBUTIONS.md](ATTRIBUTIONS.md)).
 | Posada del Lobo Gris | Aldea de Robledal | Lobo (rig cuadrúpedo animado) |
 | ![Cubil de Colmillo Negro](docs/screenshots/cueva.jpg) | ![Mapa regional](docs/screenshots/mapa.jpg) | ![Campamento de los Cuervos](docs/screenshots/campamento.jpg) |
 | Cueva de los lobos | Mapa regional con lugares | Campamento de los Cuervos |
-| ![Bandidos de los Cuervos](docs/screenshots/bandidos.jpg) | ![Jaula de la prisionera](docs/screenshots/jaula.jpg) | |
-| Salteador, matón, arquera, el jefe Garra y Lina (cautiva) | La jaula, con cerradura que se abre con llave o ganzúas | |
+| ![Bandidos de los Cuervos](docs/screenshots/bandidos.jpg) | ![Jaula de la prisionera](docs/screenshots/jaula.jpg) | ![Castillo de Peñalba](docs/screenshots/castillo.jpg) |
+| Salteador, matón, arquera, el jefe Garra y Lina (cautiva) | La jaula, con cerradura que se abre con llave o ganzúas | Castillo de Peñalba: torre-puerta con rastrillo, adarve y torres |
+| ![Patio del castillo](docs/screenshots/patio_castillo.jpg) | ![Salón del trono](docs/screenshots/salon_trono.jpg) | ![Calabozo](docs/screenshots/calabozo.jpg) |
+| Patio: torre del homenaje, cuartel, armería, guardias y el capitán | Salón del trono, con Isolda de Peñalba | Calabozo: rejas de hierro y puertas enrejadas con cerradura |
+| ![El alto de la guardia](docs/screenshots/alto_guardia.jpg) | ![Guardia inconsciente](docs/screenshots/desmayo.jpg) | ![El castillo de noche](docs/screenshots/castillo_noche.jpg) |
+| El alto de la guardia: multa, calabozo o resistirse | Un guardia inconsciente (animación de desmayo) | El castillo de noche, con los faroles de la guardia |
 
 *Capturas tomadas automáticamente con el binario de pruebas (Vulkan por software, sin GPU); el
 juego usa el renderizador Compatibility (OpenGL 3.3), así que los colores pueden variar un poco.*

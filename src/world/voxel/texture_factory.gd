@@ -309,6 +309,8 @@ func _generate(tex_name: String, variant: int) -> Image:
 			_chiseled(img)
 		"iron_block":
 			_iron(img)
+		"wrought_iron":
+			_wrought_iron(img)
 		"cobweb":
 			_cobweb(img)
 		_:
@@ -817,6 +819,13 @@ func _cobweb(img: Image) -> void:
 			var y2 := int(round(7.5 + sin(a2) * ring))
 			if (k % 3) != 0:
 				img.set_pixel(clampi(x2, 0, S - 1), clampi(y2, 0, S - 1), c)
+
+
+## Hierro forjado oscuro con algún punto de óxido (barrotes de calabozo).
+func _wrought_iron(img: Image) -> void:
+	_fill_palette_noise(img, [_hex("2b2c30"), _hex("333539"), _hex("3c3e43"), _hex("47494e")], 0.1)
+	for k in 9:
+		img.set_pixel(_rng.randi() % S, _rng.randi() % S, _hex("5b3b27") if k % 3 else _hex("6e6f74"))
 
 
 func _iron(img: Image) -> void:

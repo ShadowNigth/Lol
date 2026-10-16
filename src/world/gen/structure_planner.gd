@@ -385,7 +385,7 @@ func _plan_castle(ham: Vector3i) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(gen.world_seed * 6247 + 2203)
 	var size := CastleBuilder.SIZE
-	var c := _find_site(rng, Vector2(200.0, -170.0), 50.0, Vector2i(size + 14, size + 14), false, true)
+	var c := _find_site(rng, Vector2(200.0, -170.0), 50.0, Vector2i(size + 24, size + 24), false, true)
 	var fy := c.y + 1
 	var center := Vector2(c.x, c.z)
 	var road := nearest_road_point(center)
@@ -399,7 +399,9 @@ func _plan_castle(ham: Vector3i) -> void:
 	var half := size / 2
 	castle_origin = Vector3i(c.x - half, fy, c.z - half)
 	castle_rot = rot
-	_site_zone(c, Vector2i(half + 6, half + 6), "Castillo de Peñalba", 18.0, "castle")
+	# Explanada nivelada y despejada alrededor del recinto (sin árboles junto a los muros)
+	_site_zone(c, Vector2i(half + 12, half + 12), "Castillo de Peñalba", 24.0, "castle")
+	reserved.append(Rect2i(c.x - half - 14, c.z - half - 14, size + 28, size + 28))
 	sites.append({"id": "castle", "name": "Castillo de Peñalba", "kind": "castle", "pos": center})
 	_add_structure({"id": "castle/fort", "type": "castle", "origin": castle_origin, "w": size, "d": size, "rot": rot, "margin": 3})
 	# Edificios del patio (con sus propios constructores)
@@ -418,7 +420,7 @@ func _plan_castle(ham: Vector3i) -> void:
 	# Gente del castillo
 	spawns.append({"type": "npc", "npc": "isolda", "id": "npc/isolda", "pos": castle_local(Vector3(20.9, 1.0, 29.3)), "yaw": 0.0 + yaw_off,
 			"home": castle_local(Vector3(17.5, 0.0, 25.0))})
-	spawns.append({"type": "npc", "npc": "aldric", "id": "npc/aldric", "pos": castle_local(Vector3(25.6, 0.0, 23.5)), "yaw": 90.0 + yaw_off})
+	spawns.append({"type": "npc", "npc": "aldric", "id": "npc/aldric", "pos": castle_local(Vector3(30.9, 0.0, 19.4)), "yaw": 0.0 + yaw_off})
 	spawns.append({"type": "npc", "npc": "garin", "id": "npc/garin",
 			"pos": castle_local(ChunkWriter.local_to_world(Vector3i(armory_at.x, 0, armory_at.y), 7, 6, 3, Vector3(3.5, 0, 3.6))),
 			"yaw": 0.0 - (rot + 3) * 90.0,

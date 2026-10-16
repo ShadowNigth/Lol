@@ -21,6 +21,7 @@ const KEEP := Rect2i(14, 19, 11, 13)    # torre del homenaje
 const KEEP_FLOOR2 := 6                  # forjado de la primera planta (de pie a 7)
 const KEEP_ROOF := 12                   # azotea (de pie a 13)
 const JAIL := Rect2i(27, 21, 7, 10)     # calabozo
+const JAIL_DOOR := Vector2i(29, 21)     # puerta del calabozo (en su fachada norte, hacia el patio)
 ## Celdas del calabozo: interior (x0, z0, x1, z1) y puerta enrejada (x, z).
 const CELLS := [[Vector4i(28, 27, 29, 29), Vector2i(29, 26)], [Vector4i(31, 27, 32, 29), Vector2i(31, 26)]]
 ## Orden del anillo de la escalera de caracol en una torre de 7 x 7 (pilar en 3,3).
@@ -59,12 +60,15 @@ static func _ground(wr: ChunkWriter) -> void:
 			var cur := wr.get_local(lx, -1, lz)
 			if cur == B.AIR or cur == B.WATER:
 				wr.put(lx, -1, lz, B.GRASS)
-	# Camino empedrado desde la puerta hasta el homenaje y ante el calabozo
+	# Camino empedrado desde la puerta hasta el homenaje y, a lo largo de su
+	# fachada, hasta la puerta del calabozo
 	for lz in range(5, KEEP.position.y):
 		for lx in range(PASSAGE_X.x, PASSAGE_X.y + 1):
 			wr.put(lx, -1, lz, _vary(wr, lx, -1, lz, B.COBBLE, B.GRAVEL, 12))
-	for lx in range(PASSAGE_X.y + 1, JAIL.position.x):
-		for lz in range(22, 25):
+	for lx in range(PASSAGE_X.y + 1, JAIL_DOOR.x + 2):
+		wr.put(lx, -1, 18, _vary(wr, lx, -1, 18, B.COBBLE, B.GRAVEL, 15))
+	for lz in range(18, JAIL.position.y):
+		for lx in range(JAIL_DOOR.x - 1, JAIL_DOOR.x + 2):
 			wr.put(lx, -1, lz, _vary(wr, lx, -1, lz, B.COBBLE, B.GRAVEL, 15))
 	# Explanada de tierra delante de la puerta (fuera de la muralla)
 	for lz in range(-6, 0):
@@ -369,9 +373,6 @@ static func _keep(wr: ChunkWriter) -> void:
 
 	# --- Cámara de la señora (primera planta) ---
 	var f2 := KEEP_FLOOR2 + 1
-	for lz4 in range(27, z1):
-		for lx4 in range(18, 22):
-			wr.put(lx4, KEEP_FLOOR2, lz4, B.WOOL_RED)
 	wr.entity("bed", Vector3(21.5, f2, 29.5), 0.0, {"uid": "lady_bed"})
 	wr.entity("chest", Vector3(18.5, f2, z1 - 0.7), 180.0, {"uid": "lady_chest", "loot": "noble", "lock": 65})
 	wr.entity("table", Vector3(17.5, f2, 22.6), 0.0, {"uid": "study_table"})
@@ -433,14 +434,16 @@ static func _jail(wr: ChunkWriter) -> void:
 		wr.entity("bucket", Vector3(inner.z + 0.6, 0.0, inner.w + 0.5), 0.0, {"uid": "cell_bucket_%d" % inner.x})
 	wr.entity("cell_door", Vector3(29.5, 0.0, 26.5), 0.0, {"uid": "cell_a", "lock": 55, "key": "key_calabozo"})
 	wr.entity("cell_door", Vector3(31.5, 0.0, 26.5), 0.0, {"uid": "cell_b", "lock": 55, "key": "key_calabozo"})
-	# Ventanucos enrejados y puerta al patio (cara oeste)
+	# Ventanucos enrejados y puerta al patio (fachada norte)
 	for lx3: int in [28, 32]:
 		wr.put(lx3, 2, z1, B.IRON_BARS)
-	wr.put(x0, 2, 25, B.GLASS)
-	wr.clear(x0, 0, 23, x0, 1, 23)
-	wr.entity("door", Vector3(x0 + 0.5, 0.0, 23.5), 90.0, {"uid": "jail_door"})
-	wr.entity("wall_lantern", Vector3(x0 - 0.12, 2.4, 24.5), 90.0, {"uid": "jail_lamp_out"})
-	wr.entity("sign", Vector3(x0 - 0.55, 2.7, 22.0), 90.0, {"uid": "jail_sign", "text": "Calabozo"})
+	wr.put(x0, 2, 24, B.IRON_BARS)
+	var jd := JAIL_DOOR
+	wr.clear(jd.x, 0, jd.y, jd.x, 1, jd.y)
+	wr.put(jd.x, 2, jd.y, B.CHISELED)
+	wr.entity("door", Vector3(jd.x + 0.5, 0.0, jd.y + 0.5), 0.0, {"uid": "jail_door"})
+	wr.entity("wall_lantern", Vector3(jd.x - 0.5, 2.4, jd.y - 0.12), 0.0, {"uid": "jail_lamp_out"})
+	wr.entity("sign", Vector3(jd.x + 2.6, 2.7, jd.y - 0.55), 0.0, {"uid": "jail_sign", "text": "Calabozo"})
 	# Puesto del carcelero
 	wr.entity("table", Vector3(31.0, 0.0, 23.0), 0.0, {"uid": "jail_table"})
 	wr.entity("chair", Vector3(31.0, 0.0, 24.0), 0.0, {"uid": "jail_chair"})
@@ -471,7 +474,7 @@ static func _yard(wr: ChunkWriter, _s: Dictionary) -> void:
 				var plant := [B.CROP, B.FLOWER_BLUE, B.BUSH, B.FLOWER_YELLOW][(lx2 * 7 + lz2) % 4] as int
 				wr.put(lx2, 0, lz2, plant)
 	# Pertrechos junto al cuartel y la armería
-	wr.entity("hay_cart", Vector3(26.0, 0.0, 17.0), 30.0, {"uid": "cart"})
+	wr.entity("hay_cart", Vector3(32.0, 0.0, 17.2), 75.0, {"uid": "cart"})
 	wr.entity("barrel", Vector3(13.6, 0.0, 6.2), 0.0, {"uid": "yard_barrel_1"})
 	wr.entity("barrel", Vector3(13.6, 0.0, 7.3), 0.0, {"uid": "yard_barrel_2"})
 	wr.entity("crate", Vector3(24.6, 0.0, 6.3), 15.0, {"uid": "yard_crate_1"})

@@ -157,14 +157,14 @@ func _build_queue() -> void:
 	if "castle" in _sets:
 		var wg3 := (_game().get("overworld_generator") as WorldGenerator)
 		# [nombre, cámara (local del castillo; y < 0 = sobre el terreno), objetivo (local), hora]
-		var cviews := [["castle_gate", Vector3(19.5, -1.0, -17.0), Vector3(19.5, 5.0, 8.0), 16.0],
-				["castle_corner", Vector3(-9.0, -1.0, -9.0), Vector3(17.0, 5.0, 17.0), 17.5],
+		var cviews := [["castle_gate", Vector3(14.0, -1.0, -11.0), Vector3(20.5, 6.0, 6.0), 16.0],
+				["castle_corner", Vector3(-8.0, -1.0, -8.0), Vector3(17.0, 6.0, 17.0), 17.5],
 				["castle_yard", Vector3(19.5, 0.05, 8.0), Vector3(19.5, 5.0, 26.0), 14.0],
 				["castle_walls", Vector3(8.5, 6.05, 3.6), Vector3(22.0, 7.2, 3.6), 15.0],
 				["castle_hall", Vector3(19.5, 0.05, 20.6), Vector3(19.5, 1.8, 30.5), 13.0],
-				["castle_captain", Vector3(23.0, 0.05, 22.8), Vector3(25.6, 1.3, 23.5), 12.0],
+				["castle_captain", Vector3(28.6, 0.05, 16.9), Vector3(30.9, 1.3, 19.4), 12.0],
 				["castle_jail", Vector3(28.6, 0.05, 23.0), Vector3(30.0, 1.0, 28.5), 12.0],
-				["castle_night", Vector3(19.5, -1.0, -14.0), Vector3(19.5, 5.0, 8.0), 22.5]]
+				["castle_night", Vector3(25.0, -1.0, -10.0), Vector3(19.5, 6.0, 6.0), 22.5]]
 		for v: Array in cviews:
 			var lp: Vector3 = v[1]
 			var cam := wg3.planner.castle_local(Vector3(lp.x, maxf(lp.y, 0.0), lp.z))
@@ -173,11 +173,12 @@ func _build_queue() -> void:
 			_queue.append({"name": v[0], "pos": Vector3(cam.x, -1.0 if lp.y < 0.0 else cam.y, cam.z), "yaw": rad_to_deg(atan2(-to.x, -to.z)),
 					"pitch": rad_to_deg(atan2(to.y - 1.6, Vector2(to.x, to.z).length())), "time": v[3]})
 		# Un guardia inconsciente en el suelo (animación de desmayo)
-		var kcam := wg3.planner.castle_local(Vector3(19.2, 0.05, 15.2))
-		var ktgt := wg3.planner.castle_local(Vector3(21.2, 0.2, 18.0))
+		var kcam := wg3.planner.castle_local(Vector3(24.6, 0.05, 12.6))
+		var ktgt := wg3.planner.castle_local(Vector3(21.2, 0.0, 15.2))
 		var kto := ktgt - kcam
 		_queue.append({"name": "castle_knockout", "pos": kcam, "yaw": rad_to_deg(atan2(-kto.x, -kto.z)),
-				"pitch": rad_to_deg(atan2(kto.y - 1.6, Vector2(kto.x, kto.z).length())), "time": 14.0, "knockout": "castle/guard_keep"})
+				"pitch": rad_to_deg(atan2(kto.y - 1.6, Vector2(kto.x, kto.z).length())), "time": 14.0, "knockout": "castle/guard_keep",
+				"knockout_pos": wg3.planner.castle_local(Vector3(21.2, 0.05, 14.4))})
 		_queue.append({"name": "castle_arrest", "ui": "arrest"})
 	if "bandits" in _sets:
 		_queue.append({"name": "bandits_idle", "bandits": "idle", "t": 0.6})
@@ -339,6 +340,9 @@ func _setup_shot(shot: Dictionary) -> void:
 			for n1 in get_tree().get_nodes_in_group("npcs"):
 				var kn := n1 as NPC
 				if kn and kn.entity_id == str(shot["knockout"]):
+					if shot.has("knockout_pos"):
+						kn.global_position = shot["knockout_pos"]
+						kn.reset_physics_interpolation()
 					kn._knock_out()
 			_wait = 20
 	elif shot.has("vm"):

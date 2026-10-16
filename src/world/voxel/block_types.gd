@@ -98,6 +98,7 @@ const TEXTURES := [
 	["dead_bush", 1], ["mushroom", 1], ["bookshelf", 1], ["wool_red", 1],
 	["dungeon_brick", 3], ["dungeon_floor", 2], ["crop", 1], ["reeds", 1],
 	["moss_stone", 2], ["chiseled", 1], ["iron_block", 1], ["cobweb", 1], ["canvas", 4],
+	["wrought_iron", 1],
 ]
 
 # --- Tablas (rellenadas en _static_init) ------------------------------------
@@ -197,7 +198,7 @@ static func _static_init() -> void:
 	_cube(IRON_BLOCK, "Hierro", "iron_block", "iron_block", "iron_block", Sound.STONE)
 	_cube(CANVAS, "Lona", "canvas", "canvas", "canvas", Sound.GRASS)
 	_define(FENCE, "Valla", Shape.FENCE, Layer.OPAQUE, false, true, "planks", "planks", "planks", Sound.WOOD)
-	_define(IRON_BARS, "Barrotes de hierro", Shape.BARS, Layer.OPAQUE, false, true, "iron_block", "iron_block", "iron_block", Sound.STONE)
+	_define(IRON_BARS, "Barrotes de hierro", Shape.BARS, Layer.OPAQUE, false, true, "wrought_iron", "wrought_iron", "wrought_iron", Sound.STONE)
 
 	_slab(COBBLE_SLAB, "Losa de adoquín", "cobble", Sound.STONE, false)
 	_slab(PLANK_SLAB, "Losa de madera", "planks", Sound.WOOD, false)
